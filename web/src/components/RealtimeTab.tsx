@@ -210,9 +210,9 @@ export const RealtimeTab: React.FC<RealtimeTabProps> = ({
               {(['PERSPECTIVE', 'FRONT', 'BACK_SENSOR', 'SIDE'] as CameraPreset[]).map((preset) => {
                 const labels: Record<CameraPreset, string> = {
                   PERSPECTIVE: 'Góc 3D (3/4)',
-                  FRONT: 'Mặt trước',
-                  BACK_SENSOR: 'Mặt đáy (Cảm biến)',
-                  SIDE: 'Cạnh bên',
+                  FRONT: 'Mặt trước (Màn hình)',
+                  BACK_SENSOR: 'Mặt sau (Cảm biến MAX30102)',
+                  SIDE: 'Cạnh bên (Khung đồng & Type-C)',
                 };
                 const isSelected = cameraPreset === preset;
                 return (
@@ -384,7 +384,7 @@ export const RealtimeTab: React.FC<RealtimeTabProps> = ({
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: '#64748b', marginTop: '0.2rem' }}>
                 <span>Lắp nguyên khối</span>
-                <span>Kính ➔ OLED ➔ ESP32-S3 ➔ Pin ➔ Cảm biến</span>
+                <span>Màn hình SPI ➔ Khung ống đồng ➔ Xiao ESP32 ➔ Pin LiPo ➔ Cảm biến MAX30102</span>
               </div>
             </div>
 

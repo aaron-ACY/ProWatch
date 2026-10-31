@@ -63,7 +63,7 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
     } else if (cameraPreset === 'BACK_SENSOR') {
       targetCameraPos.current.set(0, 0, -7.5);
     } else if (cameraPreset === 'SIDE') {
-      targetCameraPos.current.set(7.5, 0.4, 0.2);
+      targetCameraPos.current.set(-6.8, 0.5, 2.0);
     }
   }, [cameraPreset]);
 

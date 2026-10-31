@@ -9,7 +9,8 @@ export class WatchScreenTexture {
   public texture: THREE.CanvasTexture;
   private lastBpmTick = 0;
   private heartScale = 1.0;
-  private cursorBlink = 0;
+  private vaultBoyImg: HTMLImageElement | null = null;
+  private isImgLoaded = false;
 
   constructor(size = 512) {
     this.canvas = document.createElement('canvas');
@@ -26,275 +27,267 @@ export class WatchScreenTexture {
     this.texture.minFilter = THREE.LinearMipmapLinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
     this.texture.colorSpace = THREE.SRGBColorSpace;
+
+    // Load authentic Vault Boy sprite extracted directly from physical prototype
+    if (typeof window !== 'undefined') {
+      const img = new Image();
+      img.src = '/vault_boy_pipboy.png';
+      img.onload = () => {
+        this.vaultBoyImg = img;
+        this.isImgLoaded = true;
+        this.texture.needsUpdate = true;
+      };
+    }
   }
 
   public update(
     telemetry: SensorTelemetry,
-    prediction?: AIPrediction,
+    _prediction?: AIPrediction,
     _theme: WatchFaceTheme = 'PIPBOY',
     timeStr?: string
   ): void {
-    const { max30102, mpu6050, battery } = telemetry;
+    const { max30102 } = telemetry;
     const now = Date.now();
-    const bpm = max30102.heart_rate || 75;
-    const spo2 = max30102.spo2 || 98;
-    const currentActivity = prediction?.predicted_activity || 'Đang nghỉ ngơi';
-    const riskLevel =
-      max30102.heart_rate > 120 || max30102.spo2 < 93
-        ? 'High'
-        : max30102.heart_rate > 100 || max30102.spo2 < 95
-        ? 'Medium'
-        : 'Low';
+    const bpm = max30102?.heart_rate || 76;
+    const spo2 = max30102?.spo2 || 98;
 
     // Heartbeat pulse animation
     const beatInterval = 60000 / Math.max(40, bpm);
     const elapsed = now - this.lastBpmTick;
     if (elapsed > beatInterval) {
       this.lastBpmTick = now;
-      this.heartScale = 1.35;
+      this.heartScale = 1.18;
     } else {
-      this.heartScale = Math.max(1.0, this.heartScale - 0.05);
+      this.heartScale = Math.max(1.0, this.heartScale - 0.03);
     }
 
-    this.cursorBlink = Math.floor(now / 500) % 2;
+    const d = new Date();
+    let hoursStr = d.getHours().toString().padStart(2, '0');
+    let minutesStr = d.getMinutes().toString().padStart(2, '0');
+    if (timeStr && timeStr.includes(':')) {
+      const parts = timeStr.split(':');
+      hoursStr = parts[0].padStart(2, '0');
+      minutesStr = parts[1].padStart(2, '0');
+    }
 
-    const clockTime =
-      timeStr ||
-      new Date().toLocaleTimeString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
+    const dayStr = d.getDate().toString().padStart(2, '0');
+    const monthStr = (d.getMonth() + 1).toString().padStart(2, '0');
+    const yearStr = d.getFullYear().toString();
+    const dateFormatted = `${dayStr}.${monthStr}.${yearStr}`;
 
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    // Watch Face locked strictly to Pip-Boy 3000
-    this.renderPipBoy(
-      ctx,
-      w,
-      h,
-      clockTime,
-      bpm,
-      spo2,
-      mpu6050,
-      battery,
-      currentActivity,
-      riskLevel
-    );
+    this.renderExactPipBoy(ctx, w, h, hoursStr, minutesStr, dateFormatted, bpm, spo2);
 
     this.texture.needsUpdate = true;
   }
 
-  private renderPipBoy(
+  private renderExactPipBoy(
     ctx: CanvasRenderingContext2D,
     w: number,
     h: number,
-    time: string,
+    hours: string,
+    minutes: string,
+    dateStr: string,
     bpm: number,
-    spo2: number,
-    mpu: SensorTelemetry['mpu6050'],
-    battery: SensorTelemetry['battery'],
-    activity: string,
-    risk: string
+    spo2: number
   ): void {
-    // 1. Phosphor Deep Terminal Background
+    // 1. Deep Phosphor CRT Dark Background
     ctx.fillStyle = '#021307';
     ctx.fillRect(0, 0, w, h);
 
-    // Subtle CRT green radial glow from center
-    const radial = ctx.createRadialGradient(w / 2, h / 2, 80, w / 2, h / 2, 260);
-    radial.addColorStop(0, 'rgba(34, 197, 94, 0.08)');
-    radial.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
+    // Subtle radial phosphorescence
+    const radial = ctx.createRadialGradient(w / 2, h / 2, 60, w / 2, h / 2, 260);
+    radial.addColorStop(0, 'rgba(34, 197, 94, 0.09)');
+    radial.addColorStop(1, 'rgba(0, 0, 0, 0.65)');
     ctx.fillStyle = radial;
     ctx.fillRect(0, 0, w, h);
 
-    // 2. Pip-Boy Terminal Border Frame with Corner Brackets
-    ctx.strokeStyle = '#15803d';
-    ctx.lineWidth = 2;
-    this.roundRect(ctx, 22, 22, w - 44, h - 44, 14);
-    ctx.stroke();
+    const phosphor = '#34d399';
+    const brightPhosphor = '#4ade80';
 
-    // Corner L-brackets
-    ctx.strokeStyle = '#4ade80';
+    ctx.strokeStyle = phosphor;
+    ctx.fillStyle = phosphor;
     ctx.lineWidth = 3;
-    // Top-Left
+    ctx.lineCap = 'square';
+    ctx.lineJoin = 'miter';
+
+    // 2. Header Row: ____| START |_________________ HEART   DATA
+    // Left step
     ctx.beginPath();
-    ctx.moveTo(18, 38);
-    ctx.lineTo(18, 18);
-    ctx.lineTo(38, 18);
-    ctx.stroke();
-    // Top-Right
-    ctx.beginPath();
-    ctx.moveTo(w - 38, 18);
-    ctx.lineTo(w - 18, 18);
-    ctx.lineTo(w - 18, 38);
-    ctx.stroke();
-    // Bottom-Left
-    ctx.beginPath();
-    ctx.moveTo(18, h - 38);
-    ctx.lineTo(18, h - 18);
-    ctx.lineTo(38, h - 18);
-    ctx.stroke();
-    // Bottom-Right
-    ctx.beginPath();
-    ctx.moveTo(w - 38, h - 18);
-    ctx.lineTo(w - 18, h - 18);
-    ctx.lineTo(w - 18, h - 38);
+    ctx.moveTo(24, 52);
+    ctx.lineTo(58, 52);
+    ctx.lineTo(58, 28);
+    ctx.lineTo(68, 28);
     ctx.stroke();
 
-    // 3. Pip-Boy Header Bar: STAT | INV | DATA | MAP
-    ctx.fillStyle = '#064e3b';
-    ctx.fillRect(32, 34, 85, 26);
-    ctx.strokeStyle = '#22c55e';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(32, 34, 85, 26);
+    // START Tab Text
+    ctx.font = 'bold 24px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('START', 76, 46);
 
-    ctx.font = 'bold 15px "Courier New", monospace';
-    ctx.fillStyle = '#86efac';
-    ctx.textAlign = 'center';
-    ctx.fillText('● STAT', 74, 52);
-
-    ctx.font = 'bold 14px "Courier New", monospace';
-    ctx.fillStyle = '#16a34a';
-    ctx.fillText('INV', 165, 52);
-    ctx.fillText('DATA', 245, 52);
-    ctx.fillText('MAP', 325, 52);
-
-    // Battery / AP on top right
-    const battNum = typeof battery === 'number' ? battery : (battery as any)?.level ?? 88;
-    ctx.fillStyle = '#4ade80';
-    ctx.textAlign = 'right';
-    ctx.fillText(`⚡ ${battNum}% AP`, w - 34, 52);
-
-    // Horizontal Separator Line with notch
-    ctx.strokeStyle = '#15803d';
-    ctx.lineWidth = 1.5;
+    // Right of START tab
     ctx.beginPath();
-    ctx.moveTo(28, 68);
-    ctx.lineTo(w - 28, 68);
+    ctx.moveTo(166, 28);
+    ctx.lineTo(178, 28);
+    ctx.lineTo(178, 52);
+    ctx.lineTo(490, 52);
     ctx.stroke();
 
-    // 4. Large Glowing Monospace Clock
+    // HEART & DATA tabs
+    ctx.fillText('HEART', 228, 44);
+    ctx.fillText('DATA', 376, 44);
+
+    // 3. Left Column: Stacked Time (Hours above Minutes)
+    // Top bracket above hours
+    ctx.beginPath();
+    ctx.moveTo(38, 96);
+    ctx.lineTo(38, 78);
+    ctx.lineTo(232, 78);
+    ctx.lineTo(232, 96);
+    ctx.stroke();
+
+    // Hours (e.g. "16")
     ctx.save();
     ctx.textAlign = 'center';
-    ctx.font = 'bold 56px "Courier New", monospace';
-    ctx.fillStyle = '#4ade80';
-    ctx.shadowColor = 'rgba(74, 222, 128, 0.65)';
-    ctx.shadowBlur = 12;
-    ctx.fillText(time, w / 2, 128);
+    ctx.font = 'bold 114px "Courier New", monospace';
+    ctx.fillStyle = brightPhosphor;
+    ctx.shadowColor = 'rgba(74, 222, 128, 0.6)';
+    ctx.shadowBlur = 10;
+    ctx.fillText(hours, 135, 185);
+
+    // Two dash pills between Hours and Minutes
+    ctx.fillStyle = phosphor;
+    ctx.shadowBlur = 0;
+    this.roundRect(ctx, 72, 212, 34, 7, 3);
+    ctx.fill();
+    this.roundRect(ctx, 164, 212, 34, 7, 3);
+    ctx.fill();
+
+    // Minutes (e.g. "30")
+    ctx.fillStyle = brightPhosphor;
+    ctx.shadowBlur = 10;
+    ctx.fillText(minutes, 135, 328);
     ctx.restore();
 
-    // Vault-Tec Subtitle
-    ctx.font = 'bold 13px "Courier New", monospace';
-    ctx.fillStyle = '#16a34a';
-    ctx.textAlign = 'center';
-    ctx.fillText('VAULT-TEC PIP-BOY 3000 • BIOMETRICS', w / 2, 148);
-
-    // 5. Center Section: Vault Boy Avatar (Left) & Realtime Stats (Right)
-    // Draw Vault Boy at (115, 245)
-    this.drawVaultBoy(ctx, 115, 245, this.heartScale);
-
-    // Vault Boy Condition Badge
-    ctx.font = 'bold 12px "Courier New", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = risk === 'High' ? '#ef4444' : '#4ade80';
-    ctx.fillText(`CND: ${risk === 'High' ? 'CRITICAL' : 'OPTIMAL'}`, 115, 320);
-
-    // Right Column: Telemetry Gauges
-    const rightX = 210;
-    const barW = 250;
-
-    // Row 1: Heart Rate
-    ctx.textAlign = 'left';
-    ctx.font = 'bold 15px "Courier New", monospace';
-    ctx.fillStyle = '#86efac';
-    ctx.fillText('HP RATE', rightX, 185);
-    ctx.textAlign = 'right';
-    ctx.fillStyle = bpm > 110 ? '#f87171' : '#4ade80';
-    ctx.fillText(`${bpm} BPM`, rightX + barW, 185);
-    // Gauge Bar (0 - 150 BPM)
-    const hrFilled = Math.min(10, Math.max(1, Math.round(((bpm - 40) / 100) * 10)));
-    this.drawSegmentedBar(ctx, rightX, 192, barW, 10, 10, hrFilled, bpm > 110 ? '#ef4444' : '#22c55e');
-
-    // Row 2: SpO2
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#86efac';
-    ctx.fillText('O2 SAT', rightX, 225);
-    ctx.textAlign = 'right';
-    ctx.fillStyle = spo2 < 95 ? '#fbbf24' : '#4ade80';
-    ctx.fillText(`${spo2}%`, rightX + barW, 225);
-    const spo2Filled = Math.min(10, Math.max(1, Math.round((spo2 / 100) * 10)));
-    this.drawSegmentedBar(ctx, rightX, 232, barW, 10, 10, spo2Filled, spo2 < 95 ? '#f59e0b' : '#22c55e');
-
-    // Row 3: Accelerometer
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#86efac';
-    ctx.fillText('ACCEL G', rightX, 265);
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#4ade80';
-    const accelVal = mpu?.accel_magnitude ? mpu.accel_magnitude.toFixed(2) : '9.81';
-    ctx.fillText(`${accelVal} m/s²`, rightX + barW, 265);
-    const accelFilled = Math.min(10, Math.max(1, Math.round((parseFloat(accelVal) / 20) * 10)));
-    this.drawSegmentedBar(ctx, rightX, 272, barW, 10, 10, accelFilled, '#22c55e');
-
-    // Row 4: Radiation (RADS) & Activity
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#86efac';
-    ctx.fillText('RADS', rightX, 305);
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#4ade80';
-    ctx.fillText('0.00 RAD/S', rightX + barW, 305);
-    this.drawSegmentedBar(ctx, rightX, 312, barW, 10, 10, 1, '#22c55e');
-
-    // 6. Action Box (Activity Recognition & Clinical Risk)
-    ctx.fillStyle = 'rgba(6, 78, 59, 0.4)';
-    ctx.strokeStyle = risk === 'High' ? '#ef4444' : '#15803d';
-    ctx.lineWidth = 1.5;
-    this.roundRect(ctx, 35, 345, w - 70, 72, 8);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.textAlign = 'left';
-    ctx.font = 'bold 14px "Courier New", monospace';
-    ctx.fillStyle = '#a7f3d0';
-    ctx.fillText(`► HOẠT ĐỘNG: ${activity.toUpperCase()}`, 50, 372);
-
-    ctx.font = 'bold 13px "Courier New", monospace';
-    ctx.fillStyle = risk === 'High' ? '#f87171' : '#34d399';
-    ctx.fillText(`► TRẠNG THÁI: ${risk === 'High' ? 'CẢNH BÁO RỦI RO CAO' : 'CHỈ SỐ BÌNH THƯỜNG (AN TOÀN)'}`, 50, 398);
-
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#86efac';
-    ctx.fillText('ESP32-S3 INT8', w - 50, 398);
-
-    // 7. Bottom Diagnostics Status Line
-    ctx.strokeStyle = '#15803d';
-    ctx.lineWidth = 1;
+    // Bottom bracket below minutes
     ctx.beginPath();
-    ctx.moveTo(35, 435);
-    ctx.lineTo(w - 35, 435);
+    ctx.moveTo(38, 346);
+    ctx.lineTo(38, 364);
+    ctx.lineTo(232, 364);
+    ctx.lineTo(232, 346);
     ctx.stroke();
 
+    // 4. Date Box: ┌ 25.04.2026 ┐ with bottom underline
+    ctx.beginPath();
+    ctx.moveTo(34, 418);
+    ctx.lineTo(34, 398);
+    ctx.lineTo(228, 398);
+    ctx.lineTo(228, 418);
+    ctx.stroke();
+
+    ctx.font = 'bold 24px monospace';
     ctx.textAlign = 'left';
-    ctx.font = '12px "Courier New", monospace';
-    ctx.fillStyle = '#10b981';
-    const cursor = this.cursorBlink ? '_' : ' ';
-    ctx.fillText(`VAULT-TEC OS v3.8.2 // SENSORS OK // RUNNING${cursor}`, 38, 458);
+    ctx.fillStyle = brightPhosphor;
+    ctx.fillText(dateStr, 40, 426);
 
-    ctx.textAlign = 'right';
-    ctx.fillText('60 FPS', w - 38, 458);
+    // Bottom underline of date
+    ctx.beginPath();
+    ctx.moveTo(34, 452);
+    ctx.lineTo(178, 452);
+    ctx.moveTo(228, 432);
+    ctx.lineTo(228, 452);
+    ctx.lineTo(196, 452);
+    ctx.stroke();
 
-    // 8. CRT Scanlines Effect (Emulate retro phosphor monitor raster)
+    // 5. Right Column: SpO2 Progress Bar
+    // Outer rectangular border
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = phosphor;
+    ctx.strokeRect(272, 78, 216, 26);
+
+    // Inner Progress Bar Fill (proportional to spo2 %)
+    const safeSpo2 = Math.min(100, Math.max(0, spo2));
+    const fillWidth = Math.round((216 - 6) * (safeSpo2 / 100));
+    ctx.fillStyle = brightPhosphor;
+    ctx.fillRect(275, 81, fillWidth, 20);
+
+    // Text: SPO2: XX%
+    ctx.font = 'bold 22px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = phosphor;
+    ctx.fillText(`SPO2: ${safeSpo2}%`, 272, 132);
+
+    // 6. Right Column: Walking Vault Boy Graphic
+    const vbW = 180;
+    const vbH = 246;
+    const vbX = 286;
+    const vbY = 144;
+
+    ctx.save();
+    if (this.isImgLoaded && this.vaultBoyImg) {
+      // Subtle heartbeat bounce/pulse
+      const scale = this.heartScale;
+      const offsetX = (vbW * (scale - 1)) / 2;
+      const offsetY = (vbH * (scale - 1)) / 2;
+      ctx.drawImage(this.vaultBoyImg, vbX - offsetX, vbY - offsetY, vbW * scale, vbH * scale);
+    } else {
+      // Vector procedural fallback while image loads
+      this.drawVaultBoyVector(ctx, vbX + vbW / 2, vbY + vbH / 2, this.heartScale);
+    }
+    ctx.restore();
+
+    // 7. Right Column: Boxed HP Gauge
+    const hpX = 268;
+    const hpY = 398;
+    const hpW = 220;
+    const hpH = 56;
+    const tick = 18;
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = phosphor;
+    // Top-Left corner
+    ctx.beginPath();
+    ctx.moveTo(hpX, hpY + tick);
+    ctx.lineTo(hpX, hpY);
+    ctx.lineTo(hpX + tick, hpY);
+    ctx.stroke();
+    // Top-Right corner
+    ctx.beginPath();
+    ctx.moveTo(hpX + hpW - tick, hpY);
+    ctx.lineTo(hpX + hpW, hpY);
+    ctx.lineTo(hpX + hpW, hpY + tick);
+    ctx.stroke();
+    // Bottom-Left corner
+    ctx.beginPath();
+    ctx.moveTo(hpX, hpY + hpH - tick);
+    ctx.lineTo(hpX, hpY + hpH);
+    ctx.lineTo(hpX + tick, hpY + hpH);
+    ctx.stroke();
+    // Bottom-Right corner
+    ctx.beginPath();
+    ctx.moveTo(hpX + hpW - tick, hpY + hpH);
+    ctx.lineTo(hpX + hpW, hpY + hpH);
+    ctx.lineTo(hpX + hpW, hpY + hpH - tick);
+    ctx.stroke();
+
+    // Center HP Text
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = brightPhosphor;
+    ctx.fillText(`HP ${bpm}`, hpX + hpW / 2, hpY + 39);
+
+    // 8. CRT Scanlines Overlay
     ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
     for (let y = 0; y < h; y += 4) {
       ctx.fillRect(0, y, w, 2);
     }
   }
 
-  private drawVaultBoy(
+  private drawVaultBoyVector(
     ctx: CanvasRenderingContext2D,
     cx: number,
     cy: number,
@@ -302,135 +295,35 @@ export class WatchScreenTexture {
   ): void {
     ctx.save();
     ctx.translate(cx, cy);
+    ctx.scale(pulse, pulse);
 
     ctx.strokeStyle = '#4ade80';
     ctx.fillStyle = '#4ade80';
     ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
 
-    // Hair swirl
+    // Head
     ctx.beginPath();
-    ctx.moveTo(-18, -32);
-    ctx.quadraticCurveTo(-26, -46, -10, -48);
-    ctx.quadraticCurveTo(8, -52, 14, -38);
-    ctx.quadraticCurveTo(22, -42, 24, -30);
+    ctx.arc(0, -50, 24, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Head outline
+    // Body
     ctx.beginPath();
-    ctx.arc(0, -22, 19, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Eyes: left eye dot, right eye winking
-    ctx.beginPath();
-    ctx.arc(-7, -23, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Winking right eye
-    ctx.beginPath();
-    ctx.arc(8, -23, 4, 0.2 * Math.PI, 0.8 * Math.PI);
-    ctx.stroke();
-
-    // Smile
-    ctx.beginPath();
-    ctx.arc(0, -16, 9, 0.15 * Math.PI, 0.85 * Math.PI);
-    ctx.stroke();
-
-    // Body / Jumpsuit Torso
-    ctx.beginPath();
-    ctx.moveTo(-14, -2);
-    ctx.lineTo(-18, 28);
-    ctx.lineTo(18, 28);
-    ctx.lineTo(14, -2);
+    ctx.moveTo(-18, -26);
+    ctx.lineTo(-22, 20);
+    ctx.lineTo(22, 20);
+    ctx.lineTo(18, -26);
     ctx.closePath();
     ctx.stroke();
 
-    // Jumpsuit V-collar & Zipper
+    // Walking Legs
     ctx.beginPath();
-    ctx.moveTo(-6, -2);
-    ctx.lineTo(0, 8);
-    ctx.lineTo(6, -2);
+    ctx.moveTo(-12, 20);
+    ctx.lineTo(-24, 60);
+    ctx.moveTo(12, 20);
+    ctx.lineTo(24, 60);
     ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, 8);
-    ctx.lineTo(0, 28);
-    ctx.stroke();
-
-    // Left Arm: Thumbs up!
-    ctx.beginPath();
-    ctx.moveTo(-14, 4);
-    ctx.lineTo(-30, 10);
-    ctx.lineTo(-32, -4);
-    ctx.stroke();
-    // Fist
-    ctx.beginPath();
-    ctx.arc(-32, -8, 5, 0, Math.PI * 2);
-    ctx.stroke();
-    // Thumb
-    ctx.beginPath();
-    ctx.moveTo(-32, -13);
-    ctx.lineTo(-32, -22);
-    ctx.stroke();
-
-    // Right Arm resting on hip
-    ctx.beginPath();
-    ctx.moveTo(14, 4);
-    ctx.lineTo(26, 14);
-    ctx.lineTo(18, 24);
-    ctx.stroke();
-
-    // Legs
-    ctx.beginPath();
-    ctx.moveTo(-10, 28);
-    ctx.lineTo(-12, 50);
-    ctx.moveTo(10, 28);
-    ctx.lineTo(12, 50);
-    ctx.stroke();
-
-    // Feet
-    ctx.beginPath();
-    ctx.moveTo(-12, 50);
-    ctx.lineTo(-20, 50);
-    ctx.moveTo(12, 50);
-    ctx.lineTo(20, 50);
-    ctx.stroke();
-
-    // Pulsing heartbeat ring around chest
-    if (pulse > 1.05) {
-      ctx.beginPath();
-      ctx.arc(0, 8, 14 * pulse, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(74, 222, 128, 0.45)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
 
     ctx.restore();
-  }
-
-  private drawSegmentedBar(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    totalSegments: number,
-    filledSegments: number,
-    activeColor = '#4ade80',
-    inactiveColor = '#064e3b'
-  ): void {
-    const gap = 3;
-    const segW = (w - (totalSegments - 1) * gap) / totalSegments;
-    for (let i = 0; i < totalSegments; i++) {
-      const segX = x + i * (segW + gap);
-      ctx.fillStyle = i < filledSegments ? activeColor : inactiveColor;
-      ctx.fillRect(segX, y, segW, h);
-      if (i < filledSegments) {
-        ctx.strokeStyle = '#86efac';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(segX, y, segW, h);
-      }
-    }
   }
 
   private roundRect(
