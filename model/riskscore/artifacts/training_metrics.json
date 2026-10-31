@@ -1,28 +1,28 @@
 {
   "status": "SUCCESS",
   "model_id": "HEALTH-RISK-MLP-v1.0",
-  "timestamp": "2026-10-31T23:41:09.038812",
+  "timestamp": "2026-10-31T23:51:04.925779",
   "data_mode": "hybrid",
   "baseline_samples": 32353,
   "supabase_samples": 48,
   "total_samples": 32401,
-  "test_loss": 4.695831739809364e-05,
-  "test_accuracy": 1.0,
-  "macro_precision": 1.0,
-  "macro_recall": 1.0,
-  "macro_f1": 1.0,
-  "weighted_precision": 1.0,
-  "weighted_recall": 1.0,
-  "weighted_f1": 1.0,
+  "test_loss": 0.05850517377257347,
+  "test_accuracy": 0.9800956845283508,
+  "macro_precision": 0.973114908233689,
+  "macro_recall": 0.9817818416135908,
+  "macro_f1": 0.9772674183296257,
+  "weighted_precision": 0.9805562111893739,
+  "weighted_recall": 0.9800956642493442,
+  "weighted_f1": 0.9801859800639284,
   "confusion_matrix": [
     [
-      4420,
-      0,
+      4319,
+      101,
       0
     ],
     [
-      0,
-      2061,
+      28,
+      2033,
       0
     ],
     [
@@ -33,34 +33,34 @@
   ],
   "classification_report": {
     "Low": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1-score": 1.0,
+      "precision": 0.9935587761674718,
+      "recall": 0.9771493212669683,
+      "f1-score": 0.9852857305805863,
       "support": 4420.0
     },
     "Medium": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1-score": 1.0,
+      "precision": 0.9526710402999062,
+      "recall": 0.9864143619602135,
+      "f1-score": 0.9692491060786651,
       "support": 2061.0
     },
-    "accuracy": 1.0,
+    "accuracy": 0.9800956642493442,
     "macro avg": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1-score": 1.0,
+      "precision": 0.973114908233689,
+      "recall": 0.9817818416135908,
+      "f1-score": 0.9772674183296257,
       "support": 6481.0
     },
     "weighted avg": {
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1-score": 1.0,
+      "precision": 0.9805562111893739,
+      "recall": 0.9800956642493442,
+      "f1-score": 0.9801859800639284,
       "support": 6481.0
     }
   },
   "training_config": {
-    "epochs_trained": 15,
-    "max_epochs": 15,
+    "epochs_trained": 1,
+    "max_epochs": 1,
     "batch_size": 32,
     "random_state": 42,
     "data_mode": "hybrid",

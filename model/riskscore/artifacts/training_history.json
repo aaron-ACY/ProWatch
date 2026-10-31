@@ -1,5 +1,35 @@
 [
   {
+    "run_id": "train-5464",
+    "timestamp": "2026-10-31 23:51:04",
+    "trigger": "n8n_pipeline",
+    "data_mode": "HYBRID",
+    "samples": 32401,
+    "baseline_samples": 32353,
+    "supabase_samples": 48,
+    "accuracy": 0.9801,
+    "macro_f1": 0.9773,
+    "test_loss": 0.05851,
+    "epochs": 1,
+    "status": "SUCCESS",
+    "quality_gate": "PASSED"
+  },
+  {
+    "run_id": "train-5386",
+    "timestamp": "2026-10-31 23:49:46",
+    "trigger": "n8n_pipeline",
+    "data_mode": "HYBRID",
+    "samples": 32401,
+    "baseline_samples": 32353,
+    "supabase_samples": 48,
+    "accuracy": 0.9779,
+    "macro_f1": 0.9749,
+    "test_loss": 0.06401,
+    "epochs": 1,
+    "status": "SUCCESS",
+    "quality_gate": "PASSED"
+  },
+  {
     "run_id": "train-3792",
     "timestamp": "2026-10-31 16:25:50",
     "trigger": "WEBHOOK",

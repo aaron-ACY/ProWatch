@@ -313,7 +313,7 @@ def handle_history(limit=5):
 
 def handle_train():
     try:
-        url = "http://localhost:5005/train"
+        url = "http://127.0.0.1:5005/train"
         data = json.dumps({"epochs": 15, "batch_size": 32, "triggered_by": "telegram_bot"}).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=120) as resp:
@@ -356,6 +356,20 @@ def handle_train():
                 "⚡ Sẵn sàng nạp trực tiếp vào firmware Seeed XIAO ESP32-S3!\n"
                 "👉 Gõ `/history` để xem vị trí lượt chạy này trong lịch sử."
             )
+    except urllib.error.HTTPError as he:
+        err_msg = ""
+        try:
+            err_body = he.read().decode('utf-8')
+            err_json = json.loads(err_body)
+            err_msg = err_json.get("error_details") or err_json.get("message", "")
+        except Exception:
+            err_msg = str(he)
+        return (
+            "❌ *HUẤN LUYỆN GẶP LỖI NỘI BỘ (HTTP 500)!*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "Máy chủ Task Runner (:5005) đang ONLINE nhưng quy trình huấn luyện báo lỗi:\n"
+            f"```\n{err_msg[:300]}\n```"
+        )
     except urllib.error.URLError:
         return (
             "🚨 *HUẤN LUYỆN THẤT BẠI DO MÁY CHỦ OFFLINE!*\n"
