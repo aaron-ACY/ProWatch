@@ -3,6 +3,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Hardware-Seeed%20Studio%20XIAO%20ESP32--S3-0ea5e9?style=for-the-badge&logo=espressif" alt="ESP32-S3" />
   <img src="https://img.shields.io/badge/AI%20Engine-TinyML%20%7C%20TensorFlow-ff6f00?style=for-the-badge&logo=tensorflow" alt="TinyML" />
+  <img src="https://img.shields.io/badge/Backend-Spring%20Boot%203%20%7C%20Java%2021-6db33f?style=for-the-badge&logo=springboot" alt="Spring Boot" />
   <img src="https://img.shields.io/badge/MLOps-n8n%20Workflow%20(17%20Nodes)-ff6d5a?style=for-the-badge&logo=n8n" alt="n8n" />
   <img src="https://img.shields.io/badge/Cloud%20Database-Supabase%20PostgreSQL-3ecf8e?style=for-the-badge&logo=supabase" alt="Supabase" />
   <img src="https://img.shields.io/badge/Frontend-Next.js%2014%20%7C%20React%2018-000000?style=for-the-badge&logo=next.js" alt="Next.js" />
@@ -13,9 +14,9 @@
 
 ## 📖 1. Project Overview
 
-**ProWatch AI** is a comprehensive, production-grade healthcare smartwatch ecosystem spanning from Embedded Edge IoT hardware to Cloud infrastructure and automated **MLOps Continuous Training & Deployment Pipelines**.
+**ProWatch AI** is a comprehensive, production-grade healthcare smartwatch ecosystem spanning from Embedded Edge IoT hardware to **Java 21 Spring Boot Backend Microservices**, Cloud infrastructure, and automated **MLOps Continuous Training & Deployment Pipelines**.
 
-The system deploys an ultra-lightweight **TinyML (Multilayer Perceptron)** neural network directly onto the **Seeed Studio XIAO ESP32-S3** microcontroller. This empowers real-time on-device clinical health risk assessment (*Low / Medium / High Risk*) adhering to the international **NEWS2 (National Early Warning Score)** medical protocol with an inference latency of just **1.2 ms** and an ultra-compact memory footprint of **3.1 KB**.
+The system deploys an ultra-lightweight **TinyML (Multilayer Perceptron)** neural network directly onto the **Seeed Studio XIAO ESP32-S3** microcontroller. This empowers real-time on-device clinical health risk assessment (*Low / Medium / High Risk*) adhering to the international **NEWS2 (National Early Warning Score)** medical protocol with an inference latency of just **1.2 ms** and an ultra-compact memory footprint of **3.1 KB**. Biometric vitals (BPM, SpO2, Accelerometer) are ingested via Bluetooth Low Energy (BLE) and Wi-Fi into the **Spring Boot microservice (:8080)**, synced with **Supabase PostgreSQL Cloud**, and monitored live across Web and Mobile dashboards.
 
 ---
 
@@ -30,9 +31,13 @@ flowchart LR
     end
 
     %% 2. Ingestion & Cloud
-    subgraph CLOUD["☁️ 2. Connectivity & Cloud DB"]
+    subgraph CLOUD["☁️ 2. Backend & Cloud Infrastructure"]
         direction TB
-        APP["Mobile Gateway<br/>(React Native / BLE ➔ HTTPS)"] --> DB[("Supabase Cloud DB<br/>(PostgreSQL Telemetry)")]
+        APP["Mobile Gateway<br/>(React Native / BLE)"]
+        BOOT["Spring Boot Backend (:8080)<br/><b>REST & WebSocket API</b> (Java 21)"]
+        DB[("Supabase Cloud DB<br/>(PostgreSQL Telemetry)")]
+        APP -->|Telemetry REST| BOOT
+        BOOT -->|JPA Persistence| DB
     end
 
     %% 3. Automated MLOps
@@ -53,8 +58,7 @@ flowchart LR
     end
 
     %% Cross-subgraph data & control streams
-    MCU -->|BLE Stream| APP
-    APP -->|REST Ingestion| DB
+    MCU -->|BLE / Wi-Fi Stream| APP
     DB -->|Batch Records| N8N
     N8N <-->|Trigger & Monitor| WEB
     REG --> OTA
@@ -108,7 +112,11 @@ smart-watch/
 │   │       └── mockData.ts         # Realistic fallback data records
 │   └── package.json
 │
-├── mobile/                         # Mobile companion application
+├── mobile/                         # Mobile companion & backend services
+│   ├── backend/                    # Spring Boot 3 & Java 21 REST/WebSocket microservice (:8080)
+│   │   ├── src/main/java/com/huudan/backend/ # Controllers (Health, Device), Services, JPA Entities
+│   │   ├── src/main/resources/     # application.yaml (Local H2 & Supabase PostgreSQL pooler)
+│   │   └── pom.xml                 # Maven configuration (Security, Actuator, JPA, WebSocket)
 │   ├── frontend/                   # React Native / Expo companion app
 │   └── ProWatch-Health.apk         # Pre-compiled standalone Android APK package
 │
@@ -126,6 +134,7 @@ smart-watch/
 
 | Port | Microservice | Stack | Healthcheck Endpoint |
 | :---: | :--- | :--- | :--- |
+| **`8080`** | **Spring Boot Backend** | Java 21 / Spring Boot 3 (JPA, WebSocket) | `http://localhost:8080/prowatch/actuator/health` |
 | **`3000`** | **Web Dashboard** | Next.js 14 / React 18 | `http://localhost:3000` |
 | **`3636`** | **n8n Orchestrator** | Docker Container | `http://localhost:3636/healthz` |
 | **`5005`** | **Python ML Task Runner** | Python Standard HTTP Server | `http://localhost:5005/health` |
@@ -138,6 +147,7 @@ smart-watch/
 
 ### Prerequisites:
 - **Operating System:** Windows 10/11 (or macOS / Linux).
+- **Java Development Kit (JDK):** v17 or v21+ (for Spring Boot backend).
 - **Node.js:** v18.x or v20.x+.
 - **Python:** v3.10 or v3.11 (virtual environment with TensorFlow recommended).
 - **Docker Desktop:** Running (to host n8n).
