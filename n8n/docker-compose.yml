@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n_prowatch
+    restart: unless-stopped
+    ports:
+      - "3636:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:3636/
+      - GENERIC_TIMEZONE=Asia/Ho_Chi_Minh
+      - TZ=Asia/Ho_Chi_Minh
+      
+      # ===== CẤU HÌNH N8N CODE SANDBOX & TASK RUNNER =====
+      # 1. Cho phép Code Node sử dụng tất cả built-in modules của Node.js (fs, crypto, path, os...)
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      
+      # 2. Cho phép import các package ngoài (lodash, axios, mathjs...)
+      - NODE_FUNCTION_ALLOW_EXTERNAL=*
+      
+      # 3. Kích hoạt Task Runner (Sandbox cách ly tiến trình tăng tốc độ và bảo mật)
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_RUNNERS_MODE=internal
+      - N8N_RUNNERS_MAX_CONCURRENCY=5
+      
+      # 4. Quản lý Binary Data
+      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - C:/Users/huudan/n8n_prowatch:/home/node/.n8n
+      - ./workflows:/data/workflows
+      - ../model/riskscore:/data/model

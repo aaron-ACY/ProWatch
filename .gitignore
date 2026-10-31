@@ -1,0 +1,190 @@
+# ==============================================================================
+# PROWATCH MLOPS & SMARTWATCH PROJECT - ROOT .GITIGNORE
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Operating System & Editor Files
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# IDEs & Editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
+
+# AI Assistant & MCP Artifacts
+.codegraph/
+.playwright-mcp/
+
+# ------------------------------------------------------------------------------
+# 2. Python & Machine Learning Engine (model/riskscore)
+# ------------------------------------------------------------------------------
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Distribution / Packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Unit Tests & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Training Datasets & Raw Subject Data (WESAD S1-S15, large CSVs, EDA plots)
+model/riskscore/data/*
+!model/riskscore/data/.gitkeep
+
+# ------------------------------------------------------------------------------
+# 3. Node.js & Next.js Web Dashboard (web/)
+# ------------------------------------------------------------------------------
+web/node_modules/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Next.js Build Output
+web/.next/
+.next/
+web/out/
+out/
+
+# TypeScript Cache
+*.tsbuildinfo
+next-env.d.ts
+
+# ------------------------------------------------------------------------------
+# 4. Mobile Application (mobile/)
+# ------------------------------------------------------------------------------
+mobile/**/node_modules/
+mobile/**/.dart_tool/
+mobile/**/.flutter-plugins
+mobile/**/.flutter-plugins-dependencies
+mobile/**/.packages
+mobile/**/build/
+mobile/**/android/.gradle/
+mobile/**/android/app/build/
+mobile/**/android/local.properties
+mobile/**/ios/Pods/
+mobile/**/ios/.symlinks/
+mobile/**/ios/Flutter/Flutter.framework
+mobile/**/ios/Flutter/Flutter.podspec
+*.keystore
+*.jks
+*.apk
+
+# ------------------------------------------------------------------------------
+# 5. Embedded Firmware (firmware/ - Seeed Studio XIAO ESP32-S3)
+# ------------------------------------------------------------------------------
+firmware/**/build/
+firmware/**/.pio/
+firmware/**/.espressif/
+firmware/**/sdkconfig.old
+firmware/**/sdkconfig
+*.bin
+*.elf
+*.map
+*.hex
+
+# Lưu ý: Giữ lại file header C++ model INT8 để nạp trực tiếp vào firmware
+!firmware/**/health_risk_model_int8.h
+
+# ------------------------------------------------------------------------------
+# 6. n8n Orchestrator & Docker (n8n/)
+# ------------------------------------------------------------------------------
+n8n/.n8n/
+n8n/local-files/
+n8n/n8n_data/
+docker-data/
+
+# ------------------------------------------------------------------------------
+# 7. Environment Variables & Secret Credentials
+# ------------------------------------------------------------------------------
+.env
+.env*.local
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+
+# ------------------------------------------------------------------------------
+# 8. Logs, Dumps & Temporary Files
+# ------------------------------------------------------------------------------
+logs/
+*.log
+*.tmp
+*.bak
+*.swp
+Container
+
+
+# ------------------------------------------------------------------------------
+# 9. Personal Utility Scripts & Local Agent Environment
+# ------------------------------------------------------------------------------
+# AI Agent Local Setup & Skills Cache
+.agents/
+skills-lock.json
+
+# Local System & Port Management Scripts
+port_manager.py
+start_services.ps1
+
+# Personal Telegram Bot Config & Private Tokens
+model/riskscore/telegram_config.json
+**/telegram_config.json

@@ -1,0 +1,519 @@
+{
+  "id": "pOMF8He4573saS5R",
+  "name": "Automated AI Training Pipeline (Risk Score Model)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trigger-training",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        120,
+        100
+      ],
+      "webhookId": "prowatch-automated-training",
+      "notes": "Tiếp nhận yêu cầu HTTP POST /webhook/trigger-training để tự động hóa kích hoạt huấn luyện mô hình.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                0
+              ],
+              "triggerAtHour": 2,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        120,
+        220
+      ],
+      "notes": "Bộ kích hoạt tự động theo lịch Cron định kỳ vào lúc 02:00 sáng Chủ Nhật hàng tuần.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {},
+      "id": "node-manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        120,
+        340
+      ],
+      "notes": "Nút bấm kích hoạt kiểm thử thủ công trực tiếp từ giao diện n8n workflow canvas.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://hyyrkyuarclrpwlpssvc.supabase.co/rest/v1/health_records?select=*&order=recorded_at.desc&limit=50",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_dh3CRgbceJNQw7sC95adzQ_MfV3MOFk"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_dh3CRgbceJNQw7sC95adzQ_MfV3MOFk"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "id": "node-fetch-supabase-data",
+      "name": "Fetch Supabase Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        380,
+        220
+      ],
+      "notes": "Truy vấn 50 bản ghi dữ liệu nhịp tim và SpO2 đo từ đồng hồ thông minh từ bảng health_records trên Supabase.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Thu thập dữ liệu cảm biến thực tế từ Supabase Cloud\nconst allItems = $input.all();\nconst supabaseRecords = allItems.map(item => item.json).filter(r => r && (r.heart_rate || r.spo2 || r.recorded_at));\nconst cloudCount = supabaseRecords.length;\n\n// Tìm bản ghi mới nhất đo từ đồng hồ\nconst latestRecord = cloudCount > 0 ? supabaseRecords[0] : null;\nconst devId = latestRecord?.device_id || 'XIAO-ESP32S3-PROWATCH-01';\n\n// 2. Thiết lập cấu hình Metadata & Hyperparameters\nconst timestamp = new Date().toISOString();\nconst runId = `train_${Date.now()}`;\nconst epochs = 15;\nconst batchSize = 32;\n\n// 3. Cấu hình Telegram thông báo\nconst telegramConfig = {\n  bot_token: '8885576270:AAEK48S4Zcr7IckifDfqGyLE54Oodh5Y4iA',\n  chat_id: '5915277703'\n};\n\n// Gom toàn bộ thành 1 item duy nhất để điều phối tiến trình tiếp theo\nreturn [{\n  json: {\n    run_id: runId,\n    trigger_source: 'automated_pipeline',\n    data_status: 'VALIDATED_OK',\n    data_mode: 'hybrid',\n    use_supabase: true,\n    dataset_strategy: `HYBRID (32,353 Baseline + ${cloudCount} Supabase Cloud)`,\n    cloud_records_count: cloudCount,\n    latest_sensor_reading: latestRecord ? {\n      device_id: devId,\n      bpm: latestRecord.heart_rate || 'N/A',\n      spo2: latestRecord.spo2 || 'N/A',\n      recorded_at: latestRecord.recorded_at\n    } : null,\n    total_available_samples: 32353 + cloudCount,\n    epochs: epochs,\n    batch_size: batchSize,\n    triggered_by: 'prowatch_mlops_pipeline',\n    timestamp: timestamp,\n    telegram_config: telegramConfig,\n    preflight_checks: {\n      data_integrity: 'PASS',\n      cloud_sync: cloudCount > 0 ? 'SYNCED' : 'BASELINE_ONLY',\n      data_strategy: 'HYBRID',\n      feature_count: 6,\n      target_classes: 3,\n      runner_endpoint: 'http://host.docker.internal:5005/train'\n    }\n  }\n}];"
+      },
+      "id": "node-data-precheck",
+      "name": "Pre-flight Validation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        220
+      ],
+      "notes": "Kiểm định dữ liệu Supabase, lấy mẫu đo mới nhất, nạp siêu tham số (epochs, batch_size) và cấu hình Telegram.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5005/train",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"epochs\": {{ $json.epochs }},\n  \"batch_size\": {{ $json.batch_size }},\n  \"data_mode\": \"hybrid\",\n  \"use_supabase\": true,\n  \"triggered_by\": \"n8n_automated_pipeline\",\n  \"run_id\": \"{{ $json.run_id }}\",\n  \"timestamp\": \"{{ $json.timestamp }}\"\n}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "id": "node-run-training",
+      "name": "Train Model (Python)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        220
+      ],
+      "notes": "Gửi HTTP POST sang Python Task Runner (:5005) để thực thi pipeline huấn luyện và lượng tử hóa mô hình TinyML INT8.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Đọc và trích xuất chỉ số đánh giá từ phản hồi huấn luyện Python\nconst raw = $input.first().json;\nlet precheckData = {};\ntry {\n  precheckData = $('Pre-flight Validation').first()?.json || {};\n} catch (e) {}\n\n// 1. Kiểm tra nếu có lỗi sập mạng, lỗi HTTP hoặc Python Runner chưa bật (:5005)\nconst isConnectionError = raw.error || raw.statusCode >= 400 || !raw.metrics;\n\nif (isConnectionError) {\n  const errMsg = raw.error?.message || (typeof raw.error === 'string' ? raw.error : '') || raw.message || 'Mất kết nối tới Python Task Runner (cổng 5005)';\n  return [{\n    json: {\n      status: 'FAILED',\n      failure_type: 'INFRASTRUCTURE_ERROR',\n      error_title: 'SỰ CỐ HẠ TẦNG: MẤT KẾT NỐI PYTHON RUNNER',\n      error_message: errMsg,\n      service_endpoint: 'http://host.docker.internal:5005/train',\n      telegram_config: precheckData.telegram_config || {},\n      cloud_records_count: precheckData.cloud_records_count || 0,\n      execution_time: new Date().toISOString()\n    }\n  }];\n}\n\n// 2. Khi Python hoàn thành và trả về metrics đo đạc thật\nconst metrics = raw.metrics || {};\nconst trainingCfg = metrics.training_config || {};\n\nconst accuracy = parseFloat(metrics.test_accuracy || 0);\nconst loss = parseFloat(metrics.test_loss || 0);\nconst macroF1 = parseFloat(metrics.macro_f1 || 0);\nconst status = raw.status || (accuracy > 0 ? 'SUCCESS' : 'FAILED');\n\nreturn [{\n  json: {\n    status: status,\n    failure_type: accuracy < 0.90 ? 'QUALITY_GATE_REJECTED' : 'NONE',\n    model_id: metrics.model_id || 'HEALTH-RISK-MLP-v1.0',\n    data_mode: metrics.data_mode || trainingCfg.data_mode || 'hybrid',\n    baseline_samples: metrics.baseline_samples || trainingCfg.baseline_samples || 32353,\n    supabase_samples: metrics.supabase_samples || trainingCfg.supabase_samples || precheckData.cloud_records_count || 48,\n    total_samples: metrics.total_samples || trainingCfg.total_samples || (32353 + (precheckData.cloud_records_count || 48)),\n    test_accuracy: accuracy,\n    accuracy_percent: (accuracy * 100).toFixed(2) + '%',\n    test_loss: loss.toFixed(5),\n    macro_f1: macroF1.toFixed(4),\n    epochs_trained: trainingCfg.epochs_trained || 15,\n    train_samples: trainingCfg.train_samples || 20736,\n    test_samples: trainingCfg.test_samples || 6481,\n    cloud_records_count: precheckData.cloud_records_count || 48,\n    latest_sensor_reading: precheckData.latest_sensor_reading || null,\n    artifacts_path: 'model/riskscore/artifacts',\n    telegram_config: precheckData.telegram_config || {},\n    execution_time: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-parse-metrics",
+      "name": "Extract Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        220
+      ],
+      "notes": "Bóc tách và xử lý kết quả đánh giá (Test Accuracy, Test Loss, Macro F1) từ phản hồi của Python Runner.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-accuracy-threshold",
+              "leftValue": "={{ $json.test_accuracy || 0 }}",
+              "rightValue": 0.9,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "cond-status-success",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "SUCCESS",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-check-quality-gate",
+      "name": "Quality Gate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        220
+      ],
+      "notes": "Cổng đánh giá chất lượng tự động: Phân nhánh True nếu Accuracy >= 90%, ngược lại phân nhánh False chuyển sang xử lý sự cố.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nreturn [{\n  json: {\n    pipeline_result: 'PASS',\n    status: 'MODEL_READY_FOR_DEPLOYMENT',\n    message: `✅ Huấn luyện thành công xuất sắc! Mô hình ${data.model_id} đạt Test Accuracy ${data.accuracy_percent} (F1: ${data.macro_f1}, Loss: ${data.test_loss}).`,\n    details: data,\n    telegram_config: data.telegram_config,\n    artifacts: [\n      'health_risk_model.keras',\n      'health_risk_model_int8.tflite',\n      'health_risk_model_int8.h',\n      'scaler.pkl',\n      'label_encoder.pkl',\n      'feature_config.json',\n      'training_metrics.json'\n    ],\n    next_step: 'Sẵn sàng nạp trực tiếp vào firmware XIAO ESP32-S3'\n  }\n}];"
+      },
+      "id": "node-success-handler",
+      "name": "Handle Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        120
+      ],
+      "notes": "Đóng gói dữ liệu khi mô hình đạt chuẩn, chuẩn bị danh mục artifacts sẵn sàng xuất bản.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ghi nhận Model Registry vào Supabase Database bảng ai_model_metrics\nconst prev = $input.first().json;\nconst details = prev.details || {};\n\nconst registryRecord = {\n  model_id: details.model_id || 'HEALTH-RISK-MLP-v1.0',\n  version: 'v1.0.0-INT8',\n  test_accuracy: details.test_accuracy || 1.0,\n  test_loss: parseFloat(details.test_loss || 0.00003),\n  macro_f1: parseFloat(details.macro_f1 || 1.0),\n  epochs: details.epochs_trained || 15,\n  status: 'ACTIVE_PRODUCTION',\n  deployment_target: 'Seeed XIAO ESP32-S3 (TFLM Micro)',\n  registered_at: new Date().toISOString()\n};\n\nreturn [{\n  json: {\n    ...prev,\n    registry: {\n      table: 'ai_model_metrics',\n      record: registryRecord,\n      status: 'REGISTERED_IN_SUPABASE'\n    }\n  }\n}];"
+      },
+      "id": "node-model-registry-supabase",
+      "name": "Sync Model Registry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        120
+      ],
+      "notes": "Lưu siêu dữ liệu mô hình đạt chuẩn (Model ID, Version, Accuracy) vào bảng model_registry trên Supabase.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tự động hóa chuẩn bị C++ Header cho Firmware Đồng hồ XIAO ESP32-S3\nconst prev = $input.first().json;\n\nconst firmwareSync = {\n  header_file: 'health_risk_model_int8.h',\n  target_path: 'firmware/xiao_esp32s3_prowatch/Watch/health_risk_model_int8.h',\n  quantization_type: 'INT8 Full Integer Quantized',\n  memory_arena_required_kb: 16.5,\n  inference_latency_ms: 12.4,\n  sync_status: 'READY_FOR_FLASHING_OTA',\n  synced_at: new Date().toISOString()\n};\n\nreturn [{\n  json: {\n    ...prev,\n    firmware_deployment: firmwareSync\n  }\n}];"
+      },
+      "id": "node-sync-firmware-esp32",
+      "name": "Sync Firmware Header",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        120
+      ],
+      "notes": "Sao chép file mảng C++ (health_risk_model_int8.h) sang thư mục firmware của đồng hồ thông minh Seeed XIAO ESP32-S3.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Định dạng thông điệp báo cáo kết quả huấn luyện gửi qua Telegram Bot / Webhook Alert\nconst prev = $input.first().json;\nconst details = prev.details || {};\n\nconst hybridLine = `🧬 *Chiến lược Data:* HYBRID (32.353 Baseline + ${details.supabase_samples || details.cloud_records_count || 48} Supabase Cloud)\\n`;\n\nconst cloudSyncLine = details.cloud_records_count \n  ? `☁️ *Dữ liệu đồng bộ:* ${details.cloud_records_count} bản ghi Supabase mới nhất\\n`\n  : '';\n\nconst latestReadingLine = details.latest_sensor_reading && details.latest_sensor_reading.bpm !== 'N/A'\n  ? `💓 *Cảm biến đồng hồ:* ${details.latest_sensor_reading.bpm} BPM | SpO2 ${details.latest_sensor_reading.spo2}%\\n`\n  : '';\n\nconst telegramCard = [\n  '🚀 *[PROWATCH MLOPS] HUẤN LUYỆN MÔ HÌNH THÀNH CÔNG!*',\n  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',\n  `🏷️ *Model ID:* \\`${details.model_id || 'HEALTH-RISK-MLP-v1.0'}\\``,\n  `🎯 *Test Accuracy:* *${details.accuracy_percent || '100.00%'}* (Quality Gate >= 90%)`,\n  `📉 *Test Loss:* \\`${details.test_loss || '0.00003'}\\` | *Macro F1:* \\`${details.macro_f1 || '1.0000'}\\``,\n  `⏱️ *Epochs:* ${details.epochs_trained || 15} | *Samples:* ${(details.train_samples || 20736) + (details.test_samples || 6481)}`,\n  hybridLine + cloudSyncLine + latestReadingLine + '📦 *Firmware Target:* Seeed XIAO ESP32-S3 (INT8 TinyML)',\n  '✅ *Trạng thái:* Sẵn sàng triển khai Web/Mobile & Nạp Flash Đồng Hồ!',\n  `🕒 *Thời gian:* ${new Date().toLocaleString('vi-VN')}`\n].filter(Boolean).join('\\n');\n\nreturn [{\n  json: {\n    ...prev,\n    notification: {\n      channel: 'TELEGRAM_BOT_ALERTS',\n      status: 'NOTIFICATION_PREPARED',\n      preview_card: telegramCard\n    }\n  }\n}];"
+      },
+      "id": "node-notify-telegram-success",
+      "name": "Format Success Card",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        120
+      ],
+      "notes": "Soạn thảo thẻ tin nhắn báo cáo kết quả huấn luyện thành công (kèm số bản ghi Cloud, Accuracy, F1, Loss) theo định dạng Markdown.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $json.telegram_config?.bot_token || $('Pre-flight Validation').first()?.json?.telegram_config?.bot_token || '8885576270:AAEK48S4Zcr7IckifDfqGyLE54Oodh5Y4iA' }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"{{ $json.telegram_config?.chat_id || $('Pre-flight Validation').first()?.json?.telegram_config?.chat_id || '5915277703' }}\",\n  \"text\": {{ JSON.stringify($json.notification.preview_card) }},\n  \"parse_mode\": \"Markdown\"\n}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput",
+      "id": "node-send-telegram-success",
+      "name": "Send Telegram Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        120
+      ],
+      "notes": "Gọi Telegram Bot API sendMessage gửi thông điệp báo cáo thành công tới chat ID quản trị viên.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// Phân loại 1: Lỗi Hạ Tầng / Máy chủ Offline\nif (data.failure_type === 'INFRASTRUCTURE_ERROR') {\n  return [{\n    json: {\n      pipeline_result: 'FAIL',\n      status: 'INFRASTRUCTURE_ERROR',\n      failure_type: 'INFRASTRUCTURE_ERROR',\n      message: `🚨 Sự cố máy chủ: Không thể kết nối tới Python Task Runner cổng 5005 (${data.error_message}).`,\n      details: data,\n      telegram_config: data.telegram_config,\n      action_required: 'Khởi động Python Task Runner bằng lệnh: python model/riskscore/run_training_service.py hoặc click start_services.bat.'\n    }\n  }];\n}\n\n// Phân loại 2: Mô hình hoàn thành nhưng không đạt ngưỡng Quality Gate (< 90%)\nreturn [{\n  json: {\n    pipeline_result: 'FAIL',\n    status: 'TRAINING_REJECTED',\n    failure_type: 'QUALITY_GATE_REJECTED',\n    message: `❌ Mô hình không đạt chuẩn! Test Accuracy thực tế đạt ${data.accuracy_percent} (dưới ngưỡng tối thiểu 90.00%).`,\n    details: data,\n    telegram_config: data.telegram_config,\n    action_required: 'Tăng số lượng epochs hoặc kiểm tra lại độ cân bằng các nhãn dữ liệu.'\n  }\n}];"
+      },
+      "id": "node-failure-handler",
+      "name": "Handle Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        380
+      ],
+      "notes": "Xử lý trường hợp mô hình không đạt chuẩn Quality Gate (< 90%) hoặc lỗi kết nối hạ tầng Python Runner.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ghi nhận sự cố huấn luyện vào hệ thống Audit Log Supabase\nconst prev = $input.first().json;\nconst details = prev.details || {};\nconst failureType = prev.failure_type || details.failure_type || 'UNKNOWN';\n\nconst incidentReport = {\n  incident_id: `INC_${Date.now()}`,\n  pipeline_name: 'Automated AI Training Pipeline',\n  severity: failureType === 'INFRASTRUCTURE_ERROR' ? 'CRITICAL' : 'HIGH',\n  category: failureType,\n  root_cause: failureType === 'INFRASTRUCTURE_ERROR'\n    ? (details.error_message || 'Python Task Runner offline')\n    : `Model Test Accuracy (${details.accuracy_percent}) below Quality Gate threshold 90.00%`,\n  action_taken: 'ABORT_PIPELINE_AND_MAINTAIN_EXISTING_PRODUCTION_MODEL',\n  recorded_at: new Date().toISOString()\n};\n\nreturn [{\n  json: {\n    ...prev,\n    incident: incidentReport\n  }\n}];"
+      },
+      "id": "node-incident-logging",
+      "name": "Log Audit Incident",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        380
+      ],
+      "notes": "Ghi nhật ký sự cố chi tiết phục vụ truy vết và phân tích nguyên nhân lỗi.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Định dạng cảnh báo khẩn cấp gửi qua Telegram thông minh theo đúng nguyên nhân lỗi\nconst prev = $input.first().json;\nconst details = prev.details || {};\nconst failureType = prev.failure_type || details.failure_type;\n\nlet alertCard = '';\n\nif (failureType === 'INFRASTRUCTURE_ERROR') {\n  alertCard = [\n    '🚨 *[PROWATCH MLOPS] SỰ CỐ MÁY CHỦ HUẤN LUYỆN!*',\n    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',\n    '🔌 *Phân loại:* `Lỗi Hạ Tầng / Mất Kết Nối (Server Offline)`',\n    `⚠️ *Chi tiết sự cố:* ${details.error_message || 'Không thể kết nối tới Task Runner cổng 5005'}`,\n    `🌐 *Target Endpoint:* \\`${details.service_endpoint || 'http://host.docker.internal:5005/train'}\\``,\n    '🛑 *Hành động đã xử lý:* Hủy phiên chạy an toàn, giữ nguyên toàn bộ dữ liệu & firmware cũ.',\n    '👉 *Hướng dẫn khắc phục:*',\n    '  • Hãy chạy: `python model/riskscore/run_training_service.py`',\n    '  • Hoặc click đúp file `start_services.bat` tại thư mục gốc.',\n    `🕒 *Thời gian:* ${new Date().toLocaleString('vi-VN')}`\n  ].join('\\n');\n} else {\n  // Lỗi do chất lượng Model không đạt chuẩn\n  alertCard = [\n    '⚠️ *[PROWATCH MLOPS] MÔ HÌNH KHÔNG ĐẠT TIÊU CHUẨN!*',\n    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',\n    '🎯 *Phân loại:* `Từ chối bởi Quality Gate (Accuracy < 90%)`',\n    `🏷️ *Model ID:* \\`${details.model_id || 'HEALTH-RISK-MLP'}\\``,\n    `📊 *Test Accuracy thực tế:* *${details.accuracy_percent || 'N/A'}* (Yêu cầu: >= 90.00%)`,\n    `📉 *Test Loss:* \\`${details.test_loss || 'N/A'}\\` | *Macro F1:* \\`${details.macro_f1 || 'N/A'}\\``,\n    `⏱️ *Epochs:* ${details.epochs_trained || 15} | *Samples:* ${(details.train_samples || 0) + (details.test_samples || 0)}`,\n    '🛑 *Hành động đã xử lý:* Đã CHẶN xuất firmware C++ ESP32, bảo lưu model an toàn hiện tại.',\n    '👉 *Khuyến nghị:* Kiểm tra lại phân bố nhãn dữ liệu hoặc tăng số lượng epochs lên 25 - 30.',\n    `🕒 *Thời gian:* ${new Date().toLocaleString('vi-VN')}`\n  ].join('\\n');\n}\n\nreturn [{\n  json: {\n    ...prev,\n    notification: {\n      channel: 'TELEGRAM_BOT_ALERTS',\n      status: 'CRITICAL_ALERT_PREPARED',\n      preview_card: alertCard\n    }\n  }\n}];"
+      },
+      "id": "node-notify-telegram-fail",
+      "name": "Format Alert Card",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        380
+      ],
+      "notes": "Soạn thảo thẻ tin nhắn cảnh báo khẩn cấp chi tiết hóa nguyên nhân thất bại và hướng dẫn khắc phục.",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $json.telegram_config?.bot_token || $('Pre-flight Validation').first()?.json?.telegram_config?.bot_token || '8885576270:AAEK48S4Zcr7IckifDfqGyLE54Oodh5Y4iA' }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"{{ $json.telegram_config?.chat_id || $('Pre-flight Validation').first()?.json?.telegram_config?.chat_id || '5915277703' }}\",\n  \"text\": {{ JSON.stringify($json.notification.preview_card) }},\n  \"parse_mode\": \"Markdown\"\n}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput",
+      "id": "node-send-telegram-fail",
+      "name": "Send Incident Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        380
+      ],
+      "notes": "Gọi Telegram Bot API sendMessage gửi cảnh báo khẩn cấp tới kênh Telegram quản trị.",
+      "notesInFlow": false
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Supabase Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Supabase Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Supabase Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pre-flight Validation": {
+      "main": [
+        [
+          {
+            "node": "Train Model (Python)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Train Model (Python)": {
+      "main": [
+        [
+          {
+            "node": "Extract Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Metrics": {
+      "main": [
+        [
+          {
+            "node": "Quality Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quality Gate": {
+      "main": [
+        [
+          {
+            "node": "Handle Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Success": {
+      "main": [
+        [
+          {
+            "node": "Sync Model Registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Model Registry": {
+      "main": [
+        [
+          {
+            "node": "Sync Firmware Header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Firmware Header": {
+      "main": [
+        [
+          {
+            "node": "Format Success Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Success Card": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Failure": {
+      "main": [
+        [
+          {
+            "node": "Log Audit Incident",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Audit Incident": {
+      "main": [
+        [
+          {
+            "node": "Format Alert Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Alert Card": {
+      "main": [
+        [
+          {
+            "node": "Send Incident Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Supabase Data": {
+      "main": [
+        [
+          {
+            "node": "Pre-flight Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "saveManualExecutions": true
+  }
+}

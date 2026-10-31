@@ -1,0 +1,64 @@
+[
+  {
+    "run_id": "train-3792",
+    "timestamp": "2026-10-31 16:25:50",
+    "trigger": "WEBHOOK",
+    "data_mode": "HYBRID",
+    "samples": 32401,
+    "supabase_samples": 48,
+    "accuracy": 0.9997,
+    "loss": 0.02325,
+    "macro_f1": 0.9996,
+    "status": "SUCCESS",
+    "quality_gate": "PASSED"
+  },
+  {
+    "run_id": "train-4418",
+    "timestamp": "2026-10-31 16:12:19",
+    "trigger": "WEBHOOK",
+    "data_mode": "HYBRID",
+    "samples": 32353,
+    "supabase_samples": 0,
+    "accuracy": 1.0,
+    "loss": 5e-05,
+    "macro_f1": 1.0,
+    "status": "SUCCESS",
+    "quality_gate": "PASSED"
+  },
+  {
+    "run_id": "exec-8492",
+    "timestamp": "2026-10-22 09:30:15",
+    "trigger": "SCHEDULED",
+    "data_mode": "HYBRID",
+    "samples": 32353,
+    "accuracy": 1.0,
+    "loss": 3e-05,
+    "macro_f1": 1.0,
+    "status": "SUCCESS",
+    "quality_gate": "PASSED"
+  },
+  {
+    "run_id": "exec-8450",
+    "timestamp": "2026-10-21 18:15:00",
+    "trigger": "SCHEDULED",
+    "data_mode": "HYBRID",
+    "samples": 12000,
+    "accuracy": 0.846,
+    "loss": 0.285,
+    "macro_f1": 0.832,
+    "status": "FAILED",
+    "quality_gate": "REJECTED (Acc 84.6% < 90%)"
+  },
+  {
+    "run_id": "exec-8411",
+    "timestamp": "2026-10-21 14:00:00",
+    "trigger": "MANUAL",
+    "data_mode": "LOCAL",
+    "samples": 32353,
+    "accuracy": 0.998,
+    "loss": 0.0012,
+    "macro_f1": 0.998,
+    "status": "SUCCESS",
+    "quality_gate": "PASSED"
+  }
+]

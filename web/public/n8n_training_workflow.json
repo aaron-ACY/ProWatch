@@ -1,0 +1,185 @@
+{
+  "name": "Automated AI Training Pipeline (Risk Score Model)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-manual-trigger",
+      "name": "Bắt đầu thủ công (Manual Trigger)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [160, 300],
+      "notes": "Bấm nút này trên giao diện n8n để chạy thử nghiệm ngay lập tức"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trigger-training",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "Webhook Trigger (Tự động hóa)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [160, 120],
+      "webhookId": "prowatch-automated-training",
+      "notes": "Nhận tín hiệu kích hoạt tự động qua: POST http://localhost:3636/webhook/trigger-training"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5005/train",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"epochs\": 15,\n  \"batch_size\": 32,\n  \"triggered_by\": \"n8n_automated_pipeline\",\n  \"timestamp\": \"{{ $now.toISO() }}\"\n}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "node-run-training",
+      "name": "Kích hoạt Huấn luyện Python",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 200],
+      "notes": "Gửi lệnh kích hoạt tiến trình huấn luyện model TinyML MLP trên host Windows qua cổng 5005"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Đọc và trích xuất chỉ số đánh giá từ phản hồi huấn luyện\nconst res = $input.first().json;\nconst metrics = res.metrics || {};\nconst trainingCfg = metrics.training_config || {};\n\nconst accuracy = parseFloat(metrics.test_accuracy || 0);\nconst loss = parseFloat(metrics.test_loss || 0);\nconst macroF1 = parseFloat(metrics.macro_f1 || 0);\nconst status = res.status || (accuracy > 0 ? 'SUCCESS' : 'FAILED');\n\nreturn [{\n  json: {\n    status: status,\n    model_id: metrics.model_id || 'HEALTH-RISK-MLP-v1.0',\n    test_accuracy: accuracy,\n    accuracy_percent: (accuracy * 100).toFixed(2) + '%',\n    test_loss: loss.toFixed(5),\n    macro_f1: macroF1.toFixed(4),\n    epochs_trained: trainingCfg.epochs_trained || 15,\n    train_samples: trainingCfg.train_samples || 20705,\n    test_samples: trainingCfg.test_samples || 6471,\n    artifacts_path: 'model/riskscore/artifacts',\n    execution_time: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-parse-metrics",
+      "name": "Trích xuất Metrics & Chỉ số",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 200],
+      "notes": "Phân tích Accuracy, F1-Score, Loss và định dạng cấu trúc dữ liệu"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-accuracy-threshold",
+              "leftValue": "={{ $json.test_accuracy }}",
+              "rightValue": 0.90,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "cond-status-success",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "SUCCESS",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "node-check-quality-gate",
+      "name": "Kiểm tra chất lượng (Quality Gate >= 90%)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [920, 200],
+      "notes": "Kiểm định chất lượng: Test Accuracy >= 90% và trạng thái huấn luyện = SUCCESS"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nreturn [{\n  json: {\n    pipeline_result: 'PASS',\n    status: 'MODEL_READY_FOR_DEPLOYMENT',\n    message: `✅ Huấn luyện thành công xuất sắc! Mô hình ${data.model_id} đạt Test Accuracy ${data.accuracy_percent} (F1: ${data.macro_f1}, Loss: ${data.test_loss}).`,\n    details: data,\n    artifacts: [\n      'health_risk_model.keras',\n      'scaler.pkl',\n      'label_encoder.pkl',\n      'feature_config.json',\n      'training_metrics.json'\n    ],\n    next_step: 'Sẵn sàng lượng tử hóa INT8 và nhúng vào firmware XIAO ESP32-S3'\n  }\n}];"
+      },
+      "id": "node-success-handler",
+      "name": "Xử lý Thành công (Mô hình đạt chuẩn)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1180, 100],
+      "notes": "Nhánh thành công: Xác nhận model đạt chuẩn, tạo thông báo và sẵn sàng xuất sang ESP32"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nreturn [{\n  json: {\n    pipeline_result: 'FAIL',\n    status: 'TRAINING_REJECTED',\n    message: `❌ Huấn luyện thất bại hoặc chưa đạt chuẩn! Độ chính xác ${data.accuracy_percent} dưới ngưỡng tối thiểu 90.00%.`,\n    details: data,\n    action_required: 'Kiểm tra lại dữ liệu đầu vào hoặc tăng số epochs huấn luyện.'\n  }\n}];"
+      },
+      "id": "node-failure-handler",
+      "name": "Xử lý Thất bại (Cảnh báo & Dừng)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1180, 320],
+      "notes": "Nhánh thất bại: Cảnh báo chất lượng không đạt, giữ nguyên phiên bản model cũ"
+    }
+  ],
+  "connections": {
+    "Bắt đầu thủ công (Manual Trigger)": {
+      "main": [
+        [
+          {
+            "node": "Kích hoạt Huấn luyện Python",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger (Tự động hóa)": {
+      "main": [
+        [
+          {
+            "node": "Kích hoạt Huấn luyện Python",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kích hoạt Huấn luyện Python": {
+      "main": [
+        [
+          {
+            "node": "Trích xuất Metrics & Chỉ số",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trích xuất Metrics & Chỉ số": {
+      "main": [
+        [
+          {
+            "node": "Kiểm tra chất lượng (Quality Gate >= 90%)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kiểm tra chất lượng (Quality Gate >= 90%)": {
+      "main": [
+        [
+          {
+            "node": "Xử lý Thành công (Mô hình đạt chuẩn)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Xử lý Thất bại (Cảnh báo & Dừng)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}
+

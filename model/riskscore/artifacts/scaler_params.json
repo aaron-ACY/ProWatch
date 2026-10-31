@@ -1,0 +1,26 @@
+{
+  "features": [
+    "HR",
+    "SpO2",
+    "Temp",
+    "Height",
+    "Weight",
+    "BMI"
+  ],
+  "mean": {
+    "HR": 89.0747,
+    "SpO2": 98.2665,
+    "Temp": 36.7057,
+    "Height": 174.7688,
+    "Weight": 68.3514,
+    "BMI": 22.1842
+  },
+  "scale": {
+    "HR": 22.9967,
+    "SpO2": 0.5028,
+    "Temp": 0.3003,
+    "Height": 8.7674,
+    "Weight": 12.1926,
+    "BMI": 1.7255
+  }
+}

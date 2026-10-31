@@ -1,0 +1,27 @@
+# Python Virtual Environment
+.venv/
+venv/
+env/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data & Large Files (Giữ lại file cấu trúc, không commit dataset lớn)
+data/*
+!data/.gitkeep
+!data/*.sample.csv
+
+# Saved Model Checkpoints & Weights
+saved_models/*
+!saved_models/.gitkeep
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+*.log

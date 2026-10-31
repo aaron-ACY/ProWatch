@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["DOM", "ESNext"],
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "strict": true,
+    "moduleResolution": "bundler",
+    "customConditions": ["react-native"],
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "mobile/frontend/src/**/*",
+    "mobile/frontend/App.tsx",
+    "mobile/frontend/index.ts"
+  ],
+  "exclude": [
+    "mobile/frontend/node_modules",
+    "mobile/frontend/android",
+    "mobile/frontend/ios",
+    "web/node_modules",
+    "web/dist"
+  ]
+}
