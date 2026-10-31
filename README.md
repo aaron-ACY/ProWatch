@@ -23,47 +23,37 @@ The system deploys an ultra-lightweight **TinyML (Multilayer Perceptron)** neura
 ## 🏛️ 2. System Architecture
 
 ```mermaid
-flowchart LR
-    %% 1. Wearable Edge
-    subgraph EDGE["⌚ 1. Wearable Edge Hardware"]
-        direction TB
-        SENS["Sensors<br/>MAX30102 (PPG) + MPU6050 (IMU)"] --> MCU["Seeed XIAO ESP32-S3<br/><b>TinyML INT8</b> (1.2ms | 3.1KB)"]
+flowchart TD
+    %% 1. Real-Time Ingestion
+    subgraph TIER1["⚡ 1. Real-Time Wearable Edge & Ingestion Pipeline"]
+        direction LR
+        SENS["Sensors<br/>MAX30102 + MPU6050"] --> MCU["Seeed XIAO ESP32-S3<br/><b>TinyML INT8</b> (1.2ms | 3.1KB)"]
+        MCU -->|BLE / Wi-Fi| APP["Mobile Gateway<br/>(React Native App)"]
+        APP -->|Telemetry REST| BOOT["Spring Boot Backend (:8080)<br/><b>REST & WebSocket API</b> (Java 21)"]
+        BOOT -->|JPA Persistence| DB[("Supabase Cloud DB<br/>(PostgreSQL Telemetry)")]
     end
 
-    %% 2. Ingestion & Cloud
-    subgraph CLOUD["☁️ 2. Backend & Cloud Infrastructure"]
-        direction TB
-        APP["Mobile Gateway<br/>(React Native / BLE)"]
-        BOOT["Spring Boot Backend (:8080)<br/><b>REST & WebSocket API</b> (Java 21)"]
-        DB[("Supabase Cloud DB<br/>(PostgreSQL Telemetry)")]
-        APP -->|Telemetry REST| BOOT
-        BOOT -->|JPA Persistence| DB
-    end
-
-    %% 3. Automated MLOps
-    subgraph MLOPS["🔄 3. Automated MLOps Pipeline"]
-        direction TB
-        N8N["n8n Orchestrator<br/>(17-Node Workflow Engine)"] --> TRAIN["Python Training Runner<br/>(TensorFlow 2.13 Hybrid)"]
+    %% 2. Automated MLOps
+    subgraph TIER2["🔄 2. Automated MLOps & Continuous Training Pipeline"]
+        direction LR
+        N8N["n8n Orchestrator (:3636)<br/>(17-Node Workflow Engine)"] --> TRAIN["Python Training Runner (:5005)<br/>(TensorFlow 2.13 Hybrid)"]
         TRAIN --> GATE{"Quality Gate<br/>Accuracy ≥ 90%?"}
         GATE -->|Pass| REG["Model Registry<br/>➔ INT8 C++ Header (.h)"]
         GATE -->|Fail| LOG["Audit Incident & Block"]
+        REG --> OTA["Firmware Flashing / OTA<br/>(Deploy to ESP32-S3)"]
     end
 
-    %% 4. Control & Telemetry
-    subgraph OPS["📊 4. Telemetry, Control & Delivery"]
-        direction TB
-        WEB["Next.js Web Dashboard (:3000)<br/>Real-Time Telemetry & Visual Canvas"]
+    %% 3. Operations & Control
+    subgraph TIER3["📊 3. Monitoring, Telemetry & Control"]
+        direction LR
+        DASH["Next.js Web Dashboard (:3000)<br/>Real-Time Telemetry & Visual Canvas"]
         BOT["Telegram Assistant Bot<br/>/train, /history, /metrics, Alerts"]
-        OTA["Firmware Deployment<br/>(Automated Build & Flashing)"]
     end
 
-    %% Cross-subgraph data & control streams
-    MCU -->|BLE / Wi-Fi Stream| APP
-    DB -->|Batch Records| N8N
-    N8N <-->|Trigger & Monitor| WEB
-    REG --> OTA
+    %% Cross-Tier Pipeline Connections
+    DB ==>|Batch Training Sync| N8N
     REG & LOG --> BOT
-    OTA -.->|Deploy Model Header| MCU
+    N8N <--> DASH
 ```
 
 ---
