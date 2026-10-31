@@ -22,39 +22,44 @@ The system deploys an ultra-lightweight **TinyML (Multilayer Perceptron)** neura
 ## 🏛️ 2. System Architecture
 
 ```mermaid
-flowchart TD
-    subgraph EDGE["1. Wearable Edge Hardware"]
-        SENSORS["MAX30102 PPG Sensor (HR & SpO2)<br>+ MPU6050 (6-Axis IMU Accelerometer)"] --> MCU["Seeed Studio XIAO ESP32-S3<br>(Xtensa Dual-Core 240MHz)"]
-        TINYML["TinyML INT8 Quantized Array<br>(3.1 KB Flash | 1.2ms Latency)"] -.->|Directly Embedded| MCU
+flowchart LR
+    %% 1. Wearable Edge
+    subgraph EDGE["⌚ 1. Wearable Edge Hardware"]
+        direction TB
+        SENS["Sensors<br/>MAX30102 (PPG) + MPU6050 (IMU)"] --> MCU["Seeed XIAO ESP32-S3<br/><b>TinyML INT8</b> (1.2ms | 3.1KB)"]
     end
 
-    subgraph CONNECT["2. Connectivity & Ingestion"]
-        MCU -->|Bluetooth Low Energy BLE| MOBILE["ProWatch Mobile Application<br>(React Native / Android APK)"]
-        MOBILE -->|HTTPS REST API| SUPABASE[("Supabase Cloud Database<br>PostgreSQL REST API")]
+    %% 2. Ingestion & Cloud
+    subgraph CLOUD["☁️ 2. Connectivity & Cloud DB"]
+        direction TB
+        APP["Mobile Gateway<br/>(React Native / BLE ➔ HTTPS)"] --> DB[("Supabase Cloud DB<br/>(PostgreSQL Telemetry)")]
     end
 
-    subgraph MLOPS["3. Automated MLOps Pipeline (n8n 17 Nodes)"]
-        CRON["Weekly Schedule Cron (02:00 Sun)"] --> N8N["n8n Orchestrator (:3636)"]
-        WEBHOOK["Webhook Trigger"] --> N8N
-        MANUAL["Web Dashboard / Bot Trigger"] --> N8N
-        N8N -->|Fetch real-time records| SUPABASE
-        N8N -->|POST /train| RUNNER["Python Training Runner (:5005)<br>(TensorFlow 2.13 MLP)"]
-        RUNNER -->|HYBRID Strategy| DATASET[("32,353 WESAD Baseline Samples<br>+ Live Supabase Cloud Records")]
-        RUNNER --> GATE{"Quality Gate<br>Accuracy >= 90%?"}
-        GATE -- PASS ✅ --> SYNC["Sync Model Registry<br>➔ INT8 Quantization<br>➔ Export C++ Header (.h)"]
-        GATE -- FAIL ❌ --> FAIL["Handle Failure<br>➔ Log Audit Incident<br>➔ Block Corrupt Firmware"]
-        SYNC --> TELEGRAM["Dispatch Success Card<br>via Telegram Bot"]
-        FAIL --> TELEGRAM
+    %% 3. Automated MLOps
+    subgraph MLOPS["🔄 3. Automated MLOps Pipeline"]
+        direction TB
+        N8N["n8n Orchestrator<br/>(17-Node Workflow Engine)"] --> TRAIN["Python Training Runner<br/>(TensorFlow 2.13 Hybrid)"]
+        TRAIN --> GATE{"Quality Gate<br/>Accuracy ≥ 90%?"}
+        GATE -->|Pass| REG["Model Registry<br/>➔ INT8 C++ Header (.h)"]
+        GATE -->|Fail| LOG["Audit Incident & Block"]
     end
 
-    subgraph DASHBOARD["4. Monitoring & Telemetry"]
-        WEB["ProWatch Web Dashboard (:3000)<br>Next.js 14 + Visual n8n Canvas"]
-        BOT["Telegram Bot Assistant<br>/train, /history, /status, /metrics, /health"]
+    %% 4. Control & Telemetry
+    subgraph OPS["📊 4. Telemetry, Control & Delivery"]
+        direction TB
+        WEB["Next.js Web Dashboard (:3000)<br/>Real-Time Telemetry & Visual Canvas"]
+        BOT["Telegram Assistant Bot<br/>/train, /history, /metrics, Alerts"]
+        OTA["Firmware Deployment<br/>(Automated Build & Flashing)"]
     end
 
-    SYNC -.->|Firmware OTA / USB Flashing| MCU
-    WEB <--> N8N
-    BOT <--> RUNNER
+    %% Cross-subgraph data & control streams
+    MCU -->|BLE Stream| APP
+    APP -->|REST Ingestion| DB
+    DB -->|Batch Records| N8N
+    N8N <-->|Trigger & Monitor| WEB
+    REG --> OTA
+    REG & LOG --> BOT
+    OTA -.->|Deploy Model Header| MCU
 ```
 
 ---
