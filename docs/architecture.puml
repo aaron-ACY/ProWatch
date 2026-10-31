@@ -1,0 +1,93 @@
+@startuml ProWatch_System_Architecture
+!theme plain
+left to right direction
+skinparam backgroundColor #0D1117
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontColor #C9D1D9
+skinparam defaultFontSize 11
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam ArrowColor #8B949E
+skinparam ArrowFontColor #8B949E
+skinparam ArrowFontSize 10
+
+' Subgraph & Card styling matching GitHub Dark Theme
+skinparam rectangle {
+    BackgroundColor #161B22
+    BorderColor #30363D
+    FontColor #58A6FF
+    FontSize 12
+    FontStyle bold
+}
+
+skinparam card {
+    BackgroundColor #21262D
+    BorderColor #30363D
+    FontColor #F0F6FC
+}
+
+skinparam database {
+    BackgroundColor #21262D
+    BorderColor #30363D
+    FontColor #F0F6FC
+}
+
+' ==============================================================================
+' 1. WEARABLE EDGE HARDWARE
+' ==============================================================================
+rectangle "  1. Wearable Edge Hardware  " as EDGE {
+    card "Sensors\nMAX30102 (PPG) +\nMPU6050 (IMU)" as SENS
+    card "Seeed XIAO ESP32-S3\n<b>TinyML INT8</b>\n(1.2ms | 3.1KB)" as MCU
+    SENS -> MCU
+}
+
+' ==============================================================================
+' 2. BACKEND & CLOUD INFRASTRUCTURE
+' ==============================================================================
+rectangle "  2. Backend & Cloud Infrastructure  " as CLOUD {
+    card "Mobile Gateway\n(React Native / BLE)" as APP
+    card "Spring Boot Backend (:8080)\n<b>REST & WebSocket API</b>\n(Java 21)" as BOOT
+    database "Supabase Cloud DB\n(PostgreSQL Telemetry)" as DB
+    
+    APP -> BOOT : Telemetry REST
+    BOOT -> DB : JPA Persistence
+}
+
+' ==============================================================================
+' 3. AUTOMATED MLOPS PIPELINE
+' ==============================================================================
+rectangle "  3. Automated MLOps Pipeline  " as MLOPS {
+    card "n8n Orchestrator\n(17-Node Workflow Engine)" as N8N
+    card "Python Training Runner\n(TensorFlow 2.13 Hybrid)" as TRAIN
+    card "<b>Quality Gate</b>\nAccuracy >= 90%?" as GATE #1B222A
+    card "Audit Incident\n& Block" as LOG
+    card "Model Registry\n➔ INT8 C++ Header (.h)" as REG
+    
+    N8N -> TRAIN
+    TRAIN -> GATE
+    GATE -> LOG : Fail
+    GATE -> REG : Pass
+}
+
+' ==============================================================================
+' 4. TELEMETRY, CONTROL & DELIVERY
+' ==============================================================================
+rectangle "  4. Telemetry, Control & Delivery  " as OPS {
+    card "Next.js Web Dashboard (:3000)\nReal-Time Telemetry & Visual Canvas" as WEB
+    card "Telegram Assistant Bot\n/train, /history, /metrics, Alerts" as BOT
+    card "Firmware Deployment\n(Automated Build & Flashing)" as OTA
+}
+
+' ==============================================================================
+' CROSS-TIER DATA & CONTROL FLOWS
+' ==============================================================================
+MCU --> APP : BLE / Wi-Fi Stream
+DB --> N8N : Batch Records
+N8N <--> WEB : Trigger & Monitor
+REG --> OTA
+REG --> BOT
+LOG --> BOT
+OTA ..> MCU : Deploy Model Header
+
+@enduml
+

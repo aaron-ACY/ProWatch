@@ -22,39 +22,11 @@ The system deploys an ultra-lightweight **TinyML (Multilayer Perceptron)** neura
 
 ## 🏛️ 2. System Architecture
 
-```mermaid
-flowchart TD
-    %% 1. Real-Time Ingestion
-    subgraph TIER1["⚡ 1. Real-Time Wearable Edge & Ingestion Pipeline"]
-        direction LR
-        SENS["Sensors<br/>MAX30102 + MPU6050"] --> MCU["Seeed XIAO ESP32-S3<br/><b>TinyML INT8</b> (1.2ms | 3.1KB)"]
-        MCU -->|BLE / Wi-Fi| APP["Mobile Gateway<br/>(React Native App)"]
-        APP -->|Telemetry REST| BOOT["Spring Boot Backend (:8080)<br/><b>REST & WebSocket API</b> (Java 21)"]
-        BOOT -->|JPA Persistence| DB[("Supabase Cloud DB<br/>(PostgreSQL Telemetry)")]
-    end
+<p align="center">
+  <img src="docs/architecture.svg" alt="ProWatch AI - System Architecture" width="100%" />
+</p>
 
-    %% 2. Automated MLOps
-    subgraph TIER2["🔄 2. Automated MLOps & Continuous Training Pipeline"]
-        direction LR
-        N8N["n8n Orchestrator (:3636)<br/>(17-Node Workflow Engine)"] --> TRAIN["Python Training Runner (:5005)<br/>(TensorFlow 2.13 Hybrid)"]
-        TRAIN --> GATE{"Quality Gate<br/>Accuracy ≥ 90%?"}
-        GATE -->|Pass| REG["Model Registry<br/>➔ INT8 C++ Header (.h)"]
-        GATE -->|Fail| LOG["Audit Incident & Block"]
-        REG --> OTA["Firmware Flashing / OTA<br/>(Deploy to ESP32-S3)"]
-    end
-
-    %% 3. Operations & Control
-    subgraph TIER3["📊 3. Monitoring, Telemetry & Control"]
-        direction LR
-        DASH["Next.js Web Dashboard (:3000)<br/>Real-Time Telemetry & Visual Canvas"]
-        BOT["Telegram Assistant Bot<br/>/train, /history, /metrics, Alerts"]
-    end
-
-    %% Cross-Tier Pipeline Connections
-    DB ==>|Batch Training Sync| N8N
-    REG & LOG --> BOT
-    N8N <--> DASH
-```
+*Diagram designed with PlantUML. Source specification maintained in [`docs/architecture.puml`](docs/architecture.puml).*
 
 ---
 
@@ -62,6 +34,11 @@ flowchart TD
 
 ```text
 smart-watch/
+├── docs/                           # Architectural diagrams, specifications & SQL schemas
+│   ├── architecture.svg            # End-to-end system architecture vector diagram
+│   ├── architecture.puml           # PlantUML source code for architecture diagram
+│   └── supabase_schema.sql         # Production Supabase PostgreSQL table schemas
+│
 ├── firmware/                       # Embedded C++ firmware for the smartwatch microcontroller
 │   ├── xiao_esp32s3_prowatch/      # Arduino / ESP-IDF sketch for XIAO ESP32-S3
 │   │   ├── xiao_esp32s3_prowatch.ino
