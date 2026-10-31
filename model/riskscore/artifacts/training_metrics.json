@@ -1,19 +1,19 @@
 {
   "status": "SUCCESS",
   "model_id": "HEALTH-RISK-MLP-v1.0",
-  "timestamp": "2026-10-31T16:25:50.088423",
+  "timestamp": "2026-10-31T23:41:09.038812",
   "data_mode": "hybrid",
   "baseline_samples": 32353,
   "supabase_samples": 48,
   "total_samples": 32401,
-  "test_loss": 0.02325209230184555,
-  "test_accuracy": 0.9996914267539978,
-  "macro_precision": 0.9997738579828133,
-  "macro_recall": 0.9995147986414362,
-  "macro_f1": 0.9996441849689148,
-  "weighted_precision": 0.9996915452195755,
-  "weighted_recall": 0.9996914056472767,
-  "weighted_f1": 0.9996913656467019,
+  "test_loss": 4.695831739809364e-05,
+  "test_accuracy": 1.0,
+  "macro_precision": 1.0,
+  "macro_recall": 1.0,
+  "macro_f1": 1.0,
+  "weighted_precision": 1.0,
+  "weighted_recall": 1.0,
+  "weighted_f1": 1.0,
   "confusion_matrix": [
     [
       4420,
@@ -21,8 +21,8 @@
       0
     ],
     [
-      2,
-      2059,
+      0,
+      2061,
       0
     ],
     [
@@ -33,28 +33,28 @@
   ],
   "classification_report": {
     "Low": {
-      "precision": 0.9995477159656264,
+      "precision": 1.0,
       "recall": 1.0,
-      "f1-score": 0.9997738068310337,
+      "f1-score": 1.0,
       "support": 4420.0
     },
     "Medium": {
       "precision": 1.0,
-      "recall": 0.9990295972828724,
-      "f1-score": 0.9995145631067961,
+      "recall": 1.0,
+      "f1-score": 1.0,
       "support": 2061.0
     },
-    "accuracy": 0.9996914056472767,
+    "accuracy": 1.0,
     "macro avg": {
-      "precision": 0.9997738579828133,
-      "recall": 0.9995147986414362,
-      "f1-score": 0.9996441849689148,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
       "support": 6481.0
     },
     "weighted avg": {
-      "precision": 0.9996915452195755,
-      "recall": 0.9996914056472767,
-      "f1-score": 0.9996913656467019,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
       "support": 6481.0
     }
   },
