@@ -108,6 +108,10 @@ next-env.d.ts
 # 4. Mobile Application (mobile/)
 # ------------------------------------------------------------------------------
 mobile/**/node_modules/
+mobile/**/.expo/
+mobile/**/dist/
+mobile/**/web-build/
+mobile/**/.claude/
 mobile/**/.dart_tool/
 mobile/**/.flutter-plugins
 mobile/**/.flutter-plugins-dependencies
