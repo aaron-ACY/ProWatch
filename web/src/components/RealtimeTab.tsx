@@ -51,7 +51,7 @@ export const RealtimeTab: React.FC<RealtimeTabProps> = ({
 
   // 3D Watch Interactive States
   const [strapColor, setStrapColor] = useState<StrapColor>('OBSIDIAN');
-  const [watchFaceTheme, setWatchFaceTheme] = useState<WatchFaceTheme>('CYBERPUNK');
+  const watchFaceTheme: WatchFaceTheme = 'PIPBOY';
   const [autoRotate, setAutoRotate] = useState<boolean>(true);
   const [motionSync, setMotionSync] = useState<boolean>(false);
   const [explodedProgress, setExplodedProgress] = useState<number>(0);
@@ -212,7 +212,7 @@ export const RealtimeTab: React.FC<RealtimeTabProps> = ({
                   PERSPECTIVE: 'Góc 3D (3/4)',
                   FRONT: 'Mặt trước',
                   BACK_SENSOR: 'Mặt đáy (Cảm biến)',
-                  SIDE: 'Cạnh núm xoay',
+                  SIDE: 'Cạnh bên',
                 };
                 const isSelected = cameraPreset === preset;
                 return (
@@ -388,41 +388,37 @@ export const RealtimeTab: React.FC<RealtimeTabProps> = ({
               </div>
             </div>
 
-            {/* 2. Watch Face Theme Switcher */}
+            {/* 2. Watch Face Display Info (Exclusively Pip-Boy 3000) */}
             <div>
               <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>
-                GIAO DIỆN MẶT ĐỒNG HỒ (OLED THEME):
+                MẶT ĐỒNG HỒ ĐỘC QUYỀN:
               </span>
-              <div style={{ display: 'flex', gap: '0.35rem' }}>
-                {(['CYBERPUNK', 'MEDICAL', 'MINIMAL', 'PIPBOY'] as WatchFaceTheme[]).map((theme) => {
-                  const isSelected = watchFaceTheme === theme;
-                  const labels: Record<WatchFaceTheme, string> = {
-                    CYBERPUNK: 'Cyberpunk',
-                    MEDICAL: 'Y tế ICU',
-                    MINIMAL: 'Tối giản',
-                    PIPBOY: 'Pip-Boy',
-                  };
-                  return (
-                    <button
-                      key={theme}
-                      onClick={() => setWatchFaceTheme(theme)}
-                      style={{
-                        flex: 1,
-                        padding: '0.4rem 0.2rem',
-                        fontSize: '0.68rem',
-                        fontWeight: isSelected ? 700 : 500,
-                        borderRadius: '6px',
-                        border: isSelected ? '1px solid #06b6d4' : '1px solid rgba(255,255,255,0.1)',
-                        backgroundColor: isSelected ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255,255,255,0.03)',
-                        color: isSelected ? '#38bdf8' : '#94a3b8',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      {labels[theme]}
-                    </button>
-                  );
-                })}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.45rem 0.75rem',
+                borderRadius: '8px',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                backgroundColor: 'rgba(6, 78, 59, 0.25)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#4ade80', boxShadow: '0 0 8px #4ade80' }} />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#6ee7b7', fontFamily: 'monospace' }}>
+                    PIP-BOY 3000 (VAULT-TEC)
+                  </span>
+                </div>
+                <span style={{
+                  fontSize: '0.62rem',
+                  backgroundColor: '#064e3b',
+                  color: '#86efac',
+                  padding: '0.15rem 0.45rem',
+                  borderRadius: '4px',
+                  fontWeight: 700,
+                  fontFamily: 'monospace',
+                }}>
+                  PHOSPHOR CRT
+                </span>
               </div>
             </div>
 

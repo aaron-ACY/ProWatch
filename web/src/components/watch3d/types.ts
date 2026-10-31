@@ -1,4 +1,4 @@
-export type WatchFaceTheme = 'CYBERPUNK' | 'MEDICAL' | 'MINIMAL' | 'PIPBOY';
+export type WatchFaceTheme = 'PIPBOY';
 
 export type StrapColor = 'OBSIDIAN' | 'TITANIUM' | 'NAVY' | 'CRIMSON';
 
@@ -46,3 +46,4 @@ export interface Watch3DState {
   explodedProgress: number; // 0 (assembled) to 1 (fully exploded)
   cameraPreset: CameraPreset;
 }
+

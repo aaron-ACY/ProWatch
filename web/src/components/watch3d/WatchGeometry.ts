@@ -110,30 +110,17 @@ export function createWatch3DModel(screenTexture: THREE.CanvasTexture, initialSt
   caseMesh.castShadow = true;
   caseMesh.receiveShadow = true;
 
-  // Digital Crown on the right side (+X)
-  const crownGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.35, 24);
-  crownGeo.rotateZ(Math.PI / 2);
-  const crownMaterial = new THREE.MeshStandardMaterial({
+  // Metallic hardware material for buttons and buckle
+  const metalMaterial = new THREE.MeshStandardMaterial({
     color: 0x94a3b8,
     metalness: 0.95,
     roughness: 0.25,
   });
-  const crownMesh = new THREE.Mesh(crownGeo, crownMaterial);
-  crownMesh.position.set(caseWidth / 2 + 0.22, 0.85, 0);
-  caseMesh.add(crownMesh);
 
-  // Digital Crown Red accent ring
-  const ringGeo = new THREE.TorusGeometry(0.28, 0.04, 12, 24);
-  ringGeo.rotateY(Math.PI / 2);
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0xff6d5a });
-  const crownRing = new THREE.Mesh(ringGeo, ringMat);
-  crownRing.position.set(caseWidth / 2 + 0.38, 0.85, 0);
-  caseMesh.add(crownRing);
-
-  // Side Action Button
-  const buttonGeo = new THREE.BoxGeometry(0.18, 0.8, 0.22);
-  const buttonMesh = new THREE.Mesh(buttonGeo, crownMaterial);
-  buttonMesh.position.set(caseWidth / 2 + 0.1, -0.75, 0);
+  // Sleek side flush button (no rotating crown knob)
+  const buttonGeo = new THREE.BoxGeometry(0.12, 0.75, 0.2);
+  const buttonMesh = new THREE.Mesh(buttonGeo, metalMaterial);
+  buttonMesh.position.set(caseWidth / 2 + 0.06, 0, 0);
   caseMesh.add(buttonMesh);
 
   // Mic hole
@@ -208,7 +195,7 @@ export function createWatch3DModel(screenTexture: THREE.CanvasTexture, initialSt
 
   // Buckle on bottom strap
   const buckleGeo = new THREE.BoxGeometry(strapWidth + 0.15, 0.4, 0.35);
-  const buckleMesh = new THREE.Mesh(buckleGeo, crownMaterial);
+  const buckleMesh = new THREE.Mesh(buckleGeo, metalMaterial);
   buckleMesh.position.set(0, -caseHeight / 2 - 2.8, -1.2);
   strapsGroup.add(buckleMesh);
 
