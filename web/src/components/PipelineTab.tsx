@@ -575,7 +575,7 @@ const int health_risk_model_int8_len = 3104; // 3.03 KB
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Chọn n8n Workflow:
+            n8n Workflow Pipeline:
           </span>
 
           {/* Unified Single Workflow Header Badge */}
@@ -603,25 +603,9 @@ const int health_risk_model_int8_len = 3104; // 3.03 KB
             }}>
               n
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc' }}>
-                Automated AI Training Pipeline (Risk Score Model)
-              </span>
-              <span style={{
-                fontSize: '0.65rem',
-                backgroundColor: '#1e3a2f',
-                color: '#4ade80',
-                padding: '0.15rem 0.5rem',
-                borderRadius: '999px',
-                fontWeight: 800,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.3rem'
-              }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#4ade80' }} />
-                Active (pOMF8He4573saS5R)
-              </span>
-            </div>
+            <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc' }}>
+              Automated AI Training Pipeline (Risk Score Model)
+            </span>
           </div>
         </div>
 
@@ -713,21 +697,7 @@ const int health_risk_model_int8_len = 3104; // 3.03 KB
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f1f5f9' }}>
-                  'ProWatch Unified Workflow: Automated AI Training Pipeline (Risk Score Model)'
-                </span>
-                <span style={{
-                  backgroundColor: '#1e3a2f',
-                  color: '#4ade80',
-                  fontSize: '0.7rem',
-                  fontWeight: 700,
-                  padding: '0.15rem 0.5rem',
-                  borderRadius: '999px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem'
-                }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#4ade80' }} />
-                  Active
+                  ProWatch Unified Workflow: Automated AI Training Pipeline (Risk Score Model)
                 </span>
               </div>
               <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
