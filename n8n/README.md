@@ -9,7 +9,13 @@ Thư mục chứa cấu hình Docker và các workflow tự động hóa điều
 4. **Cập nhật Model Registry**: Ghi lại chỉ số đánh giá (Accuracy, F1-Score, Loss) vào Supabase để Web Dashboard hiển thị.
 
 ## Khởi chạy n8n:
-```bash
+Từ thư mục gốc dự án:
+```powershell
+# Cách 1: Khởi động qua Docker Compose
+cd n8n
 docker compose up -d
+
+# Hoặc khởi động nhanh container đã có sẵn
+docker start n8n_prowatch
 ```
-Giao diện quản trị n8n mở tại: `http://localhost:5678`
+Giao diện quản trị n8n mở tại: `http://localhost:3636` (được map từ cổng 5678 bên trong container sang cổng 3636 của máy host).
