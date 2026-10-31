@@ -237,5 +237,5 @@ Communicate with your ProWatch assistant via Telegram using the following slash 
 ## 📄 9. License & Authors
 
 - **Project:** ProWatch AI Smartwatch & Automated MLOps Pipeline.
-- **Author:** HuuDan & ProWatch Development Team.
+- **Author:** HuuDan.
 - **License:** Open for academic research, biomedical engineering, and intelligent wearable development.
