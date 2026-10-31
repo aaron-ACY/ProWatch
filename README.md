@@ -146,6 +146,7 @@ Key menu options:
 - **`[5]`**: Launch individual microservices (`3000`, `3636`, `5005`).
 - **`[6]`**: Start the Telegram Bot Listener.
 - **`[7]`**: Clean up `__pycache__` and residual build cache files.
+- **`[10]`**: View TinyML model training run history and Quality Gate audit logs (`--history`).
 
 ---
 

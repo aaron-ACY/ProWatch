@@ -654,6 +654,20 @@ def main():
 
     bot_info = me.get("result", {})
     print(f"[+] Bot da ket noi thanh cong: @{bot_info.get('username')} ({bot_info.get('first_name')})")
+    
+    # Tu dong dang ky Menu lenh tren giao dien Telegram (/history, /train, /status...)
+    bot_commands = [
+        {"command": "start", "description": "Khởi động bot & giới thiệu hệ thống"},
+        {"command": "train", "description": "🚀 Kích hoạt huấn luyện lại mô hình AI TinyML"},
+        {"command": "status", "description": "🖥️ Kiểm tra trạng thái n8n, Runner & ESP32"},
+        {"command": "metrics", "description": "📊 Xem thông số độ chính xác & loss mô hình"},
+        {"command": "history", "description": "📜 Xem lịch sử các đợt huấn luyện mô hình"},
+        {"command": "health", "description": "❤️ Tra cứu nhịp tim & SpO2 thực tế từ Cloud"},
+        {"command": "clean", "description": "🧹 Dọn dẹp cache hệ thống & giải phóng bộ nhớ"},
+        {"command": "help", "description": "ℹ️ Hướng dẫn sử dụng chi tiết"}
+    ]
+    telegram_api(token, "setMyCommands", {"commands": bot_commands})
+    print("[+] Da cap nhat Menu lenh Telegram bao gom /history thanh cong.")
     print("[+] Dang lang nghe tin nhan (Long Polling)... Hay mo Telegram va gui lenh!")
 
     offset = 0
