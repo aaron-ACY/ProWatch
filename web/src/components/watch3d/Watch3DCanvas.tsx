@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { SensorTelemetry } from '../../types/sensor';
 import { AIPrediction } from '../../types/ai';
 import { WatchScreenTexture } from './WatchScreenTexture';
@@ -38,6 +39,16 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
   const targetCameraPos = useRef<THREE.Vector3>(new THREE.Vector3(3.8, 2.8, 6.2));
   const isUserInteractingRef = useRef<boolean>(false);
 
+  // Fresh refs to prevent stale closure in requestAnimationFrame loop
+  const autoRotateRef = useRef(autoRotate);
+  autoRotateRef.current = autoRotate;
+  const motionSyncRef = useRef(motionSync);
+  motionSyncRef.current = motionSync;
+  const telemetryRef = useRef(telemetry);
+  telemetryRef.current = telemetry;
+  const predictionRef = useRef(prediction);
+  predictionRef.current = prediction;
+
   // Sync Strap Color changes
   useEffect(() => {
     if (modelRef.current) {
@@ -57,13 +68,20 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
     if (!controlsRef.current || isUserInteractingRef.current) return;
 
     if (cameraPreset === 'FRONT') {
-      targetCameraPos.current.set(0, 0, 7.5);
+      targetCameraPos.current.set(0, -0.2, 9.6);
     } else if (cameraPreset === 'PERSPECTIVE') {
-      targetCameraPos.current.set(3.8, 2.8, 6.2);
+      targetCameraPos.current.set(5.2, 2.5, 8.8);
     } else if (cameraPreset === 'BACK_SENSOR') {
-      targetCameraPos.current.set(0, 0, -7.5);
+      targetCameraPos.current.set(0, -0.2, -9.6);
     } else if (cameraPreset === 'SIDE') {
-      targetCameraPos.current.set(-6.8, 0.5, 2.0);
+      targetCameraPos.current.set(-9.2, 0.4, 2.2);
+    }
+
+    // Immediately snap camera and controls to the selected preset angle
+    if (cameraRef.current && controlsRef.current) {
+      cameraRef.current.position.copy(targetCameraPos.current);
+      controlsRef.current.target.set(0, -0.2, 0);
+      controlsRef.current.update();
     }
   }, [cameraPreset]);
 
@@ -89,11 +107,18 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.1;
     container.appendChild(renderer.domElement);
+
+    // Realistic Studio Room Environment for authentic PBR metal/PCB reflections
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileEquirectangularShader();
+    const envTexture = pmremGenerator.fromScene(new RoomEnvironment()).texture;
+    scene.environment = envTexture;
 
     // 2. Controls
     const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, -0.2, 0);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.minDistance = 3.5;
@@ -162,27 +187,22 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
 
       // Update Live OLED Screen Texture
       if (screenTextureRef.current) {
-        screenTextureRef.current.update(telemetry, prediction, watchFaceTheme);
+        screenTextureRef.current.update(telemetryRef.current, predictionRef.current, watchFaceTheme);
       }
 
       // Optical Sensor pulse glow
       if (modelRef.current) {
-        const pulse = 0.5 + 0.5 * Math.sin(time * (telemetry.max30102.heart_rate / 60) * Math.PI * 2);
+        const pulse = 0.5 + 0.5 * Math.sin(time * (telemetryRef.current.max30102.heart_rate / 60) * Math.PI * 2);
         modelRef.current.setPulseGlow(pulse);
-      }
-
-      // Smooth camera transition when user isn't dragging
-      if (!isUserInteractingRef.current && camera) {
-        camera.position.lerp(targetCameraPos.current, 0.05);
       }
 
       // Rotation & Motion Sync
       if (watchModel && watchModel.rootGroup) {
-        if (motionSync) {
+        if (motionSyncRef.current) {
           // Responsive to MPU6050 accelerometer & gyro tilt
-          const ax = telemetry.mpu6050?.accel_x ?? 0;
-          const ay = telemetry.mpu6050?.accel_y ?? 0;
-          const az = (telemetry.mpu6050?.accel_z ?? 9.8) - 9.8;
+          const ax = telemetryRef.current.mpu6050?.accel_x ?? 0;
+          const ay = telemetryRef.current.mpu6050?.accel_y ?? 0;
+          const az = (telemetryRef.current.mpu6050?.accel_z ?? 9.8) - 9.8;
           const targetRotX = (ay / 9.8) * 0.7;
           const targetRotY = (-ax / 9.8) * 0.7;
           const targetRotZ = (az / 9.8) * 0.4;
@@ -190,15 +210,16 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
           watchModel.rootGroup.rotation.x = THREE.MathUtils.lerp(watchModel.rootGroup.rotation.x, targetRotX, 0.08);
           watchModel.rootGroup.rotation.y = THREE.MathUtils.lerp(watchModel.rootGroup.rotation.y, targetRotY, 0.08);
           watchModel.rootGroup.rotation.z = THREE.MathUtils.lerp(watchModel.rootGroup.rotation.z, targetRotZ, 0.08);
-        } else if (autoRotate) {
+        } else if (autoRotateRef.current) {
           // Slow smooth presentation rotation
           watchModel.rootGroup.rotation.y += delta * 0.35;
           watchModel.rootGroup.rotation.x = THREE.MathUtils.lerp(watchModel.rootGroup.rotation.x, 0, 0.05);
           watchModel.rootGroup.rotation.z = THREE.MathUtils.lerp(watchModel.rootGroup.rotation.z, 0, 0.05);
         } else {
-          // Slerp back to default orientation if neither is active
-          watchModel.rootGroup.rotation.x = THREE.MathUtils.lerp(watchModel.rootGroup.rotation.x, 0, 0.05);
-          watchModel.rootGroup.rotation.z = THREE.MathUtils.lerp(watchModel.rootGroup.rotation.z, 0, 0.05);
+          // Smoothly return to default orientation (0,0,0) when autoRotate is off
+          watchModel.rootGroup.rotation.x = THREE.MathUtils.lerp(watchModel.rootGroup.rotation.x, 0, 0.1);
+          watchModel.rootGroup.rotation.y = THREE.MathUtils.lerp(watchModel.rootGroup.rotation.y, 0, 0.1);
+          watchModel.rootGroup.rotation.z = THREE.MathUtils.lerp(watchModel.rootGroup.rotation.z, 0, 0.1);
         }
       }
 
@@ -222,6 +243,8 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
       controls.dispose();
+      pmremGenerator.dispose();
+      envTexture.dispose();
       renderer.dispose();
       if (screenTextureRef.current) {
         screenTextureRef.current.dispose();

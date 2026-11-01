@@ -52,7 +52,7 @@ export const RealtimeTab: React.FC<RealtimeTabProps> = ({
   // 3D Watch Interactive States
   const [strapColor, setStrapColor] = useState<StrapColor>('OBSIDIAN');
   const watchFaceTheme: WatchFaceTheme = 'PIPBOY';
-  const [autoRotate, setAutoRotate] = useState<boolean>(true);
+  const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [motionSync, setMotionSync] = useState<boolean>(false);
   const [explodedProgress, setExplodedProgress] = useState<number>(0);
   const [cameraPreset, setCameraPreset] = useState<CameraPreset>('PERSPECTIVE');
@@ -221,6 +221,7 @@ export const RealtimeTab: React.FC<RealtimeTabProps> = ({
                     onClick={() => {
                       setCameraPreset(preset);
                       setMotionSync(false);
+                      setAutoRotate(false);
                     }}
                     style={{
                       padding: '0.35rem 0.65rem',
@@ -372,6 +373,7 @@ export const RealtimeTab: React.FC<RealtimeTabProps> = ({
                 onChange={(e) => {
                   setExplodedProgress(parseFloat(e.target.value));
                   if (parseFloat(e.target.value) > 0.05) {
+                    setAutoRotate(false);
                     setCameraPreset('SIDE');
                   }
                 }}
@@ -384,7 +386,7 @@ export const RealtimeTab: React.FC<RealtimeTabProps> = ({
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: '#64748b', marginTop: '0.2rem' }}>
                 <span>Lắp nguyên khối</span>
-                <span>Màn hình SPI ➔ Khung ống đồng ➔ Xiao ESP32 ➔ Pin LiPo ➔ Cảm biến MAX30102</span>
+                <span>Màn hình SPI (Mặt thép lưng) ➔ Khung ống đồng ➔ Seeed Xiao ESP32 ➔ Pin LiPo ➔ Cảm biến MAX30102</span>
               </div>
             </div>
 
