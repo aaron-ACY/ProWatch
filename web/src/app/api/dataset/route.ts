@@ -6,18 +6,28 @@ import AdmZip from 'adm-zip';
 export const dynamic = 'force-dynamic';
 
 function resolveDatasetDir(): string {
+  // Ưu tiên bộ dữ liệu gốc đầy đủ khi chạy local; trên Vercel dùng bản nhẹ web/data
+  // (tạo bằng `npm run sync:dataset`). Một thư mục chỉ hợp lệ khi thực sự chứa CSV sạch,
+  // vì trên Vercel thư mục model/riskscore/data vẫn tồn tại nhưng chỉ có .gitkeep.
   const candidateDirs = [
     path.resolve(process.cwd(), '../model/riskscore/data'),
     path.resolve(process.cwd(), 'model/riskscore/data'),
     'D:/Spring/smart-watch/model/riskscore/data',
+    path.resolve(process.cwd(), 'data'),
+    path.resolve(process.cwd(), 'web/data'),
     'D:/kì 6/doc/data/PPG_FieldStudy'
   ];
+  for (const d of candidateDirs) {
+    if (fs.existsSync(path.join(d, 'clean_health_dataset.csv'))) {
+      return d;
+    }
+  }
   for (const d of candidateDirs) {
     if (fs.existsSync(d)) {
       return d;
     }
   }
-  return path.resolve(process.cwd(), '../model/riskscore/data');
+  return path.resolve(process.cwd(), 'data');
 }
 
 export interface SubjectQuest {
