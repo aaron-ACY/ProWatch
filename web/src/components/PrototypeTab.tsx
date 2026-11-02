@@ -22,7 +22,7 @@ import { SensorTelemetry } from '../types/sensor';
 import { AIPrediction } from '../types/ai';
 import { Watch3DCanvas } from './watch3d/Watch3DCanvas';
 import { CameraPreset, StrapColor, STRAP_COLORS, WatchFaceTheme } from './watch3d/types';
-import { useLanguage } from '@/context/LanguageContext';
+import { useLanguage, FlagVN, FlagEN } from '@/context/LanguageContext';
 
 export interface PrototypeTabProps {
   telemetry: SensorTelemetry;
@@ -443,7 +443,7 @@ export const PrototypeTab: React.FC<PrototypeTabProps> = ({
   telemetry,
   prediction,
 }) => {
-  const { t, language } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const components = language === 'en' ? HARDWARE_COMPONENTS_EN : HARDWARE_COMPONENTS_VI;
 
   // 3D Watch Interactive States
@@ -516,6 +516,64 @@ export const PrototypeTab: React.FC<PrototypeTabProps> = ({
           </div>
         </div>
 
+        {/* Prominent Language Switcher right on the Prototype Tab */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.35rem',
+          backgroundColor: '#f1f5f9',
+          border: '1px solid #e2e8f0',
+          borderRadius: '10px',
+          padding: '3px',
+        }}>
+          <button
+            type="button"
+            onClick={() => setLanguage('vi')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.4rem 0.85rem',
+              borderRadius: '7px',
+              border: language === 'vi' ? '1px solid #c7d2fe' : '1px solid transparent',
+              backgroundColor: language === 'vi' ? '#ffffff' : 'transparent',
+              color: language === 'vi' ? '#4338ca' : '#64748b',
+              fontWeight: language === 'vi' ? 700 : 500,
+              fontSize: '0.78rem',
+              cursor: 'pointer',
+              boxShadow: language === 'vi' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+            title="Chuyển sang Tiếng Việt"
+          >
+            <FlagVN className="w-4 h-2.5" />
+            <span>Tiếng Việt</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setLanguage('en')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.4rem 0.85rem',
+              borderRadius: '7px',
+              border: language === 'en' ? '1px solid #c7d2fe' : '1px solid transparent',
+              backgroundColor: language === 'en' ? '#ffffff' : 'transparent',
+              color: language === 'en' ? '#4338ca' : '#64748b',
+              fontWeight: language === 'en' ? 700 : 500,
+              fontSize: '0.78rem',
+              cursor: 'pointer',
+              boxShadow: language === 'en' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+            title="Switch to English"
+          >
+            <FlagEN className="w-4 h-2.5" />
+            <span>English</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. Interactive Digital Twin & Component Explorer Studio (2-Column Responsive Layout) */}

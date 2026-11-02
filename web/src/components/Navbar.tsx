@@ -65,33 +65,62 @@ export const Navbar: React.FC<NavbarProps> = ({
             </h1>
 
             {/* Language Switcher [VN] [EN] - Apple / Linear Style Segmented Control */}
-            <div className="inline-flex items-center bg-zinc-100/90 border border-zinc-200/90 rounded-full p-[2.5px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] select-none">
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              backgroundColor: '#f1f5f9',
+              border: '1px solid #e2e8f0',
+              borderRadius: '9999px',
+              padding: '2.5px',
+              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.04)',
+              userSelect: 'none'
+            }}>
               <button
                 type="button"
                 onClick={() => setLanguage('vi')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-all duration-200 cursor-pointer ${
-                  language === 'vi'
-                    ? 'bg-white text-zinc-900 font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.12),0_1px_1px_rgba(0,0,0,0.06)]'
-                    : 'text-zinc-500 hover:text-zinc-800'
-                }`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '3px 9px',
+                  borderRadius: '9999px',
+                  fontSize: '11.5px',
+                  fontWeight: language === 'vi' ? 700 : 500,
+                  backgroundColor: language === 'vi' ? '#ffffff' : 'transparent',
+                  color: language === 'vi' ? '#0f172a' : '#64748b',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: language === 'vi' ? '0 1px 3px rgba(0,0,0,0.12), 0 1px 1px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
                 title="Tiếng Việt (Vietnamese)"
               >
-                <FlagVN className="w-4 h-2.5" />
-                <span className="font-sans font-medium text-[11.5px] leading-none">VN</span>
+                <FlagVN className="w-3.5 h-2.5" />
+                <span>VN</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setLanguage('en')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-all duration-200 cursor-pointer ${
-                  language === 'en'
-                    ? 'bg-white text-zinc-900 font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.12),0_1px_1px_rgba(0,0,0,0.06)]'
-                    : 'text-zinc-500 hover:text-zinc-800'
-                }`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '3px 9px',
+                  borderRadius: '9999px',
+                  fontSize: '11.5px',
+                  fontWeight: language === 'en' ? 700 : 500,
+                  backgroundColor: language === 'en' ? '#ffffff' : 'transparent',
+                  color: language === 'en' ? '#0f172a' : '#64748b',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: language === 'en' ? '0 1px 3px rgba(0,0,0,0.12), 0 1px 1px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
                 title="English"
               >
-                <FlagEN className="w-4 h-2.5" />
-                <span className="font-sans font-medium text-[11.5px] leading-none">EN</span>
+                <FlagEN className="w-3.5 h-2.5" />
+                <span>EN</span>
               </button>
             </div>
           </div>
