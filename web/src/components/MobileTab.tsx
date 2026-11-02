@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Smartphone, 
-  RotateCcw, 
-  ExternalLink, 
-  Maximize2, 
+import {
+  Smartphone,
+  RotateCcw,
+  ExternalLink,
+  Maximize2,
   Minimize2,
   CheckCircle2,
   Zap,
@@ -15,8 +15,10 @@ import {
   AlignJustify,
   AlignCenter
 } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 export const MobileTab: React.FC = () => {
+  const { t, language } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -112,14 +114,14 @@ export const MobileTab: React.FC = () => {
   };
 
   return (
-    <div 
+    <div
       ref={containerRef}
-      style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: '1.25rem', 
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.25rem',
         width: '100%',
-        backgroundColor: isFullscreen ? '#07090e' : 'transparent',
+        backgroundColor: isFullscreen ? '#f8fafc' : 'transparent',
         padding: isFullscreen ? '1.25rem 2rem' : '0',
         minHeight: isFullscreen ? '100vh' : 'auto',
         overflow: 'auto',
@@ -134,11 +136,10 @@ export const MobileTab: React.FC = () => {
         flexWrap: 'wrap',
         gap: '1rem',
         padding: '0.85rem 1.5rem',
-        backgroundColor: isFullscreen ? 'rgba(15, 23, 42, 0.9)' : 'var(--card-bg)',
+        backgroundColor: isFullscreen ? '#ffffff' : 'var(--bg-secondary)',
         borderRadius: '16px',
         border: '1px solid var(--border-color)',
-        boxShadow: isFullscreen ? '0 10px 30px rgba(0,0,0,0.6)' : '0 4px 20px rgba(0,0,0,0.2)',
-        backdropFilter: 'blur(16px)',
+        boxShadow: isFullscreen ? '0 10px 30px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.05)',
         zIndex: 40,
         position: isFullscreen ? 'sticky' : 'relative',
         top: 0
@@ -149,45 +150,33 @@ export const MobileTab: React.FC = () => {
             width: '38px',
             height: '38px',
             borderRadius: '12px',
-            background: 'linear-gradient(135deg, #0ea5e9, #6366f1)',
+            background: '#4f46e5',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'white',
-            boxShadow: '0 0 16px rgba(14, 165, 233, 0.4)'
+            color: 'white'
           }}>
             <Smartphone size={20} />
           </div>
           <div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              Trình giả lập ProWatch Mobile App
-              <span style={{
-                fontSize: '0.72rem',
-                padding: '0.2rem 0.6rem',
-                borderRadius: '20px',
-                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                color: '#10b981',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                fontWeight: 600
-              }}>
-                Expo Web Live
-              </span>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {t('mobile.title')}
               {isFullscreen && (
                 <span style={{
                   fontSize: '0.72rem',
                   padding: '0.2rem 0.6rem',
                   borderRadius: '20px',
-                  backgroundColor: 'rgba(99, 102, 241, 0.2)',
-                  color: '#a5b4fc',
-                  border: '1px solid rgba(99, 102, 241, 0.35)',
+                  backgroundColor: '#eef2ff',
+                  color: '#4338ca',
+                  border: '1px solid #e0e7ff',
                   fontWeight: 600
                 }}>
-                  🖥️ Toàn màn hình (F11)
+                  🖥️ {t('mobile.fullscreen')}
                 </span>
               )}
             </h2>
-            <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Trải nghiệm và tương tác trực tiếp ứng dụng ProWatch Health trên khung điện thoại mô phỏng
+            <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+              {t('mobile.subtitle')}
             </p>
           </div>
         </div>
@@ -198,7 +187,7 @@ export const MobileTab: React.FC = () => {
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            backgroundColor: '#f1f5f9',
             borderRadius: '10px',
             border: '1px solid var(--border-color)',
             padding: '2px',
@@ -206,7 +195,7 @@ export const MobileTab: React.FC = () => {
           }}>
             <button
               onClick={handleZoomOut}
-              title="Thu nhỏ tỉ lệ"
+              title={t('mobile.zoomOut')}
               style={{
                 width: '30px',
                 height: '30px',
@@ -215,7 +204,7 @@ export const MobileTab: React.FC = () => {
                 justifyContent: 'center',
                 backgroundColor: 'transparent',
                 border: 'none',
-                color: 'var(--text-main)',
+                color: 'var(--text-primary)',
                 cursor: 'pointer',
                 borderRadius: '6px'
               }}
@@ -225,16 +214,16 @@ export const MobileTab: React.FC = () => {
 
             <button
               onClick={handleAutoFit}
-              title="Đặt tỷ lệ tự động vừa màn hình"
+              title={t('mobile.fitScreen')}
               style={{
                 padding: '0 0.5rem',
                 height: '30px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.3rem',
-                backgroundColor: 'rgba(99, 102, 241, 0.15)',
-                border: '1px solid rgba(99, 102, 241, 0.3)',
-                color: '#a5b4fc',
+                backgroundColor: '#eef2ff',
+                border: '1px solid #e0e7ff',
+                color: '#4338ca',
                 fontSize: '0.75rem',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -242,20 +231,20 @@ export const MobileTab: React.FC = () => {
               }}
             >
               <Sparkles size={12} />
-              <span>{Math.round(scale * 100)}% (Vừa màn hình)</span>
+              <span>{Math.round(scale * 100)}% ({t('mobile.fitScreen')})</span>
             </button>
 
             <button
               onClick={() => setScale(1.0)}
-              title="Đặt tỉ lệ gốc 100%"
+              title="100%"
               style={{
                 padding: '0 0.4rem',
                 height: '30px',
                 display: 'flex',
                 alignItems: 'center',
-                backgroundColor: scale === 1.0 ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+                backgroundColor: scale === 1.0 ? '#ffffff' : 'transparent',
                 border: 'none',
-                color: 'var(--text-muted)',
+                color: 'var(--text-secondary)',
                 fontSize: '0.72rem',
                 cursor: 'pointer',
                 borderRadius: '6px'
@@ -266,7 +255,7 @@ export const MobileTab: React.FC = () => {
 
             <button
               onClick={handleZoomIn}
-              title="Phóng to tỉ lệ"
+              title={t('mobile.zoomIn')}
               style={{
                 width: '30px',
                 height: '30px',
@@ -275,7 +264,7 @@ export const MobileTab: React.FC = () => {
                 justifyContent: 'center',
                 backgroundColor: 'transparent',
                 border: 'none',
-                color: 'var(--text-main)',
+                color: 'var(--text-primary)',
                 cursor: 'pointer',
                 borderRadius: '6px'
               }}
@@ -288,70 +277,69 @@ export const MobileTab: React.FC = () => {
           {!isFullscreen && (
             <button
               onClick={() => setIsCenterOnly(!isCenterOnly)}
-              title={isCenterOnly ? "Hiển thị kèm thông tin" : "Chỉ tập trung điện thoại (căn giữa)"}
+              title={isCenterOnly ? t('mobile.showFeed') : t('mobile.center')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.35rem',
                 padding: '0.45rem 0.75rem',
                 borderRadius: '8px',
-                backgroundColor: isCenterOnly ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                backgroundColor: isCenterOnly ? '#eef2ff' : '#f1f5f9',
                 border: '1px solid var(--border-color)',
-                color: isCenterOnly ? '#818cf8' : 'var(--text-main)',
+                color: isCenterOnly ? '#4338ca' : 'var(--text-primary)',
                 fontSize: '0.78rem',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease'
               }}
             >
               {isCenterOnly ? <AlignJustify size={14} /> : <AlignCenter size={14} />}
-              <span>{isCenterOnly ? "Hiện bảng tin" : "Căn giữa"}</span>
+              <span>{isCenterOnly ? t('mobile.showFeed') : t('mobile.center')}</span>
             </button>
           )}
 
           {/* Refresh button */}
           <button
             onClick={handleRefresh}
-            title="Tải lại ứng dụng"
+            title={t('mobile.reload')}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '0.35rem',
               padding: '0.45rem 0.75rem',
               borderRadius: '8px',
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              backgroundColor: '#f1f5f9',
               border: '1px solid var(--border-color)',
-              color: 'var(--text-main)',
+              color: 'var(--text-primary)',
               fontSize: '0.78rem',
               cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}
           >
             <RotateCcw size={14} />
-            <span>Tải lại</span>
+            <span>{t('mobile.reload')}</span>
           </button>
 
           {/* TRUE FULLSCREEN TOGGLE (F11 equivalent) */}
           <button
             onClick={handleToggleFullscreen}
-            title={isFullscreen ? "Thoát toàn màn hình (Esc hoặc F11)" : "Mở rộng toàn màn hình (như F11)"}
+            title={isFullscreen ? t('mobile.exitFullscreen') : t('mobile.fullscreen')}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '0.4rem',
               padding: '0.45rem 0.85rem',
               borderRadius: '8px',
-              backgroundColor: isFullscreen ? 'rgba(239, 68, 68, 0.2)' : 'rgba(99, 102, 241, 0.25)',
-              border: isFullscreen ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(99, 102, 241, 0.4)',
-              color: isFullscreen ? '#fca5a5' : '#c7d2fe',
+              backgroundColor: isFullscreen ? '#fee2e2' : '#eef2ff',
+              border: isFullscreen ? '1px solid #fecaca' : '1px solid #e0e7ff',
+              color: isFullscreen ? '#b91c1c' : '#4338ca',
               fontSize: '0.78rem',
               fontWeight: 600,
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: isFullscreen ? '0 0 12px rgba(239, 68, 68, 0.3)' : '0 0 12px rgba(99, 102, 241, 0.3)'
+              transition: 'all 0.2s ease'
             }}
           >
             {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            <span>{isFullscreen ? "Thoát toàn màn hình (Esc)" : "Toàn màn hình (F11)"}</span>
+            <span>{isFullscreen ? t('mobile.exitFullscreen') : t('mobile.fullscreen')}</span>
           </button>
 
           {/* Open in separate tab */}
@@ -372,11 +360,11 @@ export const MobileTab: React.FC = () => {
               textDecoration: 'none',
               fontWeight: 600,
               cursor: 'pointer',
-              boxShadow: '0 2px 10px rgba(79, 70, 229, 0.3)'
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
             }}
           >
             <ExternalLink size={14} />
-            <span>Tab riêng</span>
+            <span>{t('mobile.newTab')}</span>
           </a>
         </div>
       </div>
@@ -418,46 +406,13 @@ export const MobileTab: React.FC = () => {
               background: '#0b0f19',
               borderRadius: '48px',
               padding: '12px',
-              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.95), 0 0 0 4px #262c3e, 0 0 0 7px #161922',
-              border: '2px solid rgba(255, 255, 255, 0.1)',
+              boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.2), 0 0 0 4px #cbd5e1, 0 0 0 7px #e2e8f0',
+              border: '2px solid #cbd5e1',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
               transition: 'transform 0.2s ease'
             }}>
-              {/* Dynamic Island / Speaker */}
-              <div style={{
-                position: 'absolute',
-                top: '18px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '115px',
-                height: '28px',
-                backgroundColor: '#000',
-                borderRadius: '20px',
-                zIndex: 30,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0 10px',
-                boxShadow: '0 0 6px rgba(0,0,0,0.8)'
-              }}>
-                <div style={{
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  backgroundColor: '#131b2c',
-                  border: '1px solid #1e293b'
-                }} />
-                <div style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: '#059669',
-                  boxShadow: '0 0 6px #10b981'
-                }} />
-              </div>
-
               {/* Screen Container */}
               <div style={{
                 flex: 1,
@@ -493,7 +448,7 @@ export const MobileTab: React.FC = () => {
                       animation: 'spin 1s linear infinite'
                     }} />
                     <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: 0 }}>
-                      Đang khởi chạy ProWatch Health...
+                      {t('mobile.launching')}
                     </p>
                     {loadTimeout && (
                       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
@@ -510,7 +465,7 @@ export const MobileTab: React.FC = () => {
                             cursor: 'pointer'
                           }}
                         >
-                          🔄 Thử lại
+                          🔄 {t('mobile.retry')}
                         </button>
                         <a
                           href="http://localhost:8085"
@@ -527,7 +482,7 @@ export const MobileTab: React.FC = () => {
                             textDecoration: 'none'
                           }}
                         >
-                          Mở cổng 8085 ↗
+                          {t('mobile.openPort')}
                         </a>
                       </div>
                     )}
@@ -571,20 +526,20 @@ export const MobileTab: React.FC = () => {
             {/* Info Card */}
             <div style={{
               padding: '1.25rem 1.5rem',
-              backgroundColor: 'var(--card-bg)',
+              backgroundColor: 'var(--bg-secondary)',
               borderRadius: '16px',
               border: '1px solid var(--border-color)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
               display: 'flex',
               flexDirection: 'column',
               gap: '0.85rem'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: 600 }}>
-                <Zap size={18} color="#0ea5e9" />
-                <span>Trạng thái kết nối & Vận hành</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                <Zap size={18} color="#0284c7" />
+                <span>{t('mobile.statusTitle')}</span>
               </div>
-              <p style={{ fontSize: '0.83rem', color: 'var(--text-muted)', lineHeight: 1.55, margin: 0 }}>
-                Ứng dụng di động đang chạy trực tiếp từ mã nguồn React Native (Expo Web) tại cổng <strong>8085</strong>. 
-                Bạn có thể tương tác đầy đủ như trên điện thoại thật: chuyển đổi các tab, xem chỉ số sinh tồn và trạng thái thiết bị.
+              <p style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: 1.55, margin: 0 }}>
+                {t('mobile.statusDesc')}
               </p>
 
               <div style={{
@@ -596,11 +551,11 @@ export const MobileTab: React.FC = () => {
                 <div style={{
                   padding: '0.75rem',
                   borderRadius: '10px',
-                  backgroundColor: 'rgba(255,255,255,0.03)',
+                  backgroundColor: '#f8fafc',
                   border: '1px solid var(--border-color)'
                 }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Cổng phục vụ</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#38bdf8', marginTop: '0.15rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{t('mobile.port')}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0284c7', marginTop: '0.15rem' }}>
                     :8085
                   </div>
                 </div>
@@ -608,11 +563,11 @@ export const MobileTab: React.FC = () => {
                 <div style={{
                   padding: '0.75rem',
                   borderRadius: '10px',
-                  backgroundColor: 'rgba(255,255,255,0.03)',
+                  backgroundColor: '#f8fafc',
                   border: '1px solid var(--border-color)'
                 }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Framework</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#a78bfa', marginTop: '0.15rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{t('mobile.framework')}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#6d28d9', marginTop: '0.15rem' }}>
                     Expo 57 / RN 0.86
                   </div>
                 </div>
@@ -620,11 +575,11 @@ export const MobileTab: React.FC = () => {
                 <div style={{
                   padding: '0.75rem',
                   borderRadius: '10px',
-                  backgroundColor: 'rgba(255,255,255,0.03)',
+                  backgroundColor: '#f8fafc',
                   border: '1px solid var(--border-color)'
                 }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Cơ sở dữ liệu</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#34d399', marginTop: '0.15rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{t('mobile.database')}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#059669', marginTop: '0.15rem' }}>
                     Supabase PostgreSQL
                   </div>
                 </div>
@@ -632,12 +587,12 @@ export const MobileTab: React.FC = () => {
                 <div style={{
                   padding: '0.75rem',
                   borderRadius: '10px',
-                  backgroundColor: 'rgba(255,255,255,0.03)',
+                  backgroundColor: '#f8fafc',
                   border: '1px solid var(--border-color)'
                 }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Mô hình AI</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fbbf24', marginTop: '0.15rem' }}>
-                    HAR 1D-CNN
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{t('mobile.aiModel')}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#d97706', marginTop: '0.15rem' }}>
+                    Risk score (TinyML)
                   </div>
                 </div>
               </div>
@@ -646,55 +601,56 @@ export const MobileTab: React.FC = () => {
             {/* Feature Modules */}
             <div style={{
               padding: '1.25rem 1.5rem',
-              backgroundColor: 'var(--card-bg)',
+              backgroundColor: 'var(--bg-secondary)',
               borderRadius: '16px',
               border: '1px solid var(--border-color)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
               display: 'flex',
               flexDirection: 'column',
               gap: '0.75rem'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontWeight: 600 }}>
-                <CheckCircle2 size={17} color="#10b981" />
-                <span>Các phân hệ tính năng trên Mobile App</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                <CheckCircle2 size={17} color="#059669" />
+                <span>{t('mobile.modulesTitle')}</span>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
-                  <span style={{ color: '#10b981', fontSize: '0.8rem' }}>•</span>
+                  <span style={{ color: '#059669', fontSize: '0.8rem' }}>•</span>
                   <div>
-                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-main)' }}>Tổng quan sinh tồn:</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '0.35rem' }}>
-                      Hiển thị Nhịp tim (BPM) và Oxy trong máu (SpO2) từ cảm biến quang học MAX30102.
+                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t('mobile.modVitals')}</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '0.35rem' }}>
+                      {t('mobile.modVitalsDesc')}
                     </span>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
-                  <span style={{ color: '#10b981', fontSize: '0.8rem' }}>•</span>
+                  <span style={{ color: '#059669', fontSize: '0.8rem' }}>•</span>
                   <div>
-                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-main)' }}>Hoạt động & Giấc ngủ:</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '0.35rem' }}>
-                      Theo dõi bước chân tích lũy, calo tiêu hao và chu kỳ ngủ.
+                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t('mobile.modSleep')}</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '0.35rem' }}>
+                      {t('mobile.modSleepDesc')}
                     </span>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
-                  <span style={{ color: '#10b981', fontSize: '0.8rem' }}>•</span>
+                  <span style={{ color: '#059669', fontSize: '0.8rem' }}>•</span>
                   <div>
-                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-main)' }}>Nhận diện vận động AI:</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '0.35rem' }}>
-                      Phân loại hành vi thời gian thực từ cảm biến gia tốc MPU6050.
+                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t('mobile.modHar')}</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '0.35rem' }}>
+                      {t('mobile.modHarDesc')}
                     </span>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
-                  <span style={{ color: '#10b981', fontSize: '0.8rem' }}>•</span>
+                  <span style={{ color: '#059669', fontSize: '0.8rem' }}>•</span>
                   <div>
-                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-main)' }}>Bảo mật & Cài đặt:</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '0.35rem' }}>
-                      Xác thực đa yếu tố (MFA), cài đặt ngưỡng cảnh báo nhịp tim bất thường.
+                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t('mobile.modSecurity')}</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '0.35rem' }}>
+                      {t('mobile.modSecurityDesc')}
                     </span>
                   </div>
                 </div>

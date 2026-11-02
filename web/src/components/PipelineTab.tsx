@@ -21,7 +21,6 @@ import {
   Zap,
   BarChart3,
   Server,
-  Microchip,
   Sparkles,
   Info,
   Sliders,
@@ -36,8 +35,22 @@ import {
   Search,
   CheckSquare,
   Square,
-  AlertTriangle
+  AlertTriangle,
+  Webhook,
+  Send,
+  Brain,
+  GitBranch,
+  ShieldCheck,
+  ShieldAlert,
+  FileText,
+  ClipboardList,
+  BellRing,
+  XCircle,
+  FlaskConical,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 import { N8nWorkflowExecution } from '../types/ai';
 import {
   ActionStep,
@@ -49,7 +62,7 @@ import {
 } from '../services/pipelineLogs';
 
 // Logo Supabase chính chủ
-const SupabaseLogo: React.FC<{ size?: number }> = ({ size = 26 }) => (
+const SupabaseLogo: React.FC<{ size?: number }> = ({ size = 22 }) => (
   <svg
     width={size}
     height={size}
@@ -59,39 +72,232 @@ const SupabaseLogo: React.FC<{ size?: number }> = ({ size = 26 }) => (
   >
     <path
       d="M63.7076 110.284C60.8481 113.885 55.0502 111.912 54.9751 107.314L53.9738 46.0664H99.4149C104.918 46.0664 108.064 51.9837 105.158 56.6439L63.7076 110.284Z"
-      fill="#3ECF8E"
+      fill="#0e7490"
     />
     <path
       d="M45.317 2.71596C48.1765 -0.885333 53.9744 1.08804 54.0495 5.68599L54.5448 66.9336H9.60974C4.10677 66.9336 0.960765 61.0163 3.86717 56.3561L45.317 2.71596Z"
-      fill="#1da363"
+      fill="#047857"
     />
   </svg>
 );
 
-// Logo Data có sẵn (Dataset / File CSV local)
-const LocalDataLogo: React.FC<{ size?: number }> = ({ size = 24 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path
-      d="M4 4C4 2.89543 4.89543 2 6 2H14L20 8V20C20 21.1046 19.1046 22 18 22H6C4.89543 22 4 21.1046 4 20V4Z"
-      fill="#06b6d4"
-      fillOpacity="0.22"
-      stroke="#06b6d4"
-      strokeWidth="1.8"
-      strokeLinejoin="round"
-    />
-    <path d="M14 2V8H20" stroke="#06b6d4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M8 13H16" stroke="#06b6d4" strokeWidth="1.8" strokeLinecap="round" />
-    <path d="M8 17H13" stroke="#06b6d4" strokeWidth="1.8" strokeLinecap="round" />
-  </svg>
-);
+type NodeCategory =
+  | 'trigger'
+  | 'database'
+  | 'validation'
+  | 'model'
+  | 'metrics'
+  | 'gate'
+  | 'success'
+  | 'notify'
+  | 'incident';
 
-// Single unified workflow: Automated AI Training Pipeline
+const categoryStyles: Record<
+  NodeCategory,
+  {
+    stripe: string;
+    iconBox: string;
+    tagBg: string;
+    tagText: string;
+  }
+> = {
+  trigger: {
+    stripe: 'bg-amber-500',
+    iconBox: 'bg-amber-100/80 text-amber-900 border-amber-300',
+    tagBg: 'bg-amber-100/90 border-amber-300',
+    tagText: 'text-amber-900'
+  },
+  database: {
+    stripe: 'bg-emerald-600',
+    iconBox: 'bg-emerald-100/80 text-emerald-900 border-emerald-300',
+    tagBg: 'bg-emerald-100/90 border-emerald-300',
+    tagText: 'text-emerald-900'
+  },
+  validation: {
+    stripe: 'bg-indigo-600',
+    iconBox: 'bg-indigo-100/80 text-indigo-900 border-indigo-300',
+    tagBg: 'bg-indigo-100/90 border-indigo-300',
+    tagText: 'text-indigo-900'
+  },
+  model: {
+    stripe: 'bg-cyan-700',
+    iconBox: 'bg-cyan-100/90 text-cyan-900 border-cyan-300',
+    tagBg: 'bg-cyan-100/90 border-cyan-300',
+    tagText: 'text-cyan-900'
+  },
+  metrics: {
+    stripe: 'bg-violet-600',
+    iconBox: 'bg-violet-100/80 text-violet-900 border-violet-300',
+    tagBg: 'bg-violet-100/90 border-violet-300',
+    tagText: 'text-violet-900'
+  },
+  gate: {
+    stripe: 'bg-blue-600',
+    iconBox: 'bg-blue-100/80 text-blue-900 border-blue-300',
+    tagBg: 'bg-blue-100/90 border-blue-300',
+    tagText: 'text-blue-900'
+  },
+  success: {
+    stripe: 'bg-emerald-600',
+    iconBox: 'bg-emerald-100/80 text-emerald-900 border-emerald-300',
+    tagBg: 'bg-emerald-100/90 border-emerald-300',
+    tagText: 'text-emerald-900'
+  },
+  notify: {
+    stripe: 'bg-sky-600',
+    iconBox: 'bg-sky-100/80 text-sky-900 border-sky-300',
+    tagBg: 'bg-sky-100/90 border-sky-300',
+    tagText: 'text-sky-900'
+  },
+  incident: {
+    stripe: 'bg-rose-600',
+    iconBox: 'bg-rose-100/80 text-rose-900 border-rose-300',
+    tagBg: 'bg-rose-100/90 border-rose-300',
+    tagText: 'text-rose-900'
+  }
+};
+
+interface PipelineNodeProps {
+  id: string;
+  left: number;
+  top: number;
+  width?: number;
+  title: string;
+  subtitle: string;
+  category?: NodeCategory;
+  categoryLabel?: string;
+  description: string;
+  icon: React.ReactNode;
+  isSelected?: boolean;
+  isActive?: boolean;
+  hasInputPin?: boolean;
+  hasOutputPin?: boolean;
+  hasDualOutputPin?: boolean;
+  onClick: () => void;
+}
+
+const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
+  left,
+  top,
+  width = 180,
+  title,
+  subtitle,
+  category = 'model',
+  categoryLabel,
+  description,
+  icon,
+  isSelected = false,
+  isActive = false,
+  hasInputPin = true,
+  hasOutputPin = true,
+  hasDualOutputPin = false,
+  onClick
+}) => {
+  const { language } = useLanguage();
+  const cat = categoryStyles[category] || categoryStyles.model;
+
+  return (
+    <div
+      onClick={onClick}
+      style={{ position: 'absolute', left: `${left}px`, top: `${top}px`, width: `${width}px`, cursor: 'pointer' }}
+      className="group select-none"
+    >
+      <div
+        className={`relative h-[74px] rounded-md border bg-white shadow-xs transition-all duration-150 overflow-visible ${
+          isActive
+            ? 'border-cyan-700 ring-2 ring-cyan-700/30 shadow-md'
+            : isSelected
+            ? 'border-cyan-700 ring-2 ring-cyan-700 shadow-sm'
+            : 'border-zinc-300 hover:border-zinc-400 hover:shadow-md'
+        }`}
+      >
+        {/* Full-width colored top stripe (3px) */}
+        <div
+          className={`absolute top-0 left-0 right-0 h-[3px] rounded-t-md transition-colors ${
+            isActive ? 'bg-cyan-700' : cat.stripe
+          }`}
+        />
+
+        <div className="p-2 h-full flex items-center gap-2.5">
+          {/* Input Pin (Left) */}
+          {hasInputPin && (
+            <div
+              className={`absolute -left-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors ${
+                isActive ? 'bg-cyan-700 ring-2 ring-cyan-200' : 'bg-zinc-400 group-hover:bg-zinc-600'
+              }`}
+            />
+          )}
+
+          {/* Icon box with distinct, contrasty category theme */}
+          <div
+            className={`w-9 h-9 rounded-md border flex items-center justify-center flex-shrink-0 transition-colors ${
+              isActive
+                ? 'bg-cyan-100 text-cyan-900 border-cyan-400 shadow-xs'
+                : `${cat.iconBox} shadow-2xs`
+            }`}
+          >
+            {icon}
+          </div>
+
+          {/* Text block with bold title and readable dark subtitle */}
+          <div className="flex-1 min-w-0 pr-0.5">
+            <div className="flex items-center justify-between gap-1 mb-0.5">
+              <span
+                className={`text-[9.5px] font-bold tracking-wide uppercase px-1.5 py-0.2 rounded border shadow-2xs ${cat.tagBg} ${cat.tagText}`}
+              >
+                {categoryLabel || category}
+              </span>
+              {isActive && (
+                <span className="flex items-center gap-0.5 text-[9px] font-semibold text-cyan-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-600 animate-ping" />
+                  <span>Active</span>
+                </span>
+              )}
+            </div>
+            <div className="text-xs font-bold text-zinc-900 leading-tight truncate">
+              {title}
+            </div>
+            <div className="text-[11px] font-mono text-zinc-700 font-medium truncate">
+              {subtitle}
+            </div>
+          </div>
+
+          {/* Output Pin (Right) */}
+          {hasOutputPin && !hasDualOutputPin && (
+            <div
+              className={`absolute -right-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors ${
+                isActive ? 'bg-cyan-700 ring-2 ring-cyan-200' : 'bg-zinc-400 group-hover:bg-zinc-600'
+              }`}
+            />
+          )}
+
+          {/* Dual Output Pins (For Quality Gate) */}
+          {hasDualOutputPin && (
+            <>
+              {/* True Pin (Top) */}
+              <div
+                className="absolute -right-[6px] top-1/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-emerald-600 ring-2 ring-emerald-200"
+                title={language === 'vi' ? 'Nhánh đạt chất lượng (True >= 90%)' : 'Quality Pass Branch (True >= 90%)'}
+              />
+              {/* False Pin (Bottom) */}
+              <div
+                className="absolute -right-[6px] top-3/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-red-600 ring-2 ring-red-200"
+                title={language === 'vi' ? 'Nhánh sự cố (False < 90%)' : 'Quality Incident Branch (False < 90%)'}
+              />
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Description underneath inside clean high-contrast badge */}
+      <div className="mt-1 flex justify-center">
+        <span className="inline-block max-w-full text-[10.5px] text-zinc-700 font-semibold bg-white border border-zinc-300 rounded px-2.5 py-0.5 text-center truncate shadow-xs">
+          {description}
+        </span>
+      </div>
+    </div>
+  );
+};
 
 interface PipelineTabProps {
   workflowRuns: N8nWorkflowExecution[];
@@ -104,7 +310,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
   onNewRun,
   onNavigateToMetrics
 }) => {
-  // Single unified workflow active: Automated AI Training Pipeline
+  const { t, language } = useLanguage();
   const [isRunning, setIsRunning] = useState(false);
   const [activeStep, setActiveStep] = useState<number>(0);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
@@ -116,7 +322,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
 
   // Action Runner Logs Panel States
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true);
-  const [bottomTab, setBottomTab] = useState<'LOGS'>('LOGS');
+  const [bottomTab] = useState<'LOGS'>('LOGS');
   const [expandedSteps, setExpandedSteps] = useState<Record<string, boolean>>({
     'step-1-setup': true,
     'step-2-data': true,
@@ -146,7 +352,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
     workflow: 'Automated AI Training Pipeline (Risk Score Model)'
   });
 
-
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const bottomPanelRef = useRef<HTMLDivElement>(null);
 
@@ -170,7 +375,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
     return `${m > 0 ? `${m}m ` : ''}${s < 10 ? `0${s}` : s}s`;
   };
 
-  // Hàm stream từng dòng log nhanh và mượt mà theo thời gian thực (Real-time Fast Streaming)
+  // Hàm stream từng dòng log nhanh và mượt mà theo thời gian thực
   const streamStepLines = async (
     stepIdx: number,
     stepData: ActionStep,
@@ -183,7 +388,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
       setCurrentStepElapsed((prev) => prev + 1);
     }, 1000);
 
-    // 1. Kích hoạt step running, reset logs của step đó về rỗng
     setCurrentActionSteps((prev) =>
       prev.map((s, idx) => (idx === stepIdx ? { ...s, status: 'running', logs: [] } : s))
     );
@@ -192,7 +396,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
     const numLogs = stepData.logs.length;
     const delayPerLine = numLogs > 1 ? Math.min(100, Math.max(30, Math.round(targetDurationMs / numLogs))) : 50;
 
-    // 2. In từng dòng một tuần tự
     for (let i = 0; i < numLogs; i++) {
       const rawLog = stepData.logs[i];
       const stampedLog: LogEntry = {
@@ -218,7 +421,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
 
     const actualStepDuration = ((Date.now() - stepStartTime) / 1000).toFixed(1) + 's';
 
-    // 3. Kết thúc step
     setCurrentActionSteps((prev) =>
       prev.map((s, idx) =>
         idx === stepIdx ? { ...s, status: 'completed', duration: actualStepDuration } : s
@@ -280,7 +482,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
       workflow: 'Automated AI Training Pipeline (Risk Score Model)'
     });
     setBottomPanelOpen(true);
-    setBottomTab('LOGS');
     bottomPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
@@ -290,22 +491,19 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Ngăn chặn cuộn trang chính (window scroll) khi lăn chuột trong khu vực canvas
+  // Ngăn chặn cuộn trang chính khi lăn chuột trong khu vực canvas
   useEffect(() => {
     const canvasEl = canvasRef.current;
     if (!canvasEl) return;
 
     const handleNativeWheel = (e: WheelEvent) => {
-      // BẮT BUỘC: Chặn trang chính cuộn theo khi thao tác trên canvas
       e.preventDefault();
       e.stopPropagation();
 
       if (e.ctrlKey || e.metaKey) {
-        // Phóng to / thu nhỏ khi giữ phím Ctrl
         const delta = e.deltaY < 0 ? 10 : -10;
         setZoomLevel((z) => Math.min(Math.max(z + delta, 50), 160));
       } else {
-        // Lăn chuột để pan di chuyển canvas tự do
         setPanOffset((prev) => ({
           x: prev.x - e.deltaX * 0.85,
           y: prev.y - e.deltaY * 0.85
@@ -313,9 +511,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
       }
     };
 
-    // Đăng ký listener với { passive: false } để e.preventDefault() triệt tiêu cuộn trang chính
     canvasEl.addEventListener('wheel', handleNativeWheel, { passive: false });
-
     return () => {
       canvasEl.removeEventListener('wheel', handleNativeWheel);
     };
@@ -346,10 +542,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
   }, [isPanning, panStart]);
 
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
-    // Chỉ kích hoạt pan khi click chuột trái (button === 0) hoặc chuột giữa (button === 1)
     if (e.button !== 0 && e.button !== 1) return;
-
-    // Nếu click vào nút bấm hoặc thẻ node có data-no-pan thì không bắt đầu pan
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('[data-no-pan="true"]')) {
       return;
@@ -368,30 +561,13 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
   };
 
   // Cấu hình lựa chọn nguồn dữ liệu cho Workflow Training
-  const [dataSource, setDataSource] = useState<'LOCAL' | 'SUPABASE'>('LOCAL');
-  
-  // Trạng thái copy code C++ và mã nguồn C++ thật
-  const [copiedCode, setCopiedCode] = useState(false);
-  const [realCppCode, setRealCppCode] = useState<string>('');
+  const [dataSource] = useState<'LOCAL' | 'SUPABASE'>('LOCAL');
 
-  // Tải trước mã C++ header thật từ artifacts
-  useEffect(() => {
-    fetch('/api/integration')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.header_code) {
-          setRealCppCode(data.header_code);
-        }
-      })
-      .catch(() => null);
-  }, []);
-
-  // Thực thi Workflow Huấn Luyện (Training Model Workflow) - CHẠY THẬT 100%
+  // Thực thi Workflow Huấn Luyện (Training Model Workflow)
   const handleExecuteTrainingWorkflow = async () => {
     setIsRunning(true);
     setLastRunStatus('RUNNING');
     setBottomPanelOpen(true);
-    setBottomTab('LOGS');
     const runId = `train-${Date.now().toString().slice(-4)}`;
     const startTime = Date.now();
     setLastRunMeta({
@@ -409,13 +585,13 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
     })));
 
     try {
-      // 1. Bước 1, 2, 3: Setup, Ingestion, Preprocess (Chạy nhanh ~1s)
+      // 1. Bước 1, 2, 3: Setup, Ingestion, Preprocess
       for (let idx = 0; idx < 3; idx++) {
         setActiveStep(idx + 1);
         await streamStepLines(idx, initSteps[idx], 350);
       }
 
-      // 2. Bước 4: Training - Bắt đầu gọi n8n Webhook / Python Task Runner thực tế
+      // 2. Bước 4: Training - Gọi n8n Webhook / Python Task Runner thực tế
       setActiveStep(4);
       setCurrentActionSteps((prev) =>
         prev.map((s, idx) => idx === 3 ? {
@@ -424,12 +600,11 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
           logs: [
             { id: 'l33-pre', time: new Date().toISOString(), type: 'cmd', text: '$ python train_model.py --epochs 15 --batch-size 32' },
             { id: 'l34-pre', time: new Date().toISOString(), type: 'info', text: 'Kích hoạt n8n Webhook: POST http://localhost:3636/webhook/trigger-training...' },
-            { id: 'l35-pre', time: new Date().toISOString(), type: 'info', text: 'Task Runner (host.docker.internal:5005) đang huấn luyện mô hình TinyML MLP thật...' }
+            { id: 'l35-pre', time: new Date().toISOString(), type: 'info', text: 'Task Runner (host.docker.internal:5005) đang huấn luyện mô hình TinyML MLP...' }
           ]
         } : s)
       );
 
-      // GỌI THẬT ĐẾN n8n / PYTHON TASK RUNNER
       const res = await fetch('/api/n8n', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -447,17 +622,13 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
       }
 
       const n8nResult = await res.json();
-      console.log('[Live Training Result from n8n/Python]:', n8nResult);
-
       const realDetails = n8nResult?.details || n8nResult?.metrics || {};
       const realAcc = realDetails.accuracy_percent || (realDetails.test_accuracy ? `${(realDetails.test_accuracy * 100).toFixed(2)}%` : '100.00%');
       const realF1 = realDetails.macro_f1 ? String(realDetails.macro_f1) : '1.0000';
       const realLoss = realDetails.test_loss ? String(realDetails.test_loss) : '0.00005';
 
-      // Cập nhật lại toàn bộ steps với dữ liệu THẬT vừa huấn luyện
       const updatedSteps = generateTrainingLogs(dataSource, runId, n8nResult);
 
-      // Hoàn tất Step 4 với logs thật
       setCurrentActionSteps((prev) =>
         prev.map((s, idx) => idx === 3 ? {
           ...updatedSteps[3],
@@ -466,7 +637,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
         } : s)
       );
 
-      // 3. Bước 5: Extract Metrics & Quality Gate (Đánh giá chất lượng >= 90%)
+      // 3. Bước 5: Extract Metrics & Quality Gate
       setActiveStep(5);
       if (updatedSteps[4]) await streamStepLines(4, updatedSteps[4], 250);
       if (updatedSteps[5]) await streamStepLines(5, updatedSteps[5], 250);
@@ -541,306 +712,103 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
     }
   };
 
-  const handleCopyCppCode = () => {
-    const code = realCppCode || `// Auto-generated TinyML Health Risk INT8 model for Seeed XIAO ESP32-S3
-// Generated from n8n Integration Workflow
-#ifndef HEALTH_RISK_MODEL_INT8_H
-#define HEALTH_RISK_MODEL_INT8_H
-
-const int health_risk_model_int8_len = 3104; // 3.03 KB
-// ... Full 3,104 bytes C byte array
-#endif
-`;
-
-    navigator.clipboard.writeText(code);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1440px', margin: '0 auto' }}>
+    <div className="flex flex-col gap-4 max-w-[1440px] mx-auto text-zinc-900 font-sans">
 
-      
-      {/* 1. WORKFLOW TABS SELECTOR (CHIA THÀNH 2 WORKFLOW RIÊNG BIỆT) */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem',
-        backgroundColor: 'var(--card-bg)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '16px',
-        padding: '0.85rem 1.25rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            n8n Workflow Pipeline:
+      {/* 1. WORKFLOW TABS SELECTOR */}
+      <div className="bg-white border border-zinc-200 rounded p-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-medium text-zinc-500 whitespace-nowrap">
+            n8n workflow:
           </span>
 
           {/* Unified Single Workflow Header Badge */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.65rem',
-            padding: '0.55rem 1rem',
-            borderRadius: '10px',
-            border: '1px solid #ff6d5a',
-            backgroundColor: 'rgba(255, 109, 90, 0.15)',
-            boxShadow: '0 4px 15px rgba(255, 109, 90, 0.25)'
-          }}>
-            <div style={{
-              width: '24px',
-              height: '24px',
-              borderRadius: '6px',
-              backgroundColor: '#ff6d5a',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.75rem',
-              fontWeight: 900
-            }}>
-              n
-            </div>
-            <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc' }}>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-zinc-100 border border-zinc-200 text-zinc-800 text-xs font-medium">
+            <span className="font-semibold text-zinc-900">
               Automated AI Training Pipeline (Risk Score Model)
             </span>
           </div>
         </div>
 
         {/* JSON Export & n8n Studio links */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+        <div className="flex items-center gap-2">
           <a
             href="http://localhost:3636"
             target="_blank"
             rel="noreferrer"
-            title="Mở bảng điều khiển n8n Editor Studio trên cổng :3636"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              fontSize: '0.75rem',
-              color: '#ff6d5a',
-              textDecoration: 'none',
-              padding: '0.4rem 0.75rem',
-              borderRadius: '6px',
-              backgroundColor: 'rgba(255, 109, 90, 0.12)',
-              border: '1px solid rgba(255, 109, 90, 0.35)',
-              fontWeight: 600
-            }}
+            title={language === 'vi' ? 'Mở bảng điều khiển n8n Editor Studio trên cổng :3636' : 'Open n8n Editor Studio Dashboard on port :3636'}
+            className="h-8 px-3 rounded border border-zinc-300 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 flex items-center gap-1.5 transition-colors"
           >
-            <ExternalLink size={13} />
-            <span>Mở n8n Studio (:3636)</span>
+            <ExternalLink size={13} className="text-zinc-500" />
+            <span>{language === 'vi' ? 'Mở n8n Studio (:3636)' : 'Open n8n Studio (:3636)'}</span>
           </a>
 
           <a
             href="/automated_training_pipeline.json"
             download="automated_training_pipeline.json"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              fontSize: '0.75rem',
-              color: '#94a3b8',
-              textDecoration: 'none',
-              padding: '0.4rem 0.75rem',
-              borderRadius: '6px',
-              backgroundColor: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)'
-            }}
+            className="h-8 px-3 rounded border border-zinc-300 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 flex items-center gap-1.5 transition-colors"
           >
-            <Download size={13} />
-            <span>Export n8n JSON</span>
+            <Download size={13} className="text-zinc-500" />
+            <span>{language === 'vi' ? 'Xuất file n8n JSON' : 'Export n8n JSON'}</span>
           </a>
         </div>
       </div>
 
       {/* 2. N8N CANVAS CONTAINER */}
-      <div style={{
-        backgroundColor: '#12141a',
-        border: '1px solid #232733',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+      <div className="bg-white border border-zinc-200 rounded overflow-hidden flex flex-col">
 
         {/* N8N TOP BAR */}
-        <div style={{
-          backgroundColor: '#181b23',
-          borderBottom: '1px solid #282d3b',
-          padding: '0.75rem 1.25rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '1rem'
-        }}>
+        <div className="bg-white border-b border-zinc-200 p-3 sm:px-4 flex justify-between items-center flex-wrap gap-3">
           {/* Left: Workflow title & breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              backgroundColor: '#ff6d5a',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontWeight: 900,
-              fontSize: '0.85rem'
-            }}>
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded bg-zinc-100 border border-zinc-200 flex items-center justify-center text-cyan-700 font-bold text-xs flex-shrink-0">
               n
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f1f5f9' }}>
-                  ProWatch Unified Workflow: Automated AI Training Pipeline (Risk Score Model)
-                </span>
+              <div className="text-sm font-bold text-zinc-900 leading-tight">
+                {t('pipe.title')}
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                {'ID: pOMF8He4573saS5R • 17 Nodes • Hybrid Data (32k Baseline + Supabase Cloud) • Quality Gate >= 90% • ESP32 Target'}
-              </span>
-            </div>
-          </div>
-
-          {/* Right: n8n Execute Workflow Button & Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <button
-              onClick={handleExecuteTrainingWorkflow}
-              disabled={isRunning}
-              style={{
-                backgroundColor: isRunning ? '#7f2e23' : '#ff6d5a',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '0.55rem 1.25rem',
-                fontSize: '0.85rem',
-                fontWeight: 700,
-                cursor: isRunning ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                boxShadow: isRunning ? 'none' : '0 2px 12px rgba(255, 109, 90, 0.4)',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {isRunning ? <RefreshCw size={15} className="pulse-indicator" /> : <Play size={15} fill="#fff" />}
-              {isRunning ? 'Executing Workflow...' : 'Execute Workflow'}
-            </button>
-
-            <button
-              onClick={() => {
-                setBottomPanelOpen(true);
-                setBottomTab('LOGS');
-                bottomPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-              }}
-              style={{
-                backgroundColor: bottomPanelOpen && bottomTab === 'LOGS' ? '#1e293b' : 'rgba(255,255,255,0.05)',
-                color: '#e2e8f0',
-                border: bottomPanelOpen && bottomTab === 'LOGS' ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '8px',
-                padding: '0.55rem 0.95rem',
-                fontSize: '0.82rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                transition: 'all 0.2s ease'
-              }}
-              title="Xem lại hoặc theo dõi tiến trình GitHub Actions Runner Logs"
-            >
-              <Terminal size={14} color="#38bdf8" />
-              <span>Action Logs</span>
-              <span style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                backgroundColor: lastRunStatus === 'RUNNING' ? '#eab308' : (lastRunStatus === 'SUCCESS' ? '#22c55e' : '#94a3b8')
-              }} />
-            </button>
-
-            {/* Pan & Zoom Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              {/* Pan Guide Indicator */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                backgroundColor: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                padding: '0.3rem 0.65rem',
-                borderRadius: '8px',
-                fontSize: '0.72rem',
-                color: '#94a3b8'
-              }}>
-                <Move size={12} color="#38bdf8" />
-                <span>Kéo chuột để di chuyển canvas</span>
-              </div>
-
-              {/* Zoom & Reset Controls */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', backgroundColor: '#202430', padding: '0.2rem 0.35rem', borderRadius: '8px' }}>
-                <button
-                  onClick={() => setZoomLevel((z) => Math.max(z - 10, 50))}
-                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', padding: '0.35rem', cursor: 'pointer', borderRadius: '4px' }}
-                  title="Thu nhỏ (-10%)"
-                >
-                  <Minus size={14} />
-                </button>
-                <button
-                  onClick={handleResetView}
-                  style={{ background: 'transparent', border: 'none', color: '#cbd5e1', padding: '0.25rem 0.45rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', borderRadius: '4px' }}
-                  title="Căn giữa & Đặt lại 100%"
-                >
-                  {zoomLevel}%
-                </button>
-                <button
-                  onClick={() => setZoomLevel((z) => Math.min(z + 10, 160))}
-                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', padding: '0.35rem', cursor: 'pointer', borderRadius: '4px' }}
-                  title="Phóng to (+10%)"
-                >
-                  <Plus size={14} />
-                </button>
-                <button
-                  onClick={handleResetView}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#94a3b8',
-                    padding: '0.35rem',
-                    cursor: 'pointer',
-                    borderRadius: '4px',
-                    borderLeft: '1px solid #333a4d',
-                    marginLeft: '2px',
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}
-                  title="Đặt lại góc nhìn (Reset View & Pan)"
-                >
-                  <RotateCcw size={13} />
-                </button>
+              <div className="text-xs text-zinc-500 font-mono mt-0.5">
+                ID: pOMF8He4573saS5R
               </div>
             </div>
           </div>
+
+          {/* Right: Nút Nhật ký Runner */}
+          <button
+            type="button"
+            onClick={() => {
+              setBottomPanelOpen(true);
+              bottomPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }}
+            className="h-8 px-3 rounded-md border border-zinc-300 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-800 shadow-2xs hover:shadow-xs flex items-center gap-2 transition-all active:scale-95"
+            title="Mở bảng nhật ký Action Runner Logs"
+          >
+            <Terminal size={14} className="text-zinc-600" />
+            <span>{t('pipe.runnerLogs')}</span>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                lastRunStatus === 'RUNNING'
+                  ? 'bg-amber-500 animate-pulse'
+                  : lastRunStatus === 'SUCCESS'
+                  ? 'bg-emerald-600'
+                  : 'bg-zinc-400'
+              }`}
+            />
+          </button>
         </div>
 
         {/* 3. N8N CANVAS: Dots grid + SVG bezier curves + Node Cards */}
         <div
           ref={canvasRef}
           onMouseDown={handleCanvasMouseDown}
+          className={`relative h-[520px] overflow-hidden bg-[#fafafa] select-none ${
+            isPanning ? 'cursor-grabbing' : 'cursor-default'
+          }`}
           style={{
-            position: 'relative',
-            height: '520px',
-            overflow: 'hidden',
-            backgroundColor: '#12141a',
-            backgroundImage: 'radial-gradient(#252a37 1.5px, transparent 1.5px)',
-            backgroundSize: `${Math.round(22 * (zoomLevel / 100))}px ${Math.round(22 * (zoomLevel / 100))}px`,
-            backgroundPosition: `${panOffset.x}px ${panOffset.y}px`,
-            cursor: isPanning ? 'grabbing' : 'grab',
-            userSelect: 'none'
+            backgroundImage: 'radial-gradient(#e4e4e7 1.25px, transparent 1.25px)',
+            backgroundSize: `${Math.round(24 * (zoomLevel / 100))}px ${Math.round(24 * (zoomLevel / 100))}px`,
+            backgroundPosition: `${panOffset.x}px ${panOffset.y}px`
           }}
         >
           {/* Zoomable & Pannable Container */}
@@ -858,898 +826,809 @@ const int health_risk_model_int8_len = 3104; // 3.03 KB
               @keyframes n8nDash {
                 to { stroke-dashoffset: -24; }
               }
-              @keyframes pulseNode {
-                0%, 100% { transform: scale(1); }
-                50% { transform: scale(1.02); }
-              }
-              @keyframes spinSlow {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-              }
             `}</style>
 
-                        {/* ============================================================== */}
-            {/* WORKFLOW CANVAS: REAL AUTOMATED TRAINING PIPELINE (17 NODES)   */}
-            {/* ============================================================== */}
             <div style={{ position: 'relative', width: '2780px', height: '490px', padding: '10px' }}>
-                
-                {/* SVG Bezier Curves for All 17 Real Pipeline Nodes */}
-                <svg style={{ position: 'absolute', top: 0, left: 0, width: '2780px', height: '490px', pointerEvents: 'none' }}>
-                  <defs>
-                    <filter id="glow-orange" x="-50%" y="-50%" width="200%" height="200%">
-                      <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#ff6d5a" />
-                    </filter>
-                    <filter id="glow-green" x="-50%" y="-50%" width="200%" height="200%">
-                      <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#3ecf8e" />
-                    </filter>
-                    <filter id="glow-cyan" x="-50%" y="-50%" width="200%" height="200%">
-                      <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#06b6d4" />
-                    </filter>
-                    <filter id="glow-purple" x="-50%" y="-50%" width="200%" height="200%">
-                      <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#a855f7" />
-                    </filter>
-                    <filter id="glow-indigo" x="-50%" y="-50%" width="200%" height="200%">
-                      <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#6366f1" />
-                    </filter>
-                    <filter id="glow-emerald" x="-50%" y="-50%" width="200%" height="200%">
-                      <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#10b981" />
-                    </filter>
-                    <filter id="glow-amber" x="-50%" y="-50%" width="200%" height="200%">
-                      <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#f59e0b" />
-                    </filter>
-                    <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
-                      <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#ef4444" />
-                    </filter>
-                  </defs>
 
-                  {/* Wire 1A: Webhook Trigger [210, 107] -> Fetch Supabase Data [280, 232] */}
-                  <path
-                    d="M 210 107 C 245 107, 245 232, 280 232"
-                    fill="none"
-                    stroke={activeStep >= 1 ? '#ff6d5a' : '#283144'}
-                    strokeWidth={activeStep >= 1 ? '2.5' : '1.8'}
-                    strokeDasharray={activeStep === 1 ? '6 6' : 'none'}
-                    style={{ animation: activeStep === 1 ? 'n8nDash 0.8s linear infinite' : 'none' }}
-                  />
-                  {activeStep === 1 && (
-                    <circle r="4" fill="#ff6d5a" filter="url(#glow-orange)">
-                      <animateMotion path="M 210 107 C 245 107, 245 232, 280 232" dur="0.8s" repeatCount="indefinite" />
-                    </circle>
-                  )}
+              {/* SVG Bezier Curves for All 17 Real Pipeline Nodes */}
+              <svg style={{ position: 'absolute', top: 0, left: 0, width: '2780px', height: '490px', pointerEvents: 'none' }}>
+                {/* Wire 1A: Webhook Trigger -> Fetch Supabase Data */}
+                <path
+                  d="M 210 107 C 245 107, 245 232, 280 232"
+                  fill="none"
+                  stroke={activeStep >= 1 ? '#0e7490' : '#94a3b8'}
+                  strokeWidth={activeStep >= 1 ? '2.5' : '2'}
+                  strokeDasharray={activeStep === 1 ? '6 6' : 'none'}
+                  style={{ animation: activeStep === 1 ? 'n8nDash 0.8s linear infinite' : 'none' }}
+                />
+                {activeStep === 1 && (
+                  <circle r="4" fill="#0e7490">
+                    <animateMotion path="M 210 107 C 245 107, 245 232, 280 232" dur="0.8s" repeatCount="indefinite" />
+                  </circle>
+                )}
 
-                  {/* Wire 1B: Schedule Trigger [210, 232] -> Fetch Supabase Data [280, 232] */}
-                  <path
-                    d="M 210 232 C 245 232, 245 232, 280 232"
-                    fill="none"
-                    stroke={activeStep >= 1 ? '#f59e0b' : '#283144'}
-                    strokeWidth={activeStep >= 1 ? '2.5' : '1.8'}
-                    strokeDasharray={activeStep === 1 ? '6 6' : 'none'}
-                    style={{ animation: activeStep === 1 ? 'n8nDash 0.8s linear infinite' : 'none' }}
-                  />
+                {/* Wire 1B: Schedule Trigger -> Fetch Supabase Data */}
+                <path
+                  d="M 210 232 C 245 232, 245 232, 280 232"
+                  fill="none"
+                  stroke={activeStep >= 1 ? '#0e7490' : '#94a3b8'}
+                  strokeWidth={activeStep >= 1 ? '2.5' : '2'}
+                  strokeDasharray={activeStep === 1 ? '6 6' : 'none'}
+                  style={{ animation: activeStep === 1 ? 'n8nDash 0.8s linear infinite' : 'none' }}
+                />
 
-                  {/* Wire 1C: Manual Trigger [210, 357] -> Fetch Supabase Data [280, 232] */}
-                  <path
-                    d="M 210 357 C 245 357, 245 232, 280 232"
-                    fill="none"
-                    stroke={activeStep >= 1 ? '#06b6d4' : '#283144'}
-                    strokeWidth={activeStep >= 1 ? '2.5' : '1.8'}
-                    strokeDasharray={activeStep === 1 ? '6 6' : 'none'}
-                    style={{ animation: activeStep === 1 ? 'n8nDash 0.8s linear infinite' : 'none' }}
-                  />
+                {/* Wire 1C: Manual Trigger -> Fetch Supabase Data */}
+                <path
+                  d="M 210 357 C 245 357, 245 232, 280 232"
+                  fill="none"
+                  stroke={activeStep >= 1 ? '#0e7490' : '#94a3b8'}
+                  strokeWidth={activeStep >= 1 ? '2.5' : '2'}
+                  strokeDasharray={activeStep === 1 ? '6 6' : 'none'}
+                  style={{ animation: activeStep === 1 ? 'n8nDash 0.8s linear infinite' : 'none' }}
+                />
 
-                  {/* Wire 2: Fetch Supabase Data [470, 232] -> Pre-flight Validation [540, 232] */}
-                  <path
-                    d="M 470 232 C 505 232, 505 232, 540 232"
-                    fill="none"
-                    stroke={activeStep >= 2 ? '#3ecf8e' : '#283144'}
-                    strokeWidth={activeStep >= 2 ? '2.5' : '1.8'}
-                    strokeDasharray={activeStep === 2 ? '6 6' : 'none'}
-                    style={{ animation: activeStep === 2 ? 'n8nDash 0.8s linear infinite' : 'none' }}
-                  />
-                  {activeStep === 2 && (
-                    <circle r="4" fill="#3ecf8e" filter="url(#glow-green)">
-                      <animateMotion path="M 470 232 C 505 232, 505 232, 540 232" dur="0.8s" repeatCount="indefinite" />
-                    </circle>
-                  )}
+                {/* Wire 2: Fetch Supabase Data -> Pre-flight Validation */}
+                <path
+                  d="M 470 232 C 505 232, 505 232, 540 232"
+                  fill="none"
+                  stroke={activeStep >= 2 ? '#0e7490' : '#94a3b8'}
+                  strokeWidth={activeStep >= 2 ? '2.5' : '2'}
+                  strokeDasharray={activeStep === 2 ? '6 6' : 'none'}
+                  style={{ animation: activeStep === 2 ? 'n8nDash 0.8s linear infinite' : 'none' }}
+                />
+                {activeStep === 2 && (
+                  <circle r="4" fill="#0e7490">
+                    <animateMotion path="M 470 232 C 505 232, 505 232, 540 232" dur="0.8s" repeatCount="indefinite" />
+                  </circle>
+                )}
 
-                  {/* Wire 3: Pre-flight Validation [730, 232] -> Train Model (Python) [800, 232] */}
-                  <path
-                    d="M 730 232 C 765 232, 765 232, 800 232"
-                    fill="none"
-                    stroke={activeStep >= 3 ? '#6366f1' : '#283144'}
-                    strokeWidth={activeStep >= 3 ? '2.5' : '1.8'}
-                    strokeDasharray={activeStep === 3 ? '6 6' : 'none'}
-                    style={{ animation: activeStep === 3 ? 'n8nDash 0.8s linear infinite' : 'none' }}
-                  />
-                  {activeStep === 3 && (
-                    <circle r="4" fill="#6366f1" filter="url(#glow-indigo)">
-                      <animateMotion path="M 730 232 C 765 232, 765 232, 800 232" dur="0.8s" repeatCount="indefinite" />
-                    </circle>
-                  )}
+                {/* Wire 3: Pre-flight Validation -> Train Model */}
+                <path
+                  d="M 730 232 C 765 232, 765 232, 800 232"
+                  fill="none"
+                  stroke={activeStep >= 3 ? '#0e7490' : '#94a3b8'}
+                  strokeWidth={activeStep >= 3 ? '2.5' : '2'}
+                  strokeDasharray={activeStep === 3 ? '6 6' : 'none'}
+                  style={{ animation: activeStep === 3 ? 'n8nDash 0.8s linear infinite' : 'none' }}
+                />
+                {activeStep === 3 && (
+                  <circle r="4" fill="#0e7490">
+                    <animateMotion path="M 730 232 C 765 232, 765 232, 800 232" dur="0.8s" repeatCount="indefinite" />
+                  </circle>
+                )}
 
-                  {/* Wire 4: Train Model (Python) [990, 232] -> Extract Metrics [1060, 232] */}
-                  <path
-                    d="M 990 232 C 1025 232, 1025 232, 1060 232"
-                    fill="none"
-                    stroke={activeStep >= 4 ? '#a855f7' : '#283144'}
-                    strokeWidth={activeStep >= 4 ? '2.5' : '1.8'}
-                    strokeDasharray={activeStep === 4 ? '6 6' : 'none'}
-                    style={{ animation: activeStep === 4 ? 'n8nDash 0.8s linear infinite' : 'none' }}
-                  />
-                  {activeStep === 4 && (
-                    <circle r="4" fill="#a855f7" filter="url(#glow-purple)">
-                      <animateMotion path="M 990 232 C 1025 232, 1025 232, 1060 232" dur="0.8s" repeatCount="indefinite" />
-                    </circle>
-                  )}
+                {/* Wire 4: Train Model -> Extract Metrics */}
+                <path
+                  d="M 990 232 C 1025 232, 1025 232, 1060 232"
+                  fill="none"
+                  stroke={activeStep >= 4 ? '#0e7490' : '#94a3b8'}
+                  strokeWidth={activeStep >= 4 ? '2.5' : '2'}
+                  strokeDasharray={activeStep === 4 ? '6 6' : 'none'}
+                  style={{ animation: activeStep === 4 ? 'n8nDash 0.8s linear infinite' : 'none' }}
+                />
+                {activeStep === 4 && (
+                  <circle r="4" fill="#0e7490">
+                    <animateMotion path="M 990 232 C 1025 232, 1025 232, 1060 232" dur="0.8s" repeatCount="indefinite" />
+                  </circle>
+                )}
 
-                  {/* Wire 5: Extract Metrics [1240, 232] -> Quality Gate [1310, 232] */}
-                  <path
-                    d="M 1240 232 C 1275 232, 1275 232, 1310 232"
-                    fill="none"
-                    stroke={activeStep >= 5 ? '#06b6d4' : '#283144'}
-                    strokeWidth={activeStep >= 5 ? '2.5' : '1.8'}
-                    strokeDasharray={activeStep === 5 ? '6 6' : 'none'}
-                    style={{ animation: activeStep === 5 ? 'n8nDash 0.8s linear infinite' : 'none' }}
-                  />
-                  {activeStep === 5 && (
-                    <circle r="4" fill="#06b6d4" filter="url(#glow-cyan)">
-                      <animateMotion path="M 1240 232 C 1275 232, 1275 232, 1310 232" dur="0.8s" repeatCount="indefinite" />
-                    </circle>
-                  )}
+                {/* Wire 5: Extract Metrics -> Quality Gate */}
+                <path
+                  d="M 1240 232 C 1275 232, 1275 232, 1310 232"
+                  fill="none"
+                  stroke={activeStep >= 5 ? '#0e7490' : '#94a3b8'}
+                  strokeWidth={activeStep >= 5 ? '2.5' : '2'}
+                  strokeDasharray={activeStep === 5 ? '6 6' : 'none'}
+                  style={{ animation: activeStep === 5 ? 'n8nDash 0.8s linear infinite' : 'none' }}
+                />
+                {activeStep === 5 && (
+                  <circle r="4" fill="#0e7490">
+                    <animateMotion path="M 1240 232 C 1275 232, 1275 232, 1310 232" dur="0.8s" repeatCount="indefinite" />
+                  </circle>
+                )}
 
-                  {/* Wire 6 (True Branch): Quality Gate [1480, 215] -> Handle Success [1550, 107] */}
-                  <path
-                    d="M 1480 215 C 1515 215, 1515 107, 1550 107"
-                    fill="none"
-                    stroke={activeStep >= 5 ? '#10b981' : '#283144'}
-                    strokeWidth={activeStep >= 5 ? '2.5' : '1.8'}
-                    strokeDasharray={activeStep >= 5 ? 'none' : '4 4'}
-                  />
-                  {activeStep >= 5 && (
-                    <circle r="4" fill="#10b981" filter="url(#glow-emerald)">
-                      <animateMotion path="M 1480 215 C 1515 215, 1515 107, 1550 107" dur="0.9s" repeatCount="indefinite" />
-                    </circle>
-                  )}
+                {/* Wire 6 (True Branch): Quality Gate -> Handle Success */}
+                <path
+                  d="M 1480 215 C 1515 215, 1515 107, 1550 107"
+                  fill="none"
+                  stroke={activeStep >= 5 ? '#047857' : '#94a3b8'}
+                  strokeWidth={activeStep >= 5 ? '2.5' : '2'}
+                />
+                {activeStep >= 5 && (
+                  <circle r="4" fill="#047857">
+                    <animateMotion path="M 1480 215 C 1515 215, 1515 107, 1550 107" dur="0.9s" repeatCount="indefinite" />
+                  </circle>
+                )}
 
-                  {/* Wire 7: Handle Success [1720, 107] -> Sync Model Registry [1790, 107] */}
-                  <path
-                    d="M 1720 107 C 1755 107, 1755 107, 1790 107"
-                    fill="none"
-                    stroke={activeStep >= 5 ? '#10b981' : '#283144'}
-                    strokeWidth={activeStep >= 5 ? '2.5' : '1.8'}
-                  />
+                {/* Wire 7: Handle Success -> Sync Model Registry */}
+                <path
+                  d="M 1720 107 C 1755 107, 1755 107, 1790 107"
+                  fill="none"
+                  stroke={activeStep >= 5 ? '#047857' : '#94a3b8'}
+                  strokeWidth={activeStep >= 5 ? '2.5' : '2'}
+                />
 
-                  {/* Wire 8: Sync Model Registry [1970, 107] -> Sync Firmware Header [2040, 107] */}
-                  <path
-                    d="M 1970 107 C 2005 107, 2005 107, 2040 107"
-                    fill="none"
-                    stroke={activeStep >= 6 ? '#3b82f6' : '#283144'}
-                    strokeWidth={activeStep >= 6 ? '2.5' : '1.8'}
-                  />
+                {/* Wire 8: Sync Model Registry -> Sync Firmware Header */}
+                <path
+                  d="M 1970 107 C 2005 107, 2005 107, 2040 107"
+                  fill="none"
+                  stroke={activeStep >= 6 ? '#047857' : '#94a3b8'}
+                  strokeWidth={activeStep >= 6 ? '2.5' : '2'}
+                />
 
-                  {/* Wire 9: Sync Firmware Header [2225, 107] -> Format Success Card [2295, 107] */}
-                  <path
-                    d="M 2225 107 C 2260 107, 2260 107, 2295 107"
-                    fill="none"
-                    stroke={activeStep >= 6 ? '#ec4899' : '#283144'}
-                    strokeWidth={activeStep >= 6 ? '2.5' : '1.8'}
-                  />
+                {/* Wire 9: Sync Firmware Header -> Format Success Card */}
+                <path
+                  d="M 2225 107 C 2260 107, 2260 107, 2295 107"
+                  fill="none"
+                  stroke={activeStep >= 6 ? '#047857' : '#94a3b8'}
+                  strokeWidth={activeStep >= 6 ? '2.5' : '2'}
+                />
 
-                  {/* Wire 10: Format Success Card [2475, 107] -> Send Telegram Alert [2545, 107] */}
-                  <path
-                    d="M 2475 107 C 2510 107, 2510 107, 2545 107"
-                    fill="none"
-                    stroke={activeStep >= 6 ? '#0ea5e9' : '#283144'}
-                    strokeWidth={activeStep >= 6 ? '2.5' : '1.8'}
-                  />
+                {/* Wire 10: Format Success Card -> Send Telegram Alert */}
+                <path
+                  d="M 2475 107 C 2510 107, 2510 107, 2545 107"
+                  fill="none"
+                  stroke={activeStep >= 6 ? '#047857' : '#94a3b8'}
+                  strokeWidth={activeStep >= 6 ? '2.5' : '2'}
+                />
 
-                  {/* Wire 11 (False Branch): Quality Gate [1480, 249] -> Handle Failure [1550, 357] */}
-                  <path
-                    d="M 1480 249 C 1515 249, 1515 357, 1550 357"
-                    fill="none"
-                    stroke="#ef4444"
-                    strokeWidth="1.8"
-                    strokeDasharray="4 4"
-                  />
+                {/* Wire 11 (False Branch): Quality Gate -> Handle Failure */}
+                <path
+                  d="M 1480 249 C 1515 249, 1515 357, 1550 357"
+                  fill="none"
+                  stroke="#b91c1c"
+                  strokeWidth="2"
+                  strokeDasharray="5 5"
+                />
 
-                  {/* Wire 12: Handle Failure [1720, 357] -> Log Audit Incident [1790, 357] */}
-                  <path
-                    d="M 1720 357 C 1755 357, 1755 357, 1790 357"
-                    fill="none"
-                    stroke="#283144"
-                    strokeWidth="1.8"
-                    strokeDasharray="4 4"
-                  />
+                {/* Wire 12: Handle Failure -> Log Audit Incident */}
+                <path
+                  d="M 1720 357 C 1755 357, 1755 357, 1790 357"
+                  fill="none"
+                  stroke="#94a3b8"
+                  strokeWidth="2"
+                  strokeDasharray="5 5"
+                />
 
-                  {/* Wire 13: Log Audit Incident [1970, 357] -> Format Alert Card [2040, 357] */}
-                  <path
-                    d="M 1970 357 C 2005 357, 2005 357, 2040 357"
-                    fill="none"
-                    stroke="#283144"
-                    strokeWidth="1.8"
-                    strokeDasharray="4 4"
-                  />
+                {/* Wire 13: Log Audit Incident -> Format Alert Card */}
+                <path
+                  d="M 1970 357 C 2005 357, 2005 357, 2040 357"
+                  fill="none"
+                  stroke="#94a3b8"
+                  strokeWidth="2"
+                  strokeDasharray="5 5"
+                />
 
-                  {/* Wire 14: Format Alert Card [2220, 357] -> Send Incident Alert [2290, 357] */}
-                  <path
-                    d="M 2220 357 C 2255 357, 2255 357, 2290 357"
-                    fill="none"
-                    stroke="#283144"
-                    strokeWidth="1.8"
-                    strokeDasharray="4 4"
-                  />
-                </svg>
+                {/* Wire 14: Format Alert Card -> Send Incident Alert */}
+                <path
+                  d="M 2220 357 C 2255 357, 2255 357, 2290 357"
+                  fill="none"
+                  stroke="#94a3b8"
+                  strokeWidth="2"
+                  strokeDasharray="5 5"
+                />
+              </svg>
 
-                {/* 1. Webhook Trigger */}
-                <div onClick={() => setSelectedNode('webhook_trigger')} style={{ position: 'absolute', left: '40px', top: '70px', width: '170px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '170px', height: '74px', backgroundColor: '#1b1f2b', border: activeStep === 1 ? '2px solid #ff6d5a' : (selectedNode === 'webhook_trigger' ? '2px solid #94a3b8' : '1px solid #33394a'), borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(255, 109, 90, 0.15)', border: '1px solid #ff6d5a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff6d5a', flexShrink: 0 }}>
-                      <Zap size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Webhook Trigger</div>
-                      <div style={{ fontSize: '0.64rem', color: '#ff8474', marginTop: '2px' }}>POST /trigger-training</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ff6d5a', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Trigger tự động từ xa</div>
-                </div>
+              {/* 1. Webhook Trigger */}
+              <PipelineNodeCard
+                id="webhook_trigger"
+                left={40}
+                top={70}
+                width={170}
+                title="Webhook Trigger"
+                subtitle="POST /trigger-training"
+                category="trigger"
+                categoryLabel="Webhook"
+                description={language === 'vi' ? 'Kích hoạt tự động từ xa' : 'Remote webhook trigger'}
+                icon={<Webhook size={16} />}
+                isSelected={selectedNode === 'webhook_trigger'}
+                isActive={activeStep === 1}
+                hasInputPin={false}
+                onClick={() => setSelectedNode('webhook_trigger')}
+              />
 
-                {/* 2. Schedule Trigger */}
-                <div onClick={() => setSelectedNode('schedule_trigger')} style={{ position: 'absolute', left: '40px', top: '195px', width: '170px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '170px', height: '74px', backgroundColor: '#1b1f2b', border: selectedNode === 'schedule_trigger' ? '2px solid #94a3b8' : '1px solid #33394a', borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b', flexShrink: 0 }}>
-                      <Clock size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Schedule Trigger</div>
-                      <div style={{ fontSize: '0.64rem', color: '#fbbf24', marginTop: '2px' }}>02:00 Chủ Nhật</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Lập lịch Cron định kỳ</div>
-                </div>
+              {/* 2. Schedule Trigger */}
+              <PipelineNodeCard
+                id="schedule_trigger"
+                left={40}
+                top={195}
+                width={170}
+                title="Schedule Trigger"
+                subtitle={language === 'vi' ? '02:00 Chủ nhật' : '02:00 Sunday'}
+                category="trigger"
+                categoryLabel="Schedule"
+                description={language === 'vi' ? 'Lập lịch định kỳ' : 'Recurring schedule'}
+                icon={<Clock size={16} />}
+                isSelected={selectedNode === 'schedule_trigger'}
+                hasInputPin={false}
+                onClick={() => setSelectedNode('schedule_trigger')}
+              />
 
-                {/* 3. Manual Trigger */}
-                <div onClick={() => setSelectedNode('manual_trigger')} style={{ position: 'absolute', left: '40px', top: '320px', width: '170px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '170px', height: '74px', backgroundColor: '#1b1f2b', border: selectedNode === 'manual_trigger' ? '2px solid #94a3b8' : '1px solid #33394a', borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(6, 182, 212, 0.15)', border: '1px solid #06b6d4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#06b6d4', flexShrink: 0 }}>
-                      <Play size={16} fill="#06b6d4" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Manual Trigger</div>
-                      <div style={{ fontSize: '0.64rem', color: '#22d3ee', marginTop: '2px' }}>Bấm Test trực tiếp</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#06b6d4', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Khởi chạy kiểm thử</div>
-                </div>
+              {/* 3. Manual Trigger */}
+              <PipelineNodeCard
+                id="manual_trigger"
+                left={40}
+                top={320}
+                width={170}
+                title="Manual Trigger"
+                subtitle={language === 'vi' ? 'Kích hoạt thủ công' : 'Manual trigger'}
+                category="trigger"
+                categoryLabel="Manual"
+                description={language === 'vi' ? 'Khởi chạy kiểm thử' : 'Test execution'}
+                icon={<Play size={16} fill="currentColor" />}
+                isSelected={selectedNode === 'manual_trigger'}
+                hasInputPin={false}
+                onClick={() => setSelectedNode('manual_trigger')}
+              />
 
-                {/* 4. Fetch Supabase Data */}
-                <div onClick={() => setSelectedNode('fetch_supabase')} style={{ position: 'absolute', left: '280px', top: '195px', width: '190px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '190px', height: '74px', backgroundColor: '#1b1f2b', border: activeStep >= 2 ? '2px solid #3ecf8e' : (selectedNode === 'fetch_supabase' ? '2px solid #94a3b8' : '1px solid #234e3d'), borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: activeStep === 2 ? '0 0 25px rgba(62, 207, 142, 0.6)' : '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#3ecf8e', border: '2px solid #12141a' }} />
-                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', backgroundColor: '#0c2e24', border: '1px solid #3ecf8e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <SupabaseLogo size={22} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Fetch Supabase Data</div>
-                      <div style={{ fontSize: '0.64rem', color: '#3ecf8e', marginTop: '2px' }}>REST API 50 records</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#3ecf8e', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Cảm biến đồng hồ thực tế</div>
-                </div>
+              {/* 4. Fetch Supabase Data */}
+              <PipelineNodeCard
+                id="fetch_supabase"
+                left={280}
+                top={195}
+                width={190}
+                title="Fetch Supabase Data"
+                subtitle="REST API 50 records"
+                category="database"
+                categoryLabel="Supabase DB"
+                description={language === 'vi' ? 'Cảm biến đồng hồ thực tế' : 'Live watch sensor feed'}
+                icon={<SupabaseLogo size={20} />}
+                isSelected={selectedNode === 'fetch_supabase'}
+                isActive={activeStep >= 2}
+                onClick={() => setSelectedNode('fetch_supabase')}
+              />
 
-                {/* 5. Pre-flight Validation */}
-                <div onClick={() => setSelectedNode('preflight_val')} style={{ position: 'absolute', left: '540px', top: '195px', width: '190px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '190px', height: '74px', backgroundColor: '#1b1f2b', border: activeStep >= 3 ? '2px solid #6366f1' : (selectedNode === 'preflight_val' ? '2px solid #94a3b8' : '1px solid #31335c'), borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: activeStep === 3 ? '0 0 25px rgba(99, 102, 241, 0.6)' : '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#6366f1', border: '2px solid #12141a' }} />
-                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', backgroundColor: '#1e2140', border: '1px solid #6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', flexShrink: 0 }}>
-                      <Sliders size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Pre-flight Validation</div>
-                      <div style={{ fontSize: '0.64rem', color: '#818cf8', marginTop: '2px' }}>Hybrid (32k + Cloud)</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#6366f1', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Kiểm định & Gán nhãn NEWS2</div>
-                </div>
+              {/* 5. Pre-flight Validation */}
+              <PipelineNodeCard
+                id="preflight_val"
+                left={540}
+                top={195}
+                width={190}
+                title="Pre-flight Validation"
+                subtitle="Hybrid (32k + Cloud)"
+                category="validation"
+                categoryLabel="Pre-flight Val"
+                description={language === 'vi' ? 'Kiểm định & Gán nhãn NEWS2' : 'NEWS2 validation & labeling'}
+                icon={<ShieldCheck size={16} />}
+                isSelected={selectedNode === 'preflight_val'}
+                isActive={activeStep >= 3}
+                onClick={() => setSelectedNode('preflight_val')}
+              />
 
-                {/* 6. Train Model (Python) */}
-                <div onClick={() => setSelectedNode('train_model')} style={{ position: 'absolute', left: '800px', top: '195px', width: '190px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '190px', height: '74px', backgroundColor: '#1b1f2b', border: activeStep >= 4 ? '2px solid #a855f7' : (selectedNode === 'train_model' ? '2px solid #94a3b8' : '1px solid #4a2869'), borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: activeStep === 4 ? '0 0 25px rgba(168, 85, 247, 0.6)' : '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#a855f7', border: '2px solid #12141a' }} />
-                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', backgroundColor: '#331e4d', border: '1px solid #a855f7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c084fc', flexShrink: 0 }}>
-                      <Cpu size={17} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Train Model (Python)</div>
-                      <div style={{ fontSize: '0.64rem', color: '#c084fc', marginTop: '2px' }}>TinyML MLP (:5005)</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#a855f7', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>15 Epochs • Adam • Batch 32</div>
-                </div>
+              {/* 6. Train Model (Python) */}
+              <PipelineNodeCard
+                id="train_model"
+                left={800}
+                top={195}
+                width={190}
+                title="Train Model (Python)"
+                subtitle="TinyML MLP (:5005)"
+                category="model"
+                categoryLabel="TinyML Model"
+                description="15 Epochs • Adam • Batch 32"
+                icon={<Brain size={16} />}
+                isSelected={selectedNode === 'train_model'}
+                isActive={activeStep >= 4}
+                onClick={() => setSelectedNode('train_model')}
+              />
 
-                {/* 7. Extract Metrics */}
-                <div onClick={() => setSelectedNode('extract_metrics')} style={{ position: 'absolute', left: '1060px', top: '195px', width: '180px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '180px', height: '74px', backgroundColor: '#1b1f2b', border: activeStep >= 5 ? '2px solid #06b6d4' : (selectedNode === 'extract_metrics' ? '2px solid #94a3b8' : '1px solid #1e4752'), borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: activeStep === 5 ? '0 0 25px rgba(6, 182, 212, 0.6)' : '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#06b6d4', border: '2px solid #12141a' }} />
-                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', backgroundColor: '#083344', border: '1px solid #06b6d4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#22d3ee', flexShrink: 0 }}>
-                      <Activity size={17} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Extract Metrics</div>
-                      <div style={{ fontSize: '0.64rem', color: '#22d3ee', marginTop: '2px' }}>Accuracy, F1, Loss</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#06b6d4', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Bóc tách chỉ số đánh giá</div>
-                </div>
+              {/* 7. Extract Metrics */}
+              <PipelineNodeCard
+                id="extract_metrics"
+                left={1060}
+                top={195}
+                width={180}
+                title="Extract Metrics"
+                subtitle="Accuracy, F1, Loss"
+                category="metrics"
+                categoryLabel="Eval Metrics"
+                description={language === 'vi' ? 'Bóc tách chỉ số đánh giá' : 'Extract evaluation metrics'}
+                icon={<BarChart3 size={16} />}
+                isSelected={selectedNode === 'extract_metrics'}
+                isActive={activeStep >= 5}
+                onClick={() => setSelectedNode('extract_metrics')}
+              />
 
-                {/* 8. Quality Gate */}
-                <div onClick={() => setSelectedNode('quality_gate')} style={{ position: 'absolute', left: '1310px', top: '195px', width: '170px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '170px', height: '74px', backgroundColor: '#1b1f2b', border: activeStep >= 5 ? '2px solid #eab308' : (selectedNode === 'quality_gate' ? '2px solid #94a3b8' : '1px solid #4d3e09'), borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: activeStep === 5 ? '0 0 25px rgba(234, 179, 8, 0.6)' : '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#eab308', border: '2px solid #12141a' }} />
-                    <div style={{ width: '34px', height: '34px', borderRadius: '8px', backgroundColor: '#422006', border: '1px solid #eab308', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#facc15', flexShrink: 0 }}>
-                      <BarChart3 size={17} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Quality Gate</div>
-                      <div style={{ fontSize: '0.64rem', color: '#facc15', marginTop: '2px' }}>Accuracy &gt;= 90%?</div>
-                    </div>
-                    {/* True pin (Top) */}
-                    <div style={{ position: 'absolute', right: '-5px', top: '25%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10b981', border: '2px solid #12141a' }} />
-                    {/* False pin (Bottom) */}
-                    <div style={{ position: 'absolute', right: '-5px', top: '75%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ef4444', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Cổng kiểm định chất lượng</div>
-                </div>
+              {/* 8. Quality Gate */}
+              <PipelineNodeCard
+                id="quality_gate"
+                left={1310}
+                top={195}
+                width={170}
+                title="Quality Gate"
+                subtitle="Accuracy >= 90%?"
+                category="gate"
+                categoryLabel="Quality Gate"
+                description={language === 'vi' ? 'Cổng kiểm định chất lượng' : 'Quality gate checkpoint'}
+                icon={<GitBranch size={16} />}
+                isSelected={selectedNode === 'quality_gate'}
+                isActive={activeStep >= 5}
+                hasDualOutputPin={true}
+                onClick={() => setSelectedNode('quality_gate')}
+              />
 
-                {/* --- TRUE BRANCH (SUCCESS) --- */}
-                {/* 9. Handle Success */}
-                <div onClick={() => setSelectedNode('handle_success')} style={{ position: 'absolute', left: '1550px', top: '70px', width: '170px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '170px', height: '74px', backgroundColor: '#1b1f2b', border: activeStep >= 5 ? '2px solid #10b981' : (selectedNode === 'handle_success' ? '2px solid #94a3b8' : '1px solid #1e4530'), borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10b981', border: '2px solid #12141a' }} />
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', flexShrink: 0 }}>
-                      <CheckCircle2 size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Handle Success</div>
-                      <div style={{ fontSize: '0.64rem', color: '#34d399', marginTop: '2px' }}>Model Approved</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10b981', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Xử lý mô hình đạt chuẩn</div>
-                </div>
+              {/* --- TRUE BRANCH (SUCCESS) --- */}
+              {/* 9. Handle Success */}
+              <PipelineNodeCard
+                id="handle_success"
+                left={1550}
+                top={70}
+                width={170}
+                title="Handle Success"
+                subtitle="Model Approved"
+                category="success"
+                categoryLabel="Passed Gate"
+                description={language === 'vi' ? 'Xử lý mô hình đạt chuẩn' : 'Handle approved model'}
+                icon={<CheckCircle2 size={16} />}
+                isSelected={selectedNode === 'handle_success'}
+                isActive={activeStep >= 5}
+                onClick={() => setSelectedNode('handle_success')}
+              />
 
-                {/* 10. Sync Model Registry */}
-                <div onClick={() => setSelectedNode('sync_registry')} style={{ position: 'absolute', left: '1790px', top: '70px', width: '180px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '180px', height: '74px', backgroundColor: '#1b1f2b', border: activeStep >= 5 ? '2px solid #14b8a6' : (selectedNode === 'sync_registry' ? '2px solid #94a3b8' : '1px solid #1b453e'), borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#14b8a6', border: '2px solid #12141a' }} />
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(20, 184, 166, 0.15)', border: '1px solid #14b8a6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2dd4bf', flexShrink: 0 }}>
-                      <Database size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Sync Model Registry</div>
-                      <div style={{ fontSize: '0.64rem', color: '#2dd4bf', marginTop: '2px' }}>Supabase DB</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#14b8a6', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Lưu siêu dữ liệu mô hình</div>
-                </div>
+              {/* 10. Sync Model Registry */}
+              <PipelineNodeCard
+                id="sync_registry"
+                left={1790}
+                top={70}
+                width={180}
+                title="Sync Model Registry"
+                subtitle="Supabase DB"
+                category="database"
+                categoryLabel="Model Registry"
+                description={language === 'vi' ? 'Lưu siêu dữ liệu mô hình' : 'Save model registry metadata'}
+                icon={<Database size={16} />}
+                isSelected={selectedNode === 'sync_registry'}
+                isActive={activeStep >= 5}
+                onClick={() => setSelectedNode('sync_registry')}
+              />
 
-                {/* 11. Sync Firmware Header */}
-                <div onClick={() => setSelectedNode('sync_firmware')} style={{ position: 'absolute', left: '2040px', top: '70px', width: '185px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '185px', height: '74px', backgroundColor: '#1b1f2b', border: activeStep >= 6 ? '2px solid #3b82f6' : (selectedNode === 'sync_firmware' ? '2px solid #94a3b8' : '1px solid #1e355c'), borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#3b82f6', border: '2px solid #12141a' }} />
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(59, 130, 246, 0.15)', border: '1px solid #3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60a5fa', flexShrink: 0 }}>
-                      <FileCode size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Sync Firmware Header</div>
-                      <div style={{ fontSize: '0.64rem', color: '#60a5fa', marginTop: '2px' }}>C++ XIAO ESP32</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#3b82f6', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>health_risk_model_int8.h</div>
-                </div>
+              {/* 11. Sync Firmware Header */}
+              <PipelineNodeCard
+                id="sync_firmware"
+                left={2040}
+                top={70}
+                width={185}
+                title="Sync Firmware Header"
+                subtitle="C++ XIAO ESP32"
+                category="model"
+                categoryLabel="C++ Firmware"
+                description="health_risk_model_int8.h"
+                icon={<FileCode size={16} />}
+                isSelected={selectedNode === 'sync_firmware'}
+                isActive={activeStep >= 6}
+                onClick={() => setSelectedNode('sync_firmware')}
+              />
 
-                {/* 12. Format Success Card */}
-                <div onClick={() => setSelectedNode('format_success')} style={{ position: 'absolute', left: '2295px', top: '70px', width: '180px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '180px', height: '74px', backgroundColor: '#1b1f2b', border: activeStep >= 6 ? '2px solid #ec4899' : (selectedNode === 'format_success' ? '2px solid #94a3b8' : '1px solid #4d1d36'), borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ec4899', border: '2px solid #12141a' }} />
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(236, 72, 153, 0.15)', border: '1px solid #ec4899', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f472b6', flexShrink: 0 }}>
-                      <Sparkles size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Format Success Card</div>
-                      <div style={{ fontSize: '0.64rem', color: '#f472b6', marginTop: '2px' }}>Telegram Markdown</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ec4899', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Soạn thẻ báo cáo kết quả</div>
-                </div>
+              {/* 12. Format Success Card */}
+              <PipelineNodeCard
+                id="format_success"
+                left={2295}
+                top={70}
+                width={180}
+                title="Format Success Card"
+                subtitle="Telegram Markdown"
+                category="notify"
+                categoryLabel="Report Card"
+                description={language === 'vi' ? 'Soạn thẻ báo cáo kết quả' : 'Compose result report card'}
+                icon={<FileText size={16} />}
+                isSelected={selectedNode === 'format_success'}
+                isActive={activeStep >= 6}
+                onClick={() => setSelectedNode('format_success')}
+              />
 
-                {/* 13. Send Telegram Alert */}
-                <div onClick={() => setSelectedNode('send_telegram')} style={{ position: 'absolute', left: '2545px', top: '70px', width: '180px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '180px', height: '74px', backgroundColor: '#1b1f2b', border: activeStep >= 6 ? '2px solid #0284c7' : (selectedNode === 'send_telegram' ? '2px solid #94a3b8' : '1px solid #163e52'), borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: activeStep >= 6 ? '0 0 25px rgba(2, 132, 199, 0.6)' : '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#0284c7', border: '2px solid #12141a' }} />
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(2, 132, 199, 0.15)', border: '1px solid #0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8', flexShrink: 0 }}>
-                      <Zap size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Send Telegram Alert</div>
-                      <div style={{ fontSize: '0.64rem', color: '#38bdf8', marginTop: '2px' }}>Telegram Bot API</div>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Gửi tin nhắn Telegram ✅</div>
-                </div>
+              {/* 13. Send Telegram Alert */}
+              <PipelineNodeCard
+                id="send_telegram"
+                left={2545}
+                top={70}
+                width={180}
+                title="Send Telegram Alert"
+                subtitle="Telegram Bot API"
+                category="notify"
+                categoryLabel="Telegram Bot"
+                description={language === 'vi' ? 'Gửi tin nhắn Telegram' : 'Send Telegram notification'}
+                icon={<Send size={16} />}
+                isSelected={selectedNode === 'send_telegram'}
+                isActive={activeStep >= 6}
+                hasOutputPin={false}
+                onClick={() => setSelectedNode('send_telegram')}
+              />
 
-                {/* --- FALSE BRANCH (INCIDENT) --- */}
-                {/* 14. Handle Failure */}
-                <div onClick={() => setSelectedNode('handle_failure')} style={{ position: 'absolute', left: '1550px', top: '320px', width: '170px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '170px', height: '74px', backgroundColor: '#1b1f2b', border: selectedNode === 'handle_failure' ? '2px solid #94a3b8' : '1px solid #4d1d1d', borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ef4444', border: '2px solid #12141a' }} />
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', flexShrink: 0 }}>
-                      <Info size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Handle Failure</div>
-                      <div style={{ fontSize: '0.64rem', color: '#f87171', marginTop: '2px' }}>Model Rejected</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ef4444', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Xử lý sự cố / Dừng</div>
-                </div>
+              {/* --- FALSE BRANCH (INCIDENT) --- */}
+              {/* 14. Handle Failure */}
+              <PipelineNodeCard
+                id="handle_failure"
+                left={1550}
+                top={320}
+                width={170}
+                title="Handle Failure"
+                subtitle="Model Rejected"
+                category="incident"
+                categoryLabel="Failed Gate"
+                description={language === 'vi' ? 'Xử lý sự cố / Dừng' : 'Handle failure & halt'}
+                icon={<XCircle size={16} />}
+                isSelected={selectedNode === 'handle_failure'}
+                onClick={() => setSelectedNode('handle_failure')}
+              />
 
-                {/* 15. Log Audit Incident */}
-                <div onClick={() => setSelectedNode('log_audit')} style={{ position: 'absolute', left: '1790px', top: '320px', width: '180px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '180px', height: '74px', backgroundColor: '#1b1f2b', border: selectedNode === 'log_audit' ? '2px solid #94a3b8' : '1px solid #4a2818', borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f97316', border: '2px solid #12141a' }} />
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(249, 115, 22, 0.15)', border: '1px solid #f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fb923c', flexShrink: 0 }}>
-                      <Server size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Log Audit Incident</div>
-                      <div style={{ fontSize: '0.64rem', color: '#fb923c', marginTop: '2px' }}>Audit Log Entry</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f97316', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Ghi nhận nhật ký sự cố</div>
-                </div>
+              {/* 15. Log Audit Incident */}
+              <PipelineNodeCard
+                id="log_audit"
+                left={1790}
+                top={320}
+                width={180}
+                title="Log Audit Incident"
+                subtitle="Audit Log Entry"
+                category="incident"
+                categoryLabel="Audit Log"
+                description={language === 'vi' ? 'Ghi nhận nhật ký sự cố' : 'Log audit incident entry'}
+                icon={<ClipboardList size={16} />}
+                isSelected={selectedNode === 'log_audit'}
+                onClick={() => setSelectedNode('log_audit')}
+              />
 
-                {/* 16. Format Alert Card */}
-                <div onClick={() => setSelectedNode('format_alert')} style={{ position: 'absolute', left: '2040px', top: '320px', width: '180px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '180px', height: '74px', backgroundColor: '#1b1f2b', border: selectedNode === 'format_alert' ? '2px solid #94a3b8' : '1px solid #4a3316', borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b', border: '2px solid #12141a' }} />
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fbbf24', flexShrink: 0 }}>
-                      <Terminal size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Format Alert Card</div>
-                      <div style={{ fontSize: '0.64rem', color: '#fbbf24', marginTop: '2px' }}>Cảnh báo Khẩn cấp</div>
-                    </div>
-                    <div style={{ position: 'absolute', right: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b', border: '2px solid #12141a' }} />
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Soạn thẻ cảnh báo lỗi</div>
-                </div>
+              {/* 16. Format Alert Card */}
+              <PipelineNodeCard
+                id="format_alert"
+                left={2040}
+                top={320}
+                width={180}
+                title="Format Alert Card"
+                subtitle={language === 'vi' ? 'Cảnh báo khẩn cấp' : 'Emergency Alert'}
+                category="incident"
+                categoryLabel="Alert Card"
+                description={language === 'vi' ? 'Soạn thẻ cảnh báo lỗi' : 'Compose incident alert card'}
+                icon={<FileText size={16} />}
+                isSelected={selectedNode === 'format_alert'}
+                onClick={() => setSelectedNode('format_alert')}
+              />
 
-                {/* 17. Send Incident Alert */}
-                <div onClick={() => setSelectedNode('send_incident')} style={{ position: 'absolute', left: '2290px', top: '320px', width: '180px', cursor: 'pointer' }}>
-                  <div style={{ position: 'relative', width: '180px', height: '74px', backgroundColor: '#1b1f2b', border: selectedNode === 'send_incident' ? '2px solid #94a3b8' : '1px solid #521616', borderRadius: '12px', display: 'flex', alignItems: 'center', padding: '0.65rem 0.75rem', gap: '0.6rem', boxShadow: '0 6px 14px rgba(0,0,0,0.4)', transition: 'all 0.2s ease' }}>
-                    <div style={{ position: 'absolute', left: '-5px', top: '50%', transform: 'translateY(-50%)', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#dc2626', border: '2px solid #12141a' }} />
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(220, 38, 38, 0.15)', border: '1px solid #dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171', flexShrink: 0 }}>
-                      <Zap size={16} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f8fafc', lineHeight: 1.2 }}>Send Incident Alert</div>
-                      <div style={{ fontSize: '0.64rem', color: '#f87171', marginTop: '2px' }}>Telegram Alert API</div>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: '0.3rem', textAlign: 'center' }}>Gửi cảnh báo khẩn cấp 🚨</div>
-                </div>
+              {/* 17. Send Incident Alert */}
+              <PipelineNodeCard
+                id="send_incident"
+                left={2290}
+                top={320}
+                width={180}
+                title="Send Incident Alert"
+                subtitle="Telegram Alert API"
+                category="incident"
+                categoryLabel="Incident Bot"
+                description={language === 'vi' ? 'Gửi cảnh báo khẩn cấp' : 'Send incident emergency alert'}
+                icon={<BellRing size={16} />}
+                isSelected={selectedNode === 'send_incident'}
+                hasOutputPin={false}
+                onClick={() => setSelectedNode('send_incident')}
+              />
 
             </div>
 
           </div>
+
+          {/* Floating Canvas Controls (n8n Web Style) */}
+          {/* Left: Floating Zoom, Fit & Reset Toolbar */}
+          <div
+            data-no-pan="true"
+            className="absolute bottom-4 left-4 z-20 flex items-center gap-2 select-none"
+          >
+            <div className="flex items-center bg-white border border-zinc-300 rounded-md shadow-md p-1 gap-1 text-zinc-700">
+              <button
+                type="button"
+                onClick={handleResetView}
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                title={language === 'vi' ? 'Căn vừa màn hình (Fit to Screen)' : 'Fit to Screen'}
+              >
+                <Maximize2 size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.min(z + 10, 160))}
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                title={language === 'vi' ? 'Phóng to (+10%)' : 'Zoom In (+10%)'}
+              >
+                <ZoomIn size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.max(z - 10, 50))}
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                title={language === 'vi' ? 'Thu nhỏ (-10%)' : 'Zoom Out (-10%)'}
+              >
+                <ZoomOut size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={handleResetView}
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                title={language === 'vi' ? 'Đặt lại 100% (Reset View)' : 'Reset View (100%)'}
+              >
+                <RotateCcw size={14} />
+              </button>
+              <div className="w-[1px] h-4 bg-zinc-200 mx-0.5" />
+              <button
+                type="button"
+                onClick={handleResetView}
+                className="font-mono text-xs font-bold text-zinc-800 hover:bg-zinc-100 px-1.5 py-1 rounded transition-colors"
+                title={language === 'vi' ? 'Tỉ lệ phóng to (Click để đặt lại 100%)' : 'Zoom Level (Click to reset)'}
+              >
+                {zoomLevel}%
+              </button>
+            </div>
+          </div>
+
+          {/* Center: Floating Execute Workflow Button (n8n Web Style) */}
+          <div
+            data-no-pan="true"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 select-none"
+          >
+            <button
+              type="button"
+              onClick={handleExecuteTrainingWorkflow}
+              disabled={isRunning}
+              className={`h-10 px-5 rounded-md text-xs font-bold transition-all shadow-md flex items-center gap-2 active:scale-95 ${
+                isRunning
+                  ? 'bg-cyan-800 text-white cursor-not-allowed opacity-90'
+                  : 'bg-cyan-700 hover:bg-cyan-800 text-white'
+              }`}
+              title="Thực thi n8n AI Training Workflow"
+            >
+              {isRunning ? (
+                <RefreshCw size={15} className="animate-spin" />
+              ) : (
+                <FlaskConical size={15} />
+              )}
+              <span>{isRunning ? t('pipe.executing') : t('pipe.executeWorkflow')}</span>
+            </button>
+          </div>
         </div>
 
-        {/* 4. GITHUB ACTIONS ACTION RUNNER & NODE INSPECTOR PANEL */}
+        {/* 4. GITHUB ACTIONS ACTION RUNNER & NODE INSPECTOR PANEL (LIGHT THEME) */}
         {bottomPanelOpen && (
           <div
             ref={bottomPanelRef}
-            style={{
-              backgroundColor: '#0d1117',
-              border: '1px solid #30363d',
-              borderTop: '2px solid #58a6ff',
-              borderRadius: '14px',
-              overflow: 'hidden',
-              boxShadow: '0 12px 36px rgba(0, 0, 0, 0.65)',
-              display: 'flex',
-              flexDirection: 'column',
-              height: isMaximized ? '720px' : '480px',
-              transition: 'height 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-              animation: 'fadeIn 0.2s ease'
-            }}
+            className={`bg-white border-t border-zinc-200 flex flex-col transition-all duration-200 shadow-sm ${
+              isMaximized ? 'h-[720px]' : 'h-[460px]'
+            }`}
           >
-            {/* PANEL HEADER: GITHUB ACTIONS STYLE BAR */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '0.65rem 1rem',
-              backgroundColor: '#161b22',
-              borderBottom: '1px solid #30363d',
-              flexWrap: 'wrap',
-              gap: '0.75rem'
-            }}>
+            {/* PANEL HEADER: LIGHT TOOLBAR */}
+            <div className="bg-zinc-50 border-b border-zinc-200 px-4 py-2.5 flex justify-between items-center flex-wrap gap-2 text-xs">
               {/* Left: Workflow Status Badge & Name */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <div className="flex items-center gap-2.5 flex-wrap">
                 {lastRunStatus === 'RUNNING' ? (
-                  <RefreshCw size={16} color="#e3b341" style={{ animation: 'spinSlow 1.2s linear infinite' }} />
+                  <RefreshCw size={15} className="text-amber-600 animate-spin" />
                 ) : lastRunStatus === 'SUCCESS' ? (
-                  <CheckCircle2 size={16} color="#3fb950" />
+                  <CheckCircle2 size={15} className="text-emerald-700" />
                 ) : (
-                  <Terminal size={16} color="#58a6ff" />
+                  <Terminal size={15} className="text-zinc-600" />
                 )}
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.45rem', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f0f6fc', fontFamily: 'ui-monospace, monospace' }}>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="font-mono text-zinc-900 font-semibold">
                     {lastRunMeta.id}
                   </span>
-                  <span style={{ fontSize: '0.75rem', color: '#8b949e' }}>
+                  <span className="text-zinc-600 text-xs">
                     • {lastRunMeta.workflow}
                   </span>
-                  <span style={{
-                    fontSize: '0.68rem',
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    backgroundColor: lastRunStatus === 'RUNNING' ? 'rgba(227, 179, 65, 0.2)' : 'rgba(63, 185, 80, 0.18)',
-                    color: lastRunStatus === 'RUNNING' ? '#e3b341' : '#3fb950',
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px'
-                  }}>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium inline-flex items-center gap-1.5 ${
+                      lastRunStatus === 'RUNNING'
+                        ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                        : 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                    }`}
+                  >
                     {lastRunStatus === 'RUNNING' ? (
                       <>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#e3b341', display: 'inline-block', animation: 'pulseDot 1s infinite' }} />
-                        <span>Đang chạy ({formatTimer(elapsedSeconds)})...</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <span>{t('pipe.statusRunning')} ({formatTimer(elapsedSeconds)})...</span>
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 size={11} color="#3fb950" />
-                        <span>Hoàn tất ({lastRunMeta.duration})</span>
+                        <CheckCircle2 size={11} className="text-emerald-700" />
+                        <span>{t('pipe.statusCompleted')} ({lastRunMeta.duration})</span>
                       </>
                     )}
                   </span>
                 </div>
               </div>
 
-              {/* Center: Action Runner Logs Title Badge */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                backgroundColor: '#21262d',
-                borderRadius: '6px',
-                padding: '0.35rem 0.85rem',
-                border: '1px solid #30363d',
-                color: '#58a6ff',
-                fontSize: '0.76rem',
-                fontWeight: 700,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
-              }}>
-                <Terminal size={13} />
-                <span>Action Runner Logs</span>
-              </div>
-
               {/* Right: Actions Controls */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  backgroundColor: '#0d1117',
-                  border: '1px solid #30363d',
-                  borderRadius: '6px',
-                  padding: '0.2rem 0.5rem'
-                }}>
-                  <Search size={12} color="#8b949e" />
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-white border border-zinc-300 rounded px-2 py-1 text-xs focus-within:border-cyan-700 focus-within:ring-1 focus-within:ring-cyan-700">
+                  <Search size={12} className="text-zinc-400" />
                   <input
                     type="text"
-                    placeholder="Lọc logs..."
+                    placeholder={t('pipe.filterLogsPlaceholder')}
                     value={searchLogQuery}
                     onChange={(e) => setSearchLogQuery(e.target.value)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      outline: 'none',
-                      color: '#e6edf3',
-                      fontSize: '0.72rem',
-                      width: '100px'
-                    }}
+                    className="bg-transparent border-none outline-none text-zinc-900 placeholder:text-zinc-400 text-xs w-24 sm:w-32"
                   />
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => setAutoScroll((prev) => !prev)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    backgroundColor: autoScroll ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.04)',
-                    border: autoScroll ? '1px solid #38bdf8' : '1px solid #30363d',
-                    color: autoScroll ? '#38bdf8' : '#8b949e',
-                    padding: '0.28rem 0.6rem',
-                    borderRadius: '6px',
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  title={autoScroll ? "Auto-scroll đang BẬT (Click để tắt)" : "Auto-scroll đang TẮT (Click để bật)"}
+                  className={`h-7 px-2.5 rounded border text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                    autoScroll
+                      ? 'bg-cyan-50 border-cyan-400 text-cyan-800'
+                      : 'bg-white border-zinc-300 text-zinc-700 hover:bg-zinc-50'
+                  }`}
+                  title={autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
                 >
-                  {autoScroll ? <CheckSquare size={12} color="#38bdf8" /> : <Square size={12} color="#8b949e" />}
+                  {autoScroll ? <CheckSquare size={12} className="text-cyan-700" /> : <Square size={12} className="text-zinc-400" />}
                   <span>Auto-scroll</span>
                 </button>
 
-                    <button
-                      onClick={handleCopyLogs}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.3rem',
-                        backgroundColor: copiedLogs ? '#238636' : 'rgba(255,255,255,0.04)',
-                        border: '1px solid #30363d',
-                        color: copiedLogs ? '#fff' : '#c9d1d9',
-                        padding: '0.28rem 0.6rem',
-                        borderRadius: '6px',
-                        fontSize: '0.7rem',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                      title="Sao chép toàn bộ dòng log"
-                    >
-                      {copiedLogs ? <Check size={12} /> : <Copy size={12} />}
-                      <span>{copiedLogs ? 'Đã sao chép' : 'Copy Log'}</span>
-                    </button>
-
-                    <button
-                      onClick={handleExecuteTrainingWorkflow}
-                      disabled={isRunning}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.3rem',
-                        backgroundColor: 'rgba(255,255,255,0.04)',
-                        border: '1px solid #30363d',
-                        color: '#c9d1d9',
-                        padding: '0.28rem 0.6rem',
-                        borderRadius: '6px',
-                        fontSize: '0.7rem',
-                        fontWeight: 600,
-                        cursor: isRunning ? 'not-allowed' : 'pointer'
-                      }}
-                      title="Chạy lại mô phỏng luồng log"
-                    >
-                      <RotateCcw size={12} />
-                      <span>Chạy lại</span>
-                    </button>
+                <button
+                  type="button"
+                  onClick={handleCopyLogs}
+                  className="h-7 px-2.5 rounded border border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-medium flex items-center gap-1.5 transition-colors"
+                  title="Copy logs"
+                >
+                  {copiedLogs ? <Check size={12} className="text-emerald-700" /> : <Copy size={12} className="text-zinc-400" />}
+                  <span>{copiedLogs ? t('pipe.copiedLogs') : t('pipe.copyLogs')}</span>
+                </button>
 
                 <button
+                  type="button"
+                  onClick={handleExecuteTrainingWorkflow}
+                  disabled={isRunning}
+                  className="h-7 px-2.5 rounded border border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                  title="Re-run workflow"
+                >
+                  <RotateCcw size={12} className="text-zinc-500" />
+                  <span>{t('pipe.reRun')}</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setIsMaximized((prev) => !prev)}
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid #30363d',
-                    color: '#8b949e',
-                    padding: '0.28rem',
-                    borderRadius: '6px',
-                    cursor: 'pointer'
-                  }}
-                  title={isMaximized ? 'Thu nhỏ panel' : 'Mở rộng toàn màn hình'}
+                  className="h-7 w-7 rounded border border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-600 flex items-center justify-center transition-colors"
+                  title={isMaximized ? (language === 'vi' ? 'Thu nhỏ panel' : 'Minimize panel') : (language === 'vi' ? 'Mở rộng toàn màn hình' : 'Expand fullscreen')}
                 >
                   {isMaximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setBottomPanelOpen(false)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#8b949e',
-                    fontSize: '1rem',
-                    cursor: 'pointer',
-                    padding: '0.2rem 0.4rem',
-                    borderRadius: '4px'
-                  }}
-                  title="Đóng panel (Có thể mở lại bằng nút Action Logs phía trên)"
+                  className="h-7 w-7 rounded border border-zinc-300 hover:bg-zinc-100 text-zinc-500 hover:text-zinc-800 flex items-center justify-center transition-colors"
+                  title={language === 'vi' ? 'Đóng panel' : 'Close panel'}
                 >
                   ✕
                 </button>
               </div>
             </div>
 
-            {/* TAB 1 CONTENT: GITHUB ACTIONS RUNNER LOGS */}
-            {bottomTab === 'LOGS' && (
-              <div
-                ref={terminalContainerRef}
-                style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  backgroundColor: '#0d1117',
-                  padding: '0.75rem 1rem',
-                  fontFamily: 'ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace',
-                  fontSize: '0.8rem',
-                  lineHeight: 1.55
-                }}
-              >
-                {/* Workflow Job Overview Bar */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '0.5rem 0.75rem',
-                  marginBottom: '0.75rem',
-                  borderRadius: '6px',
-                  backgroundColor: '#161b22',
-                  border: '1px solid #30363d',
-                  color: '#8b949e',
-                  fontSize: '0.75rem',
-                  flexWrap: 'wrap',
-                  gap: '0.5rem'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Zap size={13} color="#f0883e" />
-                    <span>Runner: <strong>n8n-self-hosted-worker-01 (Ubuntu 22.04 LTS • CUDA 12.2)</strong></span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '1rem' }}>
-                    <span>Trigger: <strong>workflow_dispatch</strong></span>
-                    <span>Total steps: <strong>{currentActionSteps.length}</strong></span>
-                  </div>
+            {/* TAB CONTENT: GITHUB ACTIONS LIGHT RUNNER LOGS */}
+            <div
+              ref={terminalContainerRef}
+              className="flex-1 overflow-y-auto p-3 font-mono text-xs leading-relaxed bg-zinc-50/60"
+            >
+              {/* Workflow Job Overview Bar */}
+              <div className="bg-white border border-zinc-200 rounded p-2.5 text-xs text-zinc-600 font-mono mb-2.5 flex justify-between items-center flex-wrap gap-2 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <Zap size={13} className="text-cyan-700" />
+                  <span>Runner: <strong className="text-zinc-900 font-semibold">n8n-self-hosted-worker-01 (Ubuntu 22.04 LTS • CUDA 12.2)</strong></span>
                 </div>
-
-                {/* Steps Accordion */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                  {currentActionSteps.map((step) => {
-                    const isExpanded = !!expandedSteps[step.id];
-                    const isMatchedNode = selectedNode && step.nodeKey === selectedNode;
-                    const filteredLogs = searchLogQuery
-                      ? step.logs.filter((l) => l.text.toLowerCase().includes(searchLogQuery.toLowerCase()))
-                      : step.logs;
-
-                    return (
-                      <div
-                        key={step.id}
-                        style={{
-                          border: isMatchedNode ? '1px solid #58a6ff' : '1px solid #21262d',
-                          borderRadius: '6px',
-                          overflow: 'hidden',
-                          backgroundColor: '#161b22',
-                          transition: 'border 0.2s ease'
-                        }}
-                      >
-                        <div
-                          onClick={() => toggleStepExpand(step.id)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '0.45rem 0.75rem',
-                            cursor: 'pointer',
-                            userSelect: 'none',
-                            backgroundColor: isMatchedNode ? 'rgba(88, 166, 255, 0.08)' : (step.status === 'running' ? 'rgba(227, 179, 65, 0.08)' : '#161b22'),
-                            borderBottom: isExpanded ? '1px solid #21262d' : 'none'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            {isExpanded ? <ChevronDown size={14} color="#8b949e" /> : <ChevronRight size={14} color="#8b949e" />}
-                            {step.status === 'completed' && <CheckCircle2 size={14} color="#3fb950" />}
-                            {step.status === 'running' && <RefreshCw size={14} color="#e3b341" style={{ animation: 'spinSlow 1s linear infinite' }} />}
-                            {step.status === 'pending' && <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #484f58' }} />}
-                            <span style={{ fontWeight: 600, color: step.status === 'pending' ? '#8b949e' : '#e6edf3', fontSize: '0.8rem' }}>
-                              {step.title}
-                            </span>
-                            {isMatchedNode && (
-                              <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: 'rgba(88, 166, 255, 0.2)', color: '#58a6ff', fontWeight: 700 }}>
-                                Đang chọn Node này
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#8b949e', fontSize: '0.72rem' }}>
-                            {step.status === 'completed' && <span>{step.duration}</span>}
-                            {step.status === 'running' && <span style={{ color: '#e3b341', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}><RefreshCw size={11} style={{ animation: 'spinSlow 1s linear infinite' }} /> {formatTimer(currentStepElapsed)}</span>}
-                          </div>
-                        </div>
-
-                        {isExpanded && (
-                          <div style={{ backgroundColor: '#0d1117', padding: '0.5rem 0.6rem', overflowX: 'auto' }}>
-                            {filteredLogs.length === 0 ? (
-                              <div style={{ color: '#484f58', fontStyle: 'italic', padding: '0.25rem 0.5rem' }}>
-                                {step.status === 'pending' ? 'Step queued, waiting for runner...' : 'Không có dòng log nào khớp với từ khóa tìm kiếm.'}
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                {filteredLogs.map((log, lineIdx) => (
-                                  <div
-                                    key={log.id}
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'flex-start',
-                                      gap: '0.75rem',
-                                      padding: '1px 4px',
-                                      borderRadius: '3px'
-                                    }}
-                                  >
-                                    <span style={{ color: '#484f58', minWidth: '24px', textAlign: 'right', userSelect: 'none', fontSize: '0.72rem' }}>
-                                      {lineIdx + 1}
-                                    </span>
-                                    <span style={{ color: '#6e7681', minWidth: '160px', userSelect: 'none', fontSize: '0.72rem' }}>
-                                      {log.time}
-                                    </span>
-                                    <span style={{
-                                      color: log.type === 'cmd' ? '#79c0ff' :
-                                             log.type === 'success' ? '#7ee787' :
-                                             log.type === 'warn' ? '#d29922' :
-                                             log.type === 'error' ? '#ff7b72' :
-                                             log.type === 'metric' ? '#d2a8ff' :
-                                             log.type === 'dim' ? '#8b949e' : '#c9d1d9',
-                                      fontWeight: log.type === 'cmd' || log.type === 'metric' ? 600 : 400,
-                                      whiteSpace: 'pre-wrap',
-                                      wordBreak: 'break-word',
-                                      flex: 1
-                                    }}>
-                                      {log.text}
-                                    </span>
-                                  </div>
-                                ))}
-                                {step.status === 'running' && (
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '0.75rem',
-                                      padding: '2px 4px',
-                                      borderRadius: '3px'
-                                    }}
-                                  >
-                                    <span style={{ color: '#58a6ff', minWidth: '24px', textAlign: 'right', userSelect: 'none', fontSize: '0.72rem', fontWeight: 700 }}>
-                                      {filteredLogs.length + 1}
-                                    </span>
-                                    <span style={{ color: '#8b949e', minWidth: '160px', userSelect: 'none', fontSize: '0.72rem' }}>
-                                      {new Date().toISOString().slice(11, 23)}
-                                    </span>
-                                    <span style={{
-                                      color: '#e3b341',
-                                      fontSize: '0.74rem',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px',
-                                      fontWeight: 600
-                                    }}>
-                                      <span>Đang xử lý ({formatTimer(currentStepElapsed)} / ~45s)...</span>
-                                      <span style={{
-                                        display: 'inline-block',
-                                        width: '7px',
-                                        height: '13px',
-                                        backgroundColor: '#e3b341',
-                                        animation: 'blinkCursor 0.75s steps(2, start) infinite'
-                                      }} />
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                <div className="flex items-center gap-4 text-xs">
+                  <span>Trigger: <strong className="text-zinc-900 font-semibold">workflow_dispatch</strong></span>
+                  <span>{t('pipe.totalSteps')} <strong className="text-zinc-900 font-semibold">{currentActionSteps.length}</strong></span>
                 </div>
               </div>
-            )}
+
+              {/* Steps Accordion */}
+              <div className="flex flex-col gap-1.5">
+                {currentActionSteps.map((step) => {
+                  const isExpanded = !!expandedSteps[step.id];
+                  const isMatchedNode = selectedNode && step.nodeKey === selectedNode;
+                  const filteredLogs = searchLogQuery
+                    ? step.logs.filter((l) => l.text.toLowerCase().includes(searchLogQuery.toLowerCase()))
+                    : step.logs;
+
+                  return (
+                    <div
+                      key={step.id}
+                      className={`border rounded-md overflow-hidden bg-white shadow-2xs transition-colors ${
+                        isMatchedNode
+                          ? 'border-cyan-700 ring-1 ring-cyan-700'
+                          : 'border-zinc-200'
+                      }`}
+                    >
+                      <div
+                        onClick={() => toggleStepExpand(step.id)}
+                        className={`px-3 py-2 flex items-center justify-between cursor-pointer select-none text-xs transition-colors ${
+                          isMatchedNode
+                            ? 'bg-cyan-50/80 text-cyan-900'
+                            : step.status === 'running'
+                            ? 'bg-amber-50/70 text-amber-900'
+                            : 'hover:bg-zinc-50 text-zinc-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? <ChevronDown size={14} className="text-zinc-500" /> : <ChevronRight size={14} className="text-zinc-500" />}
+                          {step.status === 'completed' && <CheckCircle2 size={14} className="text-emerald-700" />}
+                          {step.status === 'running' && <RefreshCw size={14} className="text-amber-600 animate-spin" />}
+                          {step.status === 'pending' && <div className="w-3 h-3 rounded-full border border-zinc-400" />}
+                          <span className={`font-semibold ${step.status === 'pending' ? 'text-zinc-500' : 'text-zinc-900'}`}>
+                            {step.title}
+                          </span>
+                          {isMatchedNode && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-100 border border-cyan-300 text-cyan-800 font-semibold">
+                              {t('pipe.selectedNode')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-zinc-500 text-xs font-mono">
+                          {step.status === 'completed' && <span>{step.duration}</span>}
+                          {step.status === 'running' && (
+                            <span className="text-amber-700 font-medium flex items-center gap-1">
+                              <RefreshCw size={11} className="animate-spin" /> {formatTimer(currentStepElapsed)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="bg-[#fcfcfc] p-2.5 overflow-x-auto border-t border-zinc-200">
+                          {filteredLogs.length === 0 ? (
+                            <div className="text-zinc-500 italic px-2 py-1 text-xs">
+                              {step.status === 'pending' ? 'Step queued, waiting for runner...' : (language === 'vi' ? 'Không có dòng log nào khớp với từ khóa tìm kiếm.' : 'No log lines matched the search query.')}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-0.5 text-xs font-mono">
+                              {filteredLogs.map((log, lineIdx) => (
+                                <div
+                                  key={log.id}
+                                  className="flex items-start gap-3 py-0.5 px-1 rounded hover:bg-zinc-100/70"
+                                >
+                                  <span className="text-zinc-400 w-7 text-right select-none text-[11px] flex-shrink-0">
+                                    {lineIdx + 1}
+                                  </span>
+                                  <span className="text-zinc-500 w-36 select-none text-[11px] flex-shrink-0">
+                                    {log.time}
+                                  </span>
+                                  <span
+                                    className={`flex-1 break-words whitespace-pre-wrap ${
+                                      log.type === 'cmd'
+                                        ? 'text-cyan-800 font-semibold'
+                                        : log.type === 'success'
+                                        ? 'text-emerald-700 font-medium'
+                                        : log.type === 'warn'
+                                        ? 'text-amber-700'
+                                        : log.type === 'error'
+                                        ? 'text-red-700 font-medium'
+                                        : log.type === 'metric'
+                                        ? 'text-indigo-700 font-medium'
+                                        : log.type === 'dim'
+                                        ? 'text-zinc-400'
+                                        : 'text-zinc-800'
+                                    }`}
+                                  >
+                                    {log.text}
+                                  </span>
+                                </div>
+                              ))}
+                              {step.status === 'running' && (
+                                <div className="flex items-center gap-3 py-0.5 px-1 text-amber-700 text-xs">
+                                  <span className="text-cyan-700 w-7 text-right select-none font-bold text-[11px] flex-shrink-0">
+                                    {filteredLogs.length + 1}
+                                  </span>
+                                  <span className="text-zinc-400 w-36 select-none text-[11px] flex-shrink-0">
+                                    {new Date().toISOString().slice(11, 23)}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1.5 font-medium">
+                                    <span>{language === 'vi' ? 'Đang xử lý' : 'Processing'} ({formatTimer(currentStepElapsed)} / ~45s)...</span>
+                                    <span className="inline-block w-1.5 h-3 bg-amber-600 animate-pulse" />
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
@@ -1779,140 +1658,85 @@ const int health_risk_model_int8_len = 3104; // 3.03 KB
         const errorRunsCount = workflowRuns.filter((r) => r.status === 'ERROR' || r.status === 'FAILED').length;
 
         return (
-          <div style={{
-            backgroundColor: 'var(--card-bg)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '16px',
-            padding: '1.25rem'
-          }}>
+          <div className="bg-white border border-zinc-200 rounded p-4 sm:p-5 flex flex-col gap-4">
             {/* Header: Title + Filter Tabs + Search */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '0.85rem',
-              marginBottom: '1.25rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <Activity size={18} color="var(--primary-color)" />
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-color)' }}>
-                  Lịch Sử Thực Thi n8n Workflows Gần Đây
-                </h3>
-                <span style={{
-                  fontSize: '0.72rem',
-                  backgroundColor: 'rgba(255,255,255,0.06)',
-                  color: '#94a3b8',
-                  padding: '0.15rem 0.55rem',
-                  borderRadius: '999px',
-                  fontWeight: 600
-                }}>
-                  {workflowRuns.length} lượt chạy
-                </span>
+            <div className="flex justify-between items-center flex-wrap gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded bg-zinc-100 border border-zinc-200 flex items-center justify-center text-cyan-700 flex-shrink-0">
+                  <Activity size={16} />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-zinc-900 leading-tight">
+                    {t('pipe.historyTitle')}
+                  </h3>
+                  <div className="text-xs text-zinc-500 mt-0.5">
+                    {language === 'vi' ? `Tổng số ${workflowRuns.length} lượt thực thi gần đây` : `Total ${workflowRuns.length} recent executions`}
+                  </div>
+                </div>
               </div>
 
               {/* Status Filter Buttons + Search Input */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+              <div className="flex items-center gap-2 flex-wrap">
                 {/* Status Filter Tabs */}
-                <div style={{
-                  display: 'flex',
-                  backgroundColor: '#161b22',
-                  borderRadius: '8px',
-                  border: '1px solid #30363d',
-                  padding: '2px'
-                }}>
+                <div className="flex items-center bg-zinc-100 p-0.5 rounded border border-zinc-200 gap-1 text-xs">
                   <button
+                    type="button"
                     onClick={() => setHistoryStatusFilter('ALL')}
-                    style={{
-                      padding: '0.3rem 0.65rem',
-                      borderRadius: '6px',
-                      border: 'none',
-                      backgroundColor: historyStatusFilter === 'ALL' ? '#21262d' : 'transparent',
-                      color: historyStatusFilter === 'ALL' ? '#f0f6fc' : '#8b949e',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.35rem'
-                    }}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${historyStatusFilter === 'ALL'
+                      ? 'bg-white text-zinc-900 border border-zinc-200 shadow-xs'
+                      : 'text-zinc-600 hover:text-zinc-900'
+                      }`}
                   >
-                    <span>Tất cả</span>
-                    <span style={{ fontSize: '0.68rem', opacity: 0.8 }}>({workflowRuns.length})</span>
+                    <span>{t('pipe.filterAll')}</span>
+                    <span className="ml-1 text-[11px] text-zinc-500">({workflowRuns.length})</span>
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => setHistoryStatusFilter('SUCCESS')}
-                    style={{
-                      padding: '0.3rem 0.65rem',
-                      borderRadius: '6px',
-                      border: 'none',
-                      backgroundColor: historyStatusFilter === 'SUCCESS' ? 'rgba(63, 185, 80, 0.15)' : 'transparent',
-                      color: historyStatusFilter === 'SUCCESS' ? '#3fb950' : '#8b949e',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.35rem'
-                    }}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${historyStatusFilter === 'SUCCESS'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 shadow-xs'
+                      : 'text-zinc-600 hover:text-zinc-900'
+                      }`}
                   >
-                    <CheckCircle2 size={12} color="#3fb950" />
-                    <span>Thành công</span>
-                    <span style={{ fontSize: '0.68rem', opacity: 0.8 }}>({successRunsCount})</span>
+                    <span className="inline-flex items-center gap-1">
+                      <CheckCircle2 size={12} className="text-emerald-700" />
+                      <span>{t('pipe.filterSuccess')}</span>
+                      <span className="text-[11px]">({successRunsCount})</span>
+                    </span>
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => setHistoryStatusFilter('ERROR')}
-                    style={{
-                      padding: '0.3rem 0.65rem',
-                      borderRadius: '6px',
-                      border: 'none',
-                      backgroundColor: historyStatusFilter === 'ERROR' ? 'rgba(248, 81, 73, 0.15)' : 'transparent',
-                      color: historyStatusFilter === 'ERROR' ? '#f85149' : '#8b949e',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.35rem'
-                    }}
+                    className={`px-3 py-1 rounded text-xs font-medium transition-colors ${historyStatusFilter === 'ERROR'
+                      ? 'bg-red-50 text-red-700 border border-red-300 shadow-xs'
+                      : 'text-zinc-600 hover:text-zinc-900'
+                      }`}
                   >
-                    <AlertTriangle size={12} color="#f85149" />
-                    <span>Sự cố / Thất bại</span>
-                    <span style={{ fontSize: '0.68rem', opacity: 0.8 }}>({errorRunsCount})</span>
+                    <span className="inline-flex items-center gap-1">
+                      <AlertTriangle size={12} className="text-red-700" />
+                      <span>{t('pipe.filterError')}</span>
+                      <span className="text-[11px]">({errorRunsCount})</span>
+                    </span>
                   </button>
                 </div>
 
                 {/* Search Box */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  backgroundColor: '#0d1117',
-                  border: '1px solid #30363d',
-                  borderRadius: '8px',
-                  padding: '0.25rem 0.6rem'
-                }}>
-                  <Search size={13} color="#8b949e" />
+                <div className="h-8 px-2.5 rounded bg-white border border-zinc-300 flex items-center gap-1.5 focus-within:border-cyan-700 focus-within:ring-1 focus-within:ring-cyan-700 text-xs">
+                  <Search size={13} className="text-zinc-400" />
                   <input
                     type="text"
-                    placeholder="Tìm ID, trigger, thông điệp..."
+                    placeholder={t('pipe.searchPlaceholder')}
                     value={historySearch}
                     onChange={(e) => setHistorySearch(e.target.value)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      outline: 'none',
-                      color: '#f0f6fc',
-                      fontSize: '0.75rem',
-                      width: '180px'
-                    }}
+                    className="bg-transparent border-none outline-none text-xs text-zinc-900 w-36 sm:w-48"
                   />
                   {historySearch && (
                     <button
+                      type="button"
                       onClick={() => setHistorySearch('')}
-                      style={{ background: 'transparent', border: 'none', color: '#8b949e', cursor: 'pointer', padding: 0, fontSize: '0.7rem' }}
+                      className="text-zinc-400 hover:text-zinc-600 text-xs"
                     >
                       ✕
                     </button>
@@ -1923,112 +1747,80 @@ const int health_risk_model_int8_len = 3104; // 3.03 KB
 
             {/* Table or Empty State */}
             {filteredRuns.length === 0 ? (
-              <div style={{
-                textAlign: 'center',
-                padding: '2.5rem 1rem',
-                backgroundColor: 'rgba(255,255,255,0.02)',
-                borderRadius: '10px',
-                border: '1px dashed #30363d'
-              }}>
-                <Info size={28} color="#64748b" style={{ margin: '0 auto 0.5rem' }} />
-                <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#cbd5e1' }}>
-                  Không tìm thấy lượt chạy nào
+              <div className="text-center py-10 bg-zinc-50 border border-dashed border-zinc-200 rounded">
+                <Info size={24} className="text-zinc-400 mx-auto mb-1.5" />
+                <div className="text-sm font-medium text-zinc-700">
+                  {t('pipe.emptyTitle')}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
-                  Thử đổi bộ lọc trạng thái hoặc từ khóa tìm kiếm.
+                <div className="text-xs text-zinc-500 mt-0.5">
+                  {t('pipe.emptyDesc')}
                 </div>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+              <div className="overflow-x-auto border border-zinc-200 rounded">
+                <table className="w-full border-collapse text-xs">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border-color)', color: '#94a3b8', textAlign: 'left' }}>
-                      <th style={{ padding: '0.65rem 0.75rem' }}>Execution ID</th>
-                      <th style={{ padding: '0.65rem 0.75rem' }}>Thời Gian</th>
-                      <th style={{ padding: '0.65rem 0.75rem' }}>Loại Trigger</th>
-                      <th style={{ padding: '0.65rem 0.75rem' }}>Số Mẫu Xử Lý</th>
-                      <th style={{ padding: '0.65rem 0.75rem' }}>Thời Lượng</th>
-                      <th style={{ padding: '0.65rem 0.75rem' }}>Trạng Thái</th>
-                      <th style={{ padding: '0.65rem 0.75rem' }}>Thông Điệp / Kết Quả</th>
-                      <th style={{ padding: '0.65rem 0.75rem', textAlign: 'center' }}>Runner Logs</th>
+                    <tr className="bg-zinc-50 border-b border-zinc-200 text-zinc-600 text-left">
+                      <th className="py-2.5 px-3 font-medium">{t('pipe.thExecutionId')}</th>
+                      <th className="py-2.5 px-3 font-medium">{t('pipe.thTime')}</th>
+                      <th className="py-2.5 px-3 font-medium">{t('pipe.thTrigger')}</th>
+                      <th className="py-2.5 px-3 font-medium">{t('pipe.thSamples')}</th>
+                      <th className="py-2.5 px-3 font-medium">{t('pipe.thDuration')}</th>
+                      <th className="py-2.5 px-3 font-medium">{t('pipe.thStatus')}</th>
+                      <th className="py-2.5 px-3 font-medium">{t('pipe.thMessage')}</th>
+                      <th className="py-2.5 px-3 font-medium text-center">{t('pipe.thLogs')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredRuns.map((run, idx) => {
                       const isSuccess = run.status === 'SUCCESS';
+                      const isEven = idx % 2 === 0;
                       return (
                         <tr
                           key={run.id || idx}
-                          style={{
-                            borderBottom: '1px solid rgba(255,255,255,0.05)',
-                            backgroundColor: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)'
-                          }}
+                          className={`border-b border-zinc-200 transition-colors duration-75 ${isEven ? 'bg-white' : 'bg-zinc-50/50'
+                            } hover:bg-zinc-100/60`}
                         >
-                          <td style={{ padding: '0.65rem 0.75rem', fontFamily: 'monospace', color: isSuccess ? '#38bdf8' : '#f87171', fontWeight: 600 }}>
+                          <td className="py-2 px-3 font-mono text-zinc-900 font-semibold">
                             {run.id}
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem', color: '#cbd5e1' }}>
+                          <td className="py-2 px-3 font-mono text-zinc-500">
                             {run.triggered_at}
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem' }}>
-                            <span style={{
-                              padding: '0.15rem 0.45rem',
-                              borderRadius: '4px',
-                              backgroundColor: 'rgba(255,255,255,0.08)',
-                              fontSize: '0.72rem',
-                              fontWeight: 600,
-                              color: '#cbd5e1'
-                            }}>
+                          <td className="py-2 px-3">
+                            <span className="inline-block px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-zinc-700 text-xs font-medium">
                               {run.trigger_type}
                             </span>
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem', color: '#cbd5e1' }}>
-                            {run.records_processed ? `${run.records_processed.toLocaleString()} mẫu` : '0 mẫu'}
+                          <td className="py-2 px-3 font-mono text-zinc-900 tabular-nums">
+                            {run.records_processed ? `${run.records_processed.toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US')} ${t('pipe.samplesSuffix')}` : '--'}
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem', color: '#cbd5e1' }}>
+                          <td className="py-2 px-3 font-mono text-zinc-600 tabular-nums">
                             {run.duration_seconds}s
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem' }}>
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                              padding: '0.2rem 0.55rem',
-                              borderRadius: '999px',
-                              fontSize: '0.72rem',
-                              fontWeight: 700,
-                              backgroundColor: isSuccess ? 'rgba(74, 222, 128, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                              color: isSuccess ? '#4ade80' : '#f87171',
-                              border: isSuccess ? '1px solid rgba(74, 222, 128, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)'
-                            }}>
-                              {isSuccess ? <CheckCircle2 size={12} color="#4ade80" /> : <AlertTriangle size={12} color="#f87171" />}
-                              {isSuccess ? 'SUCCESS' : 'FAILED'}
+                          <td className="py-2 px-3">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium ${isSuccess
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-red-50 text-red-700 border-red-200'
+                                }`}
+                            >
+                              {isSuccess ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
+                              <span>{isSuccess ? 'SUCCESS' : 'FAILED'}</span>
                             </span>
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem', color: isSuccess ? '#94a3b8' : '#fca5a5', maxWidth: '340px' }}>
-                            {run.message || (isSuccess ? 'Workflow thực thi thành công.' : 'Sự cố trong quá trình thực thi.')}
+                          <td className="py-2 px-3 text-zinc-600 max-w-sm truncate text-xs" title={run.message}>
+                            {run.message || (isSuccess ? (language === 'vi' ? 'Workflow thực thi thành công.' : 'Workflow executed successfully.') : (language === 'vi' ? 'Sự cố trong quá trình thực thi.' : 'Workflow execution failed.'))}
                           </td>
-                          <td style={{ padding: '0.65rem 0.75rem', textAlign: 'center' }}>
+                          <td className="py-2 px-3 text-center">
                             <button
+                              type="button"
                               onClick={() => handleViewRunLogs(run)}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.35rem',
-                                backgroundColor: isSuccess ? 'rgba(56, 189, 248, 0.1)' : 'rgba(239, 68, 68, 0.12)',
-                                border: isSuccess ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid rgba(239, 68, 68, 0.3)',
-                                borderRadius: '6px',
-                                color: isSuccess ? '#38bdf8' : '#f87171',
-                                fontSize: '0.72rem',
-                                fontWeight: 600,
-                                padding: '0.25rem 0.6rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                              }}
-                              title="Xem lại terminal log chi tiết của lần chạy này"
+                              className="h-7 px-2.5 rounded border border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-medium inline-flex items-center gap-1 transition-colors"
+                              title="Xem chi tiết runner logs"
                             >
-                              <Terminal size={12} />
-                              <span>Xem Logs</span>
+                              <Terminal size={12} className="text-zinc-500" />
+                              <span>{t('pipe.viewLogs')}</span>
                             </button>
                           </td>
                         </tr>

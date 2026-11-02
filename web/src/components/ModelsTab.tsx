@@ -10,13 +10,12 @@ import {
   Filter,
   CheckCircle2,
   BarChart3,
-  Sparkles,
-  ArrowUpRight,
-  TrendingUp,
   SlidersHorizontal,
   ChevronDown,
-  Box,
-  Gauge
+  Gauge,
+  Clock,
+  Sparkles,
+  Check
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -28,12 +27,14 @@ import {
   Tooltip
 } from 'recharts';
 import { AIModel } from '../types/ai';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface ModelsTabProps {
   models: AIModel[];
 }
 
 export const ModelsTab: React.FC<ModelsTabProps> = ({ models }) => {
+  const { t, language } = useLanguage();
   const [selectedModelId, setSelectedModelId] = useState<string>(models[0]?.id || '');
   const activeModel = models.find((m) => m.id === selectedModelId) || models[0];
 
@@ -43,6 +44,15 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ models }) => {
       setSelectedModelId(models[0].id);
     }
   }, [models, selectedModelId]);
+
+  // Format nhãn confusion matrix theo ngôn ngữ
+  const getFormattedMatrixLabel = (label: string, lang: 'vi' | 'en') => {
+    if (lang === 'vi') return label;
+    if (label.includes('Low')) return 'Low';
+    if (label.includes('Medium')) return 'Medium';
+    if (label.includes('High')) return 'High';
+    return label;
+  };
 
   // Tính toán dữ liệu Radar đa chiều phản ánh đúng đặc tính kỹ thuật của từng loại mô hình
   const calcRadarData = (model: AIModel) => {
@@ -60,12 +70,12 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ models }) => {
     const ramScore = isRamKB ? 98 : 78;
 
     return [
-      { metric: 'Độ chính xác (Acc)', current: acc, baseline: 90 },
-      { metric: 'Tốc độ suy luận', current: speedScore, baseline: 88 },
-      { metric: 'Tiết kiệm RAM', current: ramScore, baseline: 82 },
-      { metric: 'Gọn nhẹ Size', current: sizeScore, baseline: 80 },
+      { metric: language === 'vi' ? 'Độ chính xác (Acc)' : 'Accuracy (Acc)', current: acc, baseline: 90 },
+      { metric: language === 'vi' ? 'Tốc độ suy luận' : 'Inference Speed', current: speedScore, baseline: 88 },
+      { metric: language === 'vi' ? 'Tiết kiệm RAM' : 'RAM Efficiency', current: ramScore, baseline: 82 },
+      { metric: language === 'vi' ? 'Gọn nhẹ Size' : 'Compact Size', current: sizeScore, baseline: 80 },
       { metric: 'F1-Score', current: f1, baseline: 88 },
-      { metric: 'Độ thu hồi (Recall)', current: recall, baseline: 87 },
+      { metric: language === 'vi' ? 'Độ thu hồi (Recall)' : 'Recall', current: recall, baseline: 87 }
     ];
   };
 
@@ -73,639 +83,403 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ models }) => {
   const matrixLabels = activeModel.metrics.confusion_matrix.labels;
   const numLabels = matrixLabels.length;
 
-  // Tính toán độ cao & padding ô ma trận nhầm lẫn tương ứng với số lượng nhãn (2x2, 3x3, 4x4)
-  const cellPadding = numLabels >= 4 ? '0.5rem 0.25rem' : numLabels === 3 ? '0.75rem 0.5rem' : '1.15rem 0.75rem';
-  const cellFontSize = numLabels >= 4 ? '0.85rem' : '0.95rem';
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem', maxWidth: '1400px', margin: '0 auto' }}>
-      
-      {/* 1. HERO HEADER: Tối giản, không bóng tím mờ, không tag thừa, thông tin chuẩn xác */}
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '20px',
-        padding: '1.5rem 2rem',
-        backdropFilter: 'blur(20px)',
-        boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        minHeight: '110px',
-        flexWrap: 'wrap',
-        gap: '1.25rem',
-        position: 'relative',
-        boxSizing: 'border-box'
-      }}>
-        <div style={{ flex: '1 1 500px' }}>
-          <h1 style={{
-            fontSize: '1.65rem',
-            fontWeight: 800,
-            color: '#fff',
-            letterSpacing: '-0.02em',
-            margin: '0 0 0.4rem 0',
-            lineHeight: 1.25,
-            minHeight: '2rem',
-            display: 'flex',
-            alignItems: 'center'
-          }}>
+    <div className="max-w-7xl mx-auto space-y-6 select-none">
+
+      {/* 1. HERO HEADER: Nền trắng, viền zinc, thanh lịch theo DESIGN.md */}
+      <div className="bg-white border border-zinc-200 rounded-md p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5 flex-1 min-w-0">
+          <h1 className="text-xl font-semibold text-zinc-900 tracking-tight leading-snug truncate">
             {activeModel.name}
           </h1>
 
-          <div style={{
-            fontSize: '0.88rem',
-            color: 'var(--text-secondary)',
-            margin: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
-            flexWrap: 'wrap',
-            minHeight: '1.4rem'
-          }}>
-            <span>
-              Phiên bản: <code style={{
-                color: '#a5b4fc',
-                background: 'rgba(99, 102, 241, 0.12)',
-                padding: '0.15rem 0.5rem',
-                borderRadius: '6px',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
-                fontWeight: 700
-              }}>{activeModel.version}</code>
+          <div className="flex items-center gap-2 text-xs text-zinc-600 flex-wrap">
+            <span className="flex items-center gap-1">
+              <span>{t('models.version')}</span>
+              <code className="font-mono font-semibold px-1.5 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-zinc-800 text-[11px]">
+                {activeModel.version}
+              </code>
             </span>
-            <span style={{ color: 'var(--text-muted)' }}>•</span>
-            <span>
-              Thuật toán: <code style={{
-                color: '#38bdf8',
-                background: 'rgba(56, 189, 248, 0.1)',
-                padding: '0.15rem 0.5rem',
-                borderRadius: '6px',
-                border: '1px solid rgba(56, 189, 248, 0.25)',
-                fontWeight: 600
-              }}>{activeModel.algorithm.includes('TinyML MLP') ? 'TinyML MLP' : activeModel.algorithm}</code>
+            <span className="text-zinc-300">•</span>
+            <span className="flex items-center gap-1">
+              <span>{t('models.algorithm')}</span>
+              <code className="font-mono font-medium px-1.5 py-0.5 rounded bg-cyan-50 border border-cyan-200 text-cyan-800 text-[11px]">
+                {activeModel.algorithm.includes('TinyML MLP') ? 'TinyML MLP' : activeModel.algorithm}
+              </code>
             </span>
-            <span style={{ color: 'var(--text-muted)' }}>•</span>
-            <span>
-              Đã train: <strong style={{ color: '#fff', fontWeight: 600 }}>{activeModel.trained_at ? activeModel.trained_at.replace('T', ' ').split('.')[0] : '2026-10-29 20:50:30'}</strong>
+            <span className="text-zinc-300">•</span>
+            <span className="flex items-center gap-1 text-zinc-500">
+              <Clock size={12} className="text-zinc-400" />
+              <span>{t('models.trained')}</span>
+              <span className="font-mono text-zinc-700 font-medium">
+                {activeModel.trained_at ? activeModel.trained_at.replace('T', ' ').split('.')[0] : '2026-10-29 20:50:30'}
+              </span>
             </span>
+            {activeModel.training_samples && (
+              <>
+                <span className="text-zinc-300">•</span>
+                <span className="text-zinc-500">
+                  {t('models.samples')} <span className="font-mono font-medium text-zinc-700">{activeModel.training_samples.toLocaleString()}</span>
+                </span>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Custom Selector Dropdown */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Chọn phiên bản kiểm thử:
+        {/* Bộ chọn phiên bản (Model Selector) */}
+        <div className="flex flex-col gap-1 flex-shrink-0">
+          <label htmlFor="model-select" className="text-xs font-medium text-zinc-600">
+            {t('models.selectVersion')}
           </label>
-          <div style={{ position: 'relative' }}>
+          <div className="relative">
             <select
+              id="model-select"
               value={selectedModelId}
               onChange={(e) => setSelectedModelId(e.target.value)}
-              style={{
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                background: 'rgba(15, 23, 42, 0.85)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: '#fff',
-                padding: '0.75rem 2.5rem 0.75rem 1rem',
-                borderRadius: '12px',
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                outline: 'none',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
-                minWidth: '290px',
-                transition: 'border-color 0.2s ease'
-              }}
+              className="appearance-none bg-white border border-zinc-300 text-zinc-900 text-xs font-medium rounded-md py-2 pl-3 pr-8 shadow-2xs hover:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-700/20 focus:border-cyan-700 cursor-pointer min-w-[280px] transition-colors"
             >
               {models.map((m) => (
-                <option key={m.id} value={m.id} style={{ background: '#0f172a', color: '#fff' }}>
-                  {m.name} ({m.version}) {m.is_active ? '★ Serving' : ''}
+                <option key={m.id} value={m.id} className="text-zinc-900 bg-white">
+                  {m.name} ({m.version})
                 </option>
               ))}
             </select>
-            <ChevronDown size={16} color="var(--text-muted)" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+            <ChevronDown size={14} className="text-zinc-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
       </div>
 
-      {/* 2. THE 6 EVALUATION PARAMETERS (Cố định chiều cao 240px cho mỗi card để không bao giờ bị giật layout) */}
-      <div>
-        <div style={{ marginBottom: '1rem' }}>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Gauge size={20} color="var(--accent-cyan)" /> 6 Thông Số Đánh Giá Mô Hình Cốt Lõi
-          </h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.2rem 0 0 0' }}>
-            Được đo đạc và thẩm định độc lập theo từng chu kỳ kiểm thử
-          </p>
+      {/* 2. 6 THÔNG SỐ ĐÁNH GIÁ MÔ HÌNH CỐT LÕI (CORE KPIS) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-zinc-900 flex items-center gap-2">
+              <Gauge size={16} className="text-cyan-700" />
+              <span>{t('models.coreKpisTitle')}</span>
+            </h2>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {t('models.coreKpisSubtitle')}
+            </p>
+          </div>
         </div>
 
-        <div
-          className="benchmarks-grid"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-            gap: '1.25rem'
-          }}
-        >
-          
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
           {/* Card 1: Accuracy */}
-          <div className="glass-card" style={{
-            background: 'linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(19, 27, 46, 0.75) 100%)',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            height: '240px',
-            minHeight: '240px',
-            maxHeight: '240px',
-            boxSizing: 'border-box',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', height: '44px' }}>
-              <div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#34d399', letterSpacing: '0.05em' }}>
-                  Metric 01
-                </span>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', margin: '0.15rem 0' }}>Accuracy (Độ chính xác)</h3>
-              </div>
-              <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
-                <Award size={20} />
+          <div className="bg-white border border-zinc-200 rounded-md p-4 shadow-xs hover:border-zinc-300 transition-colors">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-zinc-600">
+                {t('models.kpiAccuracy')}
+              </span>
+              <div
+                className="w-7 h-7 rounded border flex items-center justify-center flex-shrink-0"
+                style={{
+                  backgroundColor: 'rgba(35, 191, 92, 0.1)',
+                  borderColor: 'rgba(35, 191, 92, 0.35)',
+                  color: '#23BF5C'
+                }}
+              >
+                <Award size={15} />
               </div>
             </div>
-
-            <div style={{ height: '92px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
-                <span style={{ fontSize: '2.8rem', fontWeight: 900, color: '#10b981', letterSpacing: '-0.03em', lineHeight: 1 }}>
-                  {(activeModel.benchmarks.accuracy * 100).toFixed(1)}%
-                </span>
-              </div>
-              {/* Progress bar visual */}
-              <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', marginTop: '0.75rem', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, activeModel.benchmarks.accuracy * 100)}%`, height: '100%', background: 'linear-gradient(90deg, #10b981, #34d399)', transition: 'width 0.4s ease' }} />
-              </div>
+            <div className="flex items-baseline gap-1 mt-2">
+              <span className="font-mono text-3xl font-semibold tabular-nums" style={{ color: '#23BF5C' }}>
+                {(activeModel.benchmarks.accuracy * 100).toFixed(1)}%
+              </span>
             </div>
-
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, height: '42px', display: 'flex', alignItems: 'center', lineHeight: 1.35 }}>
-              Kiểm thử độc lập với {numLabels} nhãn ({matrixLabels.slice(0, 3).join(', ')}{numLabels > 3 ? '...' : ''})
-            </p>
+            {/* Progress bar phẳng theo DESIGN.md */}
+            <div className="w-full h-1.5 bg-zinc-100 rounded-full mt-3 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${Math.min(100, activeModel.benchmarks.accuracy * 100)}%`,
+                  backgroundColor: '#23BF5C'
+                }}
+              />
+            </div>
           </div>
 
           {/* Card 2: Inference Time */}
-          <div className="glass-card" style={{
-            background: 'linear-gradient(180deg, rgba(6, 182, 212, 0.08) 0%, rgba(19, 27, 46, 0.75) 100%)',
-            border: '1px solid rgba(6, 182, 212, 0.25)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            height: '240px',
-            minHeight: '240px',
-            maxHeight: '240px',
-            boxSizing: 'border-box'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', height: '44px' }}>
-              <div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#22d3ee', letterSpacing: '0.05em' }}>
-                  Metric 02
-                </span>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', margin: '0.15rem 0' }}>Inference Time (Độ trễ suy luận)</h3>
-              </div>
-              <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4' }}>
-                <Zap size={20} />
+          <div className="bg-white border border-zinc-200 rounded-md p-4 shadow-xs hover:border-zinc-300 transition-colors">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-zinc-600">
+                {t('models.kpiInference')}
+              </span>
+              <div className="w-7 h-7 rounded bg-cyan-50 border border-cyan-200 text-cyan-700 flex items-center justify-center flex-shrink-0">
+                <Zap size={15} />
               </div>
             </div>
-
-            <div style={{ height: '92px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
-                <span style={{ fontSize: '2.4rem', fontWeight: 900, color: '#06b6d4', letterSpacing: '-0.02em', lineHeight: 1 }}>
-                  {activeModel.benchmarks.inference_time.split(' ')[0]}
-                </span>
-                <span style={{ fontSize: '1.05rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  ms / sample
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.65rem' }}>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(6, 182, 212, 0.15)', color: '#22d3ee', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: 600 }}>
-                  Realtime Ready (&lt; 20ms)
-                </span>
-              </div>
+            <div className="flex items-baseline gap-1.5 mt-2">
+              <span className="font-mono text-3xl font-semibold text-zinc-900 tabular-nums">
+                {activeModel.benchmarks.inference_time.split(' ')[0]}
+              </span>
+              <span className="font-mono text-xs text-zinc-500 font-medium">
+                ms / sample
+              </span>
             </div>
-
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, height: '42px', display: 'flex', alignItems: 'center', lineHeight: 1.35 }}>
-              Đo trung bình độ trễ trên vi xử lý phục vụ trực tiếp qua API
-            </p>
+            <div className="mt-2.5">
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-cyan-50 border border-cyan-200 text-cyan-800">
+                {t('models.realtimeReady')}
+              </span>
+            </div>
           </div>
 
           {/* Card 3: Model Size */}
-          <div className="glass-card" style={{
-            background: 'linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, rgba(19, 27, 46, 0.75) 100%)',
-            border: '1px solid rgba(99, 102, 241, 0.25)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            height: '240px',
-            minHeight: '240px',
-            maxHeight: '240px',
-            boxSizing: 'border-box'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', height: '44px' }}>
-              <div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#818cf8', letterSpacing: '0.05em' }}>
-                  Metric 03
-                </span>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', margin: '0.15rem 0' }}>Model Size (Dung lượng)</h3>
-              </div>
-              <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1' }}>
-                <HardDrive size={20} />
+          <div className="bg-white border border-zinc-200 rounded-md p-4 shadow-xs hover:border-zinc-300 transition-colors">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-zinc-600">
+                {t('models.kpiModelSize')}
+              </span>
+              <div className="w-7 h-7 rounded bg-zinc-100 border border-zinc-200 text-zinc-700 flex items-center justify-center flex-shrink-0">
+                <HardDrive size={15} />
               </div>
             </div>
-
-            <div style={{ height: '92px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <span style={{ fontSize: '2.2rem', fontWeight: 900, color: '#a5b4fc', letterSpacing: '-0.02em', lineHeight: 1 }}>
+            <div className="flex items-baseline gap-1 mt-2">
+              <span className="font-mono text-2xl font-semibold text-zinc-900 tabular-nums">
                 {activeModel.benchmarks.model_size.split('(')[0].trim()}
               </span>
-              <div style={{ marginTop: '0.65rem' }}>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(99, 102, 241, 0.15)', color: '#c7d2fe', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
-                  {activeModel.benchmarks.model_size.includes('(') ? activeModel.benchmarks.model_size.split('(')[1].replace(')', '') : 'Tối ưu Edge / Cloud'}
-                </span>
-              </div>
             </div>
-
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, height: '42px', display: 'flex', alignItems: 'center', lineHeight: 1.35 }}>
-              Cực kỳ nhỏ gọn, thích hợp deploy Edge hoặc Cloud Server
-            </p>
+            <div className="mt-2.5">
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-100 border border-zinc-200 text-zinc-700">
+                {activeModel.benchmarks.model_size.includes('(') ? activeModel.benchmarks.model_size.split('(')[1].replace(')', '') : 'Edge / Cloud'}
+              </span>
+            </div>
           </div>
 
           {/* Card 4: RAM Usage */}
-          <div className="glass-card" style={{
-            background: 'linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, rgba(19, 27, 46, 0.75) 100%)',
-            border: '1px solid rgba(245, 158, 11, 0.25)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            height: '240px',
-            minHeight: '240px',
-            maxHeight: '240px',
-            boxSizing: 'border-box'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', height: '44px' }}>
-              <div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#fbbf24', letterSpacing: '0.05em' }}>
-                  Metric 04
-                </span>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', margin: '0.15rem 0' }}>RAM Usage (Bộ nhớ RAM)</h3>
-              </div>
-              <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
-                <Cpu size={20} />
+          <div className="bg-white border border-zinc-200 rounded-md p-4 shadow-xs hover:border-zinc-300 transition-colors">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-zinc-600">
+                {t('models.kpiRam')}
+              </span>
+              <div className="w-7 h-7 rounded bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center flex-shrink-0">
+                <Cpu size={15} />
               </div>
             </div>
-
-            <div style={{ height: '92px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
-                <span style={{ fontSize: '2.4rem', fontWeight: 900, color: '#f59e0b', letterSpacing: '-0.02em', lineHeight: 1 }}>
-                  {activeModel.benchmarks.ram_usage.split(' ')[0]}
-                </span>
-                <span style={{ fontSize: '1.05rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {activeModel.benchmarks.ram_usage.split(' ')[1] || 'KB'}
-                </span>
-              </div>
-              <div style={{ marginTop: '0.65rem' }}>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(245, 158, 11, 0.15)', color: '#fde68a', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
-                  Chiếm &lt; 5% tài nguyên hệ thống
-                </span>
-              </div>
+            <div className="flex items-baseline gap-1.5 mt-2">
+              <span className="font-mono text-3xl font-semibold text-zinc-900 tabular-nums">
+                {activeModel.benchmarks.ram_usage.split(' ')[0]}
+              </span>
+              <span className="font-mono text-xs text-zinc-500 font-medium">
+                {activeModel.benchmarks.ram_usage.split(' ')[1] || 'KB'}
+              </span>
             </div>
-
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, height: '42px', display: 'flex', alignItems: 'center', lineHeight: 1.35 }}>
-              Bộ nhớ heap ổn định khi xử lý đa luồng đồng thời
-            </p>
+            <div className="mt-2.5">
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 border border-amber-200 text-amber-800">
+                {t('models.ramUsageDetail')}
+              </span>
+            </div>
           </div>
 
-          {/* Card 5: Preprocessing (Khung cố định 62px, text 2 dòng gọn gàng) */}
-          <div className="glass-card" style={{
-            background: 'linear-gradient(180deg, rgba(236, 72, 153, 0.08) 0%, rgba(19, 27, 46, 0.75) 100%)',
-            border: '1px solid rgba(236, 72, 153, 0.25)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            height: '240px',
-            minHeight: '240px',
-            maxHeight: '240px',
-            boxSizing: 'border-box'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', height: '44px' }}>
-              <div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#f472b6', letterSpacing: '0.05em' }}>
-                  Pipeline 05
-                </span>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', margin: '0.15rem 0' }}>Preprocessing (Tiền xử lý)</h3>
-              </div>
-              <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(236, 72, 153, 0.15)', color: '#ec4899' }}>
-                <Layers size={20} />
+          {/* Card 5: Preprocessing */}
+          <div className="bg-white border border-zinc-200 rounded-md p-4 shadow-xs hover:border-zinc-300 transition-colors">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-zinc-600">
+                {t('models.kpiPreproc')}
+              </span>
+              <div className="w-7 h-7 rounded bg-zinc-100 border border-zinc-200 text-zinc-700 flex items-center justify-center flex-shrink-0">
+                <Layers size={15} />
               </div>
             </div>
-
-            <div style={{ height: '92px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '8px',
-                padding: '0.6rem 0.75rem',
-                color: '#fbcfe8',
-                fontSize: '0.84rem',
-                fontWeight: 600,
-                lineHeight: 1.35,
-                height: '62px',
-                display: 'flex',
-                alignItems: 'center',
-                overflow: 'hidden',
-                boxSizing: 'border-box'
-              }}>
-                <span style={{
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}>
-                  {activeModel.benchmarks.preprocessing}
-                </span>
+            <div className="mt-2.5">
+              <div className="bg-zinc-50 border border-zinc-200 rounded p-2 text-xs font-mono font-medium text-zinc-800 leading-relaxed line-clamp-2" title={activeModel.benchmarks.preprocessing}>
+                {language === 'en' ? activeModel.benchmarks.preprocessing.replace('đặc trưng sinh tồn', 'vital features') : activeModel.benchmarks.preprocessing}
               </div>
             </div>
-
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, height: '42px', display: 'flex', alignItems: 'center', lineHeight: 1.35 }}>
-              Khử nhiễu rung tay & lọc tần số chuyển động con người
-            </p>
           </div>
 
-          {/* Card 6: Normalization (Khung cố định 62px, text 2 dòng gọn gàng) */}
-          <div className="glass-card" style={{
-            background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.08) 0%, rgba(19, 27, 46, 0.75) 100%)',
-            border: '1px solid rgba(139, 92, 246, 0.25)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            height: '240px',
-            minHeight: '240px',
-            maxHeight: '240px',
-            boxSizing: 'border-box'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', height: '44px' }}>
-              <div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#c084fc', letterSpacing: '0.05em' }}>
-                  Pipeline 06
-                </span>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', margin: '0.15rem 0' }}>Normalization (Chuẩn hóa)</h3>
-              </div>
-              <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
-                <Filter size={20} />
+          {/* Card 6: Normalization */}
+          <div className="bg-white border border-zinc-200 rounded-md p-4 shadow-xs hover:border-zinc-300 transition-colors">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-zinc-600">
+                {t('models.kpiNorm')}
+              </span>
+              <div className="w-7 h-7 rounded bg-zinc-100 border border-zinc-200 text-zinc-700 flex items-center justify-center flex-shrink-0">
+                <Filter size={15} />
               </div>
             </div>
-
-            <div style={{ height: '92px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '8px',
-                padding: '0.6rem 0.75rem',
-                color: '#e9d5ff',
-                fontSize: '0.85rem',
-                fontWeight: 700,
-                lineHeight: 1.35,
-                height: '62px',
-                display: 'flex',
-                alignItems: 'center',
-                overflow: 'hidden',
-                boxSizing: 'border-box'
-              }}>
-                <span style={{
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}>
-                  {activeModel.benchmarks.normalization}
-                </span>
+            <div className="mt-2.5">
+              <div className="bg-zinc-50 border border-zinc-200 rounded p-2 text-xs font-mono font-medium text-zinc-800 leading-relaxed line-clamp-2" title={activeModel.benchmarks.normalization}>
+                {language === 'en' ? activeModel.benchmarks.normalization.replace('Fit trên Train Set', 'Fit on Train Set') : activeModel.benchmarks.normalization}
               </div>
             </div>
-
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, height: '42px', display: 'flex', alignItems: 'center', lineHeight: 1.35 }}>
-              Đưa các trục dữ liệu về thang đo chuẩn hóa (μ = 0, σ = 1)
-            </p>
           </div>
 
         </div>
       </div>
 
-      {/* 3. ROW: RADAR BENCHMARK CHART & CONFUSION MATRIX (Cố định chiều cao 425px cho cả 2 thẻ) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
-        gap: '1.5rem'
-      }}>
-        
+      {/* 3. ROW: RADAR CHART & CONFUSION MATRIX */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
         {/* Radar Chart: Đánh giá đa chiều */}
-        <div className="glass-card" style={{
-          height: '425px',
-          minHeight: '425px',
-          maxHeight: '425px',
-          display: 'flex',
-          flexDirection: 'column',
-          boxSizing: 'border-box'
-        }}>
-          <div style={{ height: '48px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-            <div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <BarChart3 size={18} color="var(--accent-indigo)" /> Radar Đánh Giá Đa Chiều
+        <div className="bg-white border border-zinc-200 rounded-md p-5 shadow-xs flex flex-col h-[430px]">
+          <div className="mb-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-zinc-900 flex items-center gap-2">
+                <BarChart3 size={16} className="text-cyan-700" />
+                <span>{t('models.radarTitle')}</span>
               </h3>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.15rem 0 0 0' }}>
-                So sánh Độ chính xác, Tốc độ suy luận & Tiêu thụ tài nguyên
-              </p>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="flex items-center gap-1.5 text-zinc-700 font-medium">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-700" />
+                  <span>{activeModel.name.split(' ')[0]}</span>
+                </span>
+                <span className="flex items-center gap-1.5 text-zinc-500">
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                  <span>Baseline</span>
+                </span>
+              </div>
             </div>
           </div>
 
-          <div style={{ flex: 1, width: '100%', height: 'calc(100% - 50px)' }}>
+          <div className="flex-1 w-full min-h-0">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarData}>
-                <PolarGrid stroke="rgba(255, 255, 255, 0.08)" />
-                <PolarAngleAxis dataKey="metric" stroke="var(--text-secondary)" fontSize={11} />
-                <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="rgba(255,255,255,0.15)" fontSize={10} />
-                <Radar name={activeModel.name} dataKey="current" stroke="#6366f1" fill="#6366f1" fillOpacity={0.4} />
-                <Radar name="Baseline Model" dataKey="baseline" stroke="#64748b" fill="#64748b" fillOpacity={0.15} />
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: 'var(--border-color)', borderRadius: '8px' }} />
+              <RadarChart data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
+                <PolarGrid stroke="#e4e4e7" />
+                <PolarAngleAxis dataKey="metric" stroke="#52525b" fontSize={11} tick={{ fill: '#52525b' }} />
+                <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#cbd5e1" fontSize={10} tick={{ fill: '#71717a' }} />
+                <Radar
+                  name={activeModel.name}
+                  dataKey="current"
+                  stroke="#0e7490"
+                  fill="#0e7490"
+                  fillOpacity={0.2}
+                />
+                <Radar
+                  name="Baseline Model"
+                  dataKey="baseline"
+                  stroke="#94a3b8"
+                  fill="#94a3b8"
+                  fillOpacity={0.08}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#ffffff',
+                    borderColor: '#e4e4e7',
+                    color: '#18181b',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.06)'
+                  }}
+                />
               </RadarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Confusion Matrix (Cố định tableLayout fixed và căn giữa trục đứng hoàn toàn) */}
-        <div className="glass-card" style={{
-          height: '425px',
-          minHeight: '425px',
-          maxHeight: '425px',
-          display: 'flex',
-          flexDirection: 'column',
-          boxSizing: 'border-box'
-        }}>
-          <div style={{ height: '48px', marginBottom: '0.5rem' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', margin: 0 }}>
-              Ma trận nhầm lẫn (Confusion Matrix)
+        {/* Confusion Matrix */}
+        <div className="bg-white border border-zinc-200 rounded-md p-5 shadow-xs flex flex-col justify-between h-[430px]">
+          <div>
+            <h3 className="text-sm font-semibold text-zinc-900">
+              {t('models.cmTitle')}
             </h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.15rem 0 0 0' }}>
-              Phân bố kết quả dự đoán so với nhãn thực tế
-            </p>
           </div>
 
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden' }}>
-            <table style={{
-              width: '100%',
-              tableLayout: 'fixed',
-              borderCollapse: 'separate',
-              borderSpacing: '6px',
-              textAlign: 'center',
-              fontSize: '0.85rem'
-            }}>
+          <div className="my-auto py-2 overflow-x-auto">
+            <table className="w-full table-fixed border-collapse text-center text-xs">
               <thead>
                 <tr>
-                  <th style={{
-                    width: '28%',
-                    padding: '0.35rem 0.25rem',
-                    color: 'var(--text-muted)',
-                    textAlign: 'left',
-                    fontSize: '0.72rem',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    Thực tế \ Dự đoán
+                  <th className="w-2/5 py-2 px-3 text-left text-xs font-medium text-zinc-500 truncate border-r border-b border-zinc-200">
+                    {t('models.cmActualPred')}
                   </th>
-                  {matrixLabels.map((l) => (
+                  {matrixLabels.map((l, idx) => (
                     <th
                       key={l}
-                      style={{
-                        padding: '0.35rem 0.2rem',
-                        color: '#c7d2fe',
-                        fontWeight: 700,
-                        fontSize: '0.78rem',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
+                      className={`py-2 px-2 text-center text-xs font-semibold text-zinc-700 bg-zinc-50/70 border-b border-zinc-200 truncate ${idx < matrixLabels.length - 1 ? 'border-r border-zinc-200' : ''
+                        }`}
                       title={l}
                     >
-                      {l}
+                      {getFormattedMatrixLabel(l, language)}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {activeModel.metrics.confusion_matrix.matrix.map((row, rIdx) => (
-                  <tr key={rIdx}>
-                    <td
-                      style={{
-                        padding: '0.35rem 0.25rem',
-                        fontWeight: 700,
-                        color: '#c7d2fe',
-                        textAlign: 'left',
-                        fontSize: '0.78rem',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                      title={matrixLabels[rIdx]}
-                    >
-                      {matrixLabels[rIdx]}
-                    </td>
-                    {row.map((val, cIdx) => {
-                      const isDiagonal = rIdx === cIdx;
-                      return (
-                        <td
-                          key={cIdx}
-                          style={{
-                            padding: cellPadding,
-                            background: isDiagonal
-                              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(16, 185, 129, 0.15))'
-                              : val > 0 ? 'rgba(239, 68, 68, 0.18)' : 'rgba(255, 255, 255, 0.02)',
-                            border: `1px solid ${isDiagonal ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255, 255, 255, 0.05)'}`,
-                            borderRadius: '8px',
-                            fontWeight: isDiagonal ? 800 : 500,
-                            color: isDiagonal ? '#34d399' : val > 0 ? '#fca5a5' : 'var(--text-muted)',
-                            fontSize: cellFontSize,
-                            transition: 'background 0.2s ease'
-                          }}
-                        >
-                          {val}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {activeModel.metrics.confusion_matrix.matrix.map((row, rIdx) => {
+                  const isLastRow = rIdx === activeModel.metrics.confusion_matrix.matrix.length - 1;
+                  return (
+                    <tr key={rIdx}>
+                      <td
+                        className={`py-2.5 px-3 text-left text-xs font-semibold text-zinc-700 truncate border-r border-zinc-200 ${!isLastRow ? 'border-b border-zinc-200' : ''
+                          }`}
+                        title={matrixLabels[rIdx]}
+                      >
+                        {getFormattedMatrixLabel(matrixLabels[rIdx], language)}
+                      </td>
+                      {row.map((val, cIdx) => {
+                        const isDiagonal = rIdx === cIdx;
+                        const isLastCol = cIdx === row.length - 1;
+                        return (
+                          <td
+                            key={cIdx}
+                            className={`py-2.5 px-2 font-mono text-xs transition-colors ${!isLastRow ? 'border-b border-zinc-200' : ''
+                              } ${!isLastCol ? 'border-r border-zinc-200' : ''
+                              } ${isDiagonal
+                                ? 'bg-emerald-50/80 text-emerald-800 font-bold'
+                                : val > 0
+                                  ? 'bg-red-50/80 text-red-700 font-medium'
+                                  : 'bg-zinc-50/40 text-zinc-400'
+                              }`}
+                          >
+                            {val}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          <div style={{
-            height: '42px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderTop: '1px solid rgba(255,255,255,0.05)',
-            fontSize: '0.8rem',
-            paddingTop: '0.5rem',
-            boxSizing: 'border-box'
-          }}>
-            <span style={{ color: 'var(--text-muted)' }}>Precision: <strong style={{ color: '#a5b4fc' }}>{(activeModel.metrics.precision * 100).toFixed(1)}%</strong></span>
-            <span style={{ color: 'var(--text-muted)' }}>Recall: <strong style={{ color: '#06b6d4' }}>{(activeModel.metrics.recall * 100).toFixed(1)}%</strong></span>
-            <span style={{ color: 'var(--text-muted)' }}>F1-Score: <strong style={{ color: '#f59e0b' }}>{(activeModel.metrics.f1_score * 100).toFixed(1)}%</strong></span>
+          <div className="border-t border-zinc-200 pt-3 flex items-center justify-between text-xs text-zinc-600 flex-wrap gap-2">
+            <span>
+              Precision: <strong className="font-mono font-semibold text-zinc-900 ml-1">{(activeModel.metrics.precision * 100).toFixed(1)}%</strong>
+            </span>
+            <span>
+              Recall: <strong className="font-mono font-semibold text-zinc-900 ml-1">{(activeModel.metrics.recall * 100).toFixed(1)}%</strong>
+            </span>
+            <span>
+              F1-score: <strong className="font-mono font-semibold text-zinc-900 ml-1">{(activeModel.metrics.f1_score * 100).toFixed(1)}%</strong>
+            </span>
           </div>
         </div>
 
       </div>
 
       {/* 4. COMPARISON TABLE ACROSS ALL MODELS */}
-      <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="bg-white border border-zinc-200 rounded-md shadow-xs overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-zinc-200 flex justify-between items-center bg-white">
           <div>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', margin: 0 }}>
-              Bảng Tổng Hợp Benchmark Kỹ Thuật (Full Model Benchmark Matrix)
+            <h3 className="text-sm font-semibold text-zinc-900">
+              {language === 'vi' ? 'Bảng tổng hợp benchmark kỹ thuật (Full model benchmark matrix)' : 'Full Model Benchmark Matrix'}
             </h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.15rem 0 0 0' }}>
-              Đối chiếu trực tiếp cả 6 thông số kỹ thuật giữa các phiên bản mô hình trong hệ thống (bấm chọn hàng để xem chi tiết)
-            </p>
           </div>
         </div>
 
-        <div style={{ width: '100%', overflowX: 'hidden' }}>
-          <table style={{
-            width: '100%',
-            tableLayout: 'fixed',
-            borderCollapse: 'collapse',
-            fontSize: '0.82rem'
-          }}>
+        <div className="w-full overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', background: 'rgba(255, 255, 255, 0.02)' }}>
-                <th style={{ width: '23%', padding: '0.85rem 1rem', textAlign: 'left', whiteSpace: 'nowrap' }}>Mô hình & Kiến trúc</th>
-                <th style={{ width: '17%', padding: '0.85rem 0.6rem', textAlign: 'left', whiteSpace: 'nowrap' }}>1. Preprocessing</th>
-                <th style={{ width: '15%', padding: '0.85rem 0.6rem', textAlign: 'left', whiteSpace: 'nowrap' }}>2. Normalization</th>
-                <th style={{ width: '9%', padding: '0.85rem 0.4rem', textAlign: 'center', whiteSpace: 'nowrap' }}>3. Size</th>
-                <th style={{ width: '8%', padding: '0.85rem 0.4rem', textAlign: 'center', whiteSpace: 'nowrap' }}>4. RAM</th>
-                <th style={{ width: '9%', padding: '0.85rem 0.4rem', textAlign: 'center', whiteSpace: 'nowrap' }}>5. Độ trễ</th>
-                <th style={{ width: '8%', padding: '0.85rem 0.4rem', textAlign: 'center', whiteSpace: 'nowrap' }}>6. Acc</th>
-                <th style={{ width: '11%', padding: '0.85rem 0.5rem', textAlign: 'center', whiteSpace: 'nowrap' }}>Trạng thái</th>
+              <tr className="bg-zinc-50 border-b border-zinc-200 text-zinc-600 font-medium">
+                <th className="py-2.5 px-3.5 whitespace-nowrap">{t('models.thModel')}</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">{t('models.thPreproc')}</th>
+                <th className="py-2.5 px-3 whitespace-nowrap">{t('models.thNorm')}</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">{t('models.thSize')}</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">{t('models.thRam')}</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">{t('models.thLatency')}</th>
+                <th className="py-2.5 px-3 text-center whitespace-nowrap">{t('models.thAcc')}</th>
+                <th className="py-2.5 px-3.5 text-center whitespace-nowrap">{t('models.thStatus')}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-zinc-200">
               {models.map((m) => {
-                const isSelected = m.id === activeModel.id;
-
-                // Tách phần chính và phần chi tiết gọn gàng
                 const prepParts = m.benchmarks.preprocessing.split('(');
                 const prepMain = prepParts[0].split(',')[0].trim();
                 const prepSub = prepParts[1]
                   ? prepParts[1].replace(')', '').trim()
                   : m.benchmarks.preprocessing.includes(',')
-                  ? m.benchmarks.preprocessing.split(',').slice(1).join(',').trim()
-                  : '';
+                    ? m.benchmarks.preprocessing.split(',').slice(1).join(',').trim()
+                    : '';
 
                 const normParts = m.benchmarks.normalization.split('(');
                 const normMain = normParts[0].trim();
@@ -722,179 +496,99 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({ models }) => {
                 return (
                   <tr
                     key={m.id}
-                    onClick={() => setSelectedModelId(m.id)}
-                    style={{
-                      borderBottom: '1px solid rgba(255,255,255,0.04)',
-                      background: isSelected ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
-                      cursor: 'pointer',
-                      transition: 'background 0.2s ease',
-                      borderLeft: isSelected ? '3px solid #6366f1' : '3px solid transparent'
-                    }}
+                    className="hover:bg-zinc-50/80 transition-colors"
                   >
                     {/* 1. Model & Architecture */}
-                    <td style={{ padding: '0.85rem 1rem', verticalAlign: 'middle', overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          fontWeight: 700,
-                          color: isSelected ? '#a5b4fc' : '#fff',
-                          fontSize: '0.85rem',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                        title={m.name}
-                      >
+                    <td className="py-3 px-3.5">
+                      <div className="font-semibold text-zinc-900 truncate" title={m.name}>
                         {m.name}
                       </div>
-                      <div
-                        style={{
-                          fontSize: '0.72rem',
-                          color: 'var(--text-muted)',
-                          marginTop: '0.2rem',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        <code style={{ color: '#c7d2fe' }}>{m.version}</code> • {m.algorithm.includes('TinyML MLP') ? 'TinyML MLP' : m.algorithm}
+                      <div className="text-[11px] text-zinc-500 mt-0.5 flex items-center gap-1.5">
+                        <code className="font-mono text-zinc-700 bg-zinc-100 border border-zinc-200 px-1 py-0.2 rounded text-[10px]">
+                          {m.version}
+                        </code>
+                        <span>•</span>
+                        <span>{m.algorithm.includes('TinyML MLP') ? 'TinyML MLP' : m.algorithm}</span>
                       </div>
                     </td>
 
                     {/* 2. Preprocessing */}
-                    <td style={{ padding: '0.85rem 0.6rem', verticalAlign: 'middle', overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          color: '#f472b6',
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
-                          lineHeight: 1.25,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                        title={m.benchmarks.preprocessing}
-                      >
+                    <td className="py-3 px-3">
+                      <div className="font-mono text-zinc-800 text-[11px] truncate max-w-[160px]" title={m.benchmarks.preprocessing}>
                         {prepMain}
                       </div>
                       {prepSub && (
-                        <div
-                          style={{
-                            color: 'var(--text-muted)',
-                            fontSize: '0.7rem',
-                            marginTop: '2px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}
-                          title={prepSub}
-                        >
+                        <div className="text-[10px] text-zinc-500 mt-0.5 truncate max-w-[160px]" title={prepSub}>
                           {prepSub}
                         </div>
                       )}
                     </td>
 
                     {/* 3. Normalization */}
-                    <td style={{ padding: '0.85rem 0.6rem', verticalAlign: 'middle', overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          color: '#c4b5fd',
-                          fontWeight: 600,
-                          fontSize: '0.78rem',
-                          lineHeight: 1.25,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                        title={m.benchmarks.normalization}
-                      >
+                    <td className="py-3 px-3">
+                      <div className="font-mono text-zinc-800 text-[11px] truncate max-w-[150px]" title={m.benchmarks.normalization}>
                         {normMain}
                       </div>
                       {normSub && (
-                        <div
-                          style={{
-                            color: 'var(--text-muted)',
-                            fontSize: '0.7rem',
-                            marginTop: '2px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}
-                          title={normSub}
-                        >
-                          {normSub}
+                        <div className="text-[10px] text-zinc-500 mt-0.5 truncate max-w-[150px]" title={normSub}>
+                          {language === 'en' ? normSub.replace('Fit trên Train Set', 'Fit on Train Set') : normSub}
                         </div>
                       )}
                     </td>
 
                     {/* 4. Size */}
-                    <td style={{ padding: '0.85rem 0.4rem', textAlign: 'center', verticalAlign: 'middle', overflow: 'hidden' }}>
-                      <div style={{ color: '#a5b4fc', fontWeight: 700, fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <div className="font-mono font-medium text-zinc-800 text-xs">
                         {sizeVal}
                       </div>
                       {sizeTag && (
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div className="text-[10px] text-zinc-500 mt-0.5">
                           {sizeTag}
                         </div>
                       )}
                     </td>
 
                     {/* 5. RAM */}
-                    <td style={{ padding: '0.85rem 0.4rem', textAlign: 'center', verticalAlign: 'middle', overflow: 'hidden' }}>
-                      <div style={{ color: '#f59e0b', fontWeight: 700, fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <div className="font-mono font-medium text-zinc-800 text-xs">
                         {ramVal}
                       </div>
                     </td>
 
                     {/* 6. Latency */}
-                    <td style={{ padding: '0.85rem 0.4rem', textAlign: 'center', verticalAlign: 'middle', overflow: 'hidden' }}>
-                      <div style={{ color: '#06b6d4', fontWeight: 700, fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <div className="font-mono font-medium text-zinc-800 text-xs">
                         {infVal.split('/')[0].trim()}
                       </div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', marginTop: '2px', whiteSpace: 'nowrap' }}>
-                        / sample
+                      <div className="text-[10px] text-zinc-500 mt-0.5">
+                        ms
                       </div>
                     </td>
 
-                    {/* 7. Accuracy */}
-                    <td style={{ padding: '0.85rem 0.4rem', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                      <span style={{ color: '#10b981', fontWeight: 800, fontSize: '0.95rem' }}>
+                    {/* 7. Accuracy (Màu xanh chuẩn #23BF5C) */}
+                    <td className="py-3 px-3 text-center whitespace-nowrap">
+                      <span className="font-mono font-bold text-sm" style={{ color: '#23BF5C' }}>
                         {(m.benchmarks.accuracy * 100).toFixed(1)}%
                       </span>
                     </td>
 
-                    {/* 8. Status */}
-                    <td style={{ padding: '0.85rem 0.5rem', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                    {/* 8. Status (Màu xanh chuẩn #23BF5C cho Active) */}
+                    <td className="py-3 px-3.5 text-center whitespace-nowrap">
                       {m.is_active ? (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.35rem',
-                          color: '#10b981',
-                          background: 'rgba(16, 185, 129, 0.15)',
-                          border: '1px solid rgba(16, 185, 129, 0.3)',
-                          padding: '0.25rem 0.6rem',
-                          borderRadius: '999px',
-                          fontSize: '0.72rem',
-                          fontWeight: 700
-                        }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981' }} />
-                          Active
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold border"
+                          style={{
+                            backgroundColor: 'rgba(35, 191, 92, 0.08)',
+                            borderColor: 'rgba(35, 191, 92, 0.35)',
+                            color: '#23BF5C'
+                          }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#23BF5C' }} />
+                          <span>Active</span>
                         </span>
                       ) : (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'var(--text-muted)',
-                          background: 'rgba(255, 255, 255, 0.04)',
-                          border: '1px solid rgba(255, 255, 255, 0.08)',
-                          padding: '0.25rem 0.6rem',
-                          borderRadius: '999px',
-                          fontSize: '0.72rem',
-                          fontWeight: 500
-                        }}>
-                          Archived
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 text-zinc-600 border border-zinc-200">
+                          <span>Archived</span>
                         </span>
                       )}
                     </td>

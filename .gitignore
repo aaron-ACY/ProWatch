@@ -188,3 +188,18 @@ start_services.ps1
 # Personal Telegram Bot Config & Private Tokens
 model/riskscore/telegram_config.json
 **/telegram_config.json
+
+
+# ------------------------------------------------------------------------------
+# 10. Impeccable & AI Design Context
+# ------------------------------------------------------------------------------
+DESIGN.md
+**/DESIGN.md
+.impeccable/
+**/.impeccable/
+.codex/
+**/.codex/
+.agent/
+**/.agent/
+.github/
+**/.github/

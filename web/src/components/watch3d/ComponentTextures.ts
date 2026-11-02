@@ -496,3 +496,4 @@ export function createSensorBoardTexture(): THREE.CanvasTexture {
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
+

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Navbar, ActiveTab } from '@/components/Navbar';
-import { RealtimeTab } from '@/components/RealtimeTab';
+import { PrototypeTab } from '@/components/PrototypeTab';
 import { HistoryTab } from '@/components/HistoryTab';
 import { PipelineTab } from '@/components/PipelineTab';
 import { ModelsTab } from '@/components/ModelsTab';
@@ -16,6 +16,16 @@ import {
 } from '@/services/mockData';
 import { SensorTelemetry, MeasurementRecord } from '@/types/sensor';
 import { AIModel, AIPrediction, N8nWorkflowExecution } from '@/types/ai';
+import { LanguageProvider, useLanguage } from '@/context/LanguageContext';
+
+const DashboardFooter: React.FC = () => {
+  const { t } = useLanguage();
+  return (
+    <footer className="border-t border-zinc-200 py-4 px-6 text-center text-xs text-zinc-400 select-none">
+      <p>{t('footer.copyright')}</p>
+    </footer>
+  );
+};
 
 export default function DashboardPage() {
   const [isMounted, setIsMounted] = useState(false);
@@ -209,55 +219,49 @@ export default function DashboardPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Navbar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
+    <LanguageProvider>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Navbar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
 
-      <main style={{ padding: '2rem', maxWidth: '1440px', margin: '0 auto', width: '100%', flex: 1 }}>
-        {activeTab === 'REALTIME' && (
-          <RealtimeTab
-            telemetry={telemetry}
-            history={realtimeHistory}
-            prediction={prediction}
-          />
-        )}
+        <main style={{ padding: '2rem', maxWidth: '1440px', margin: '0 auto', width: '100%', flex: 1 }}>
+          {activeTab === 'REALTIME' && (
+            <PrototypeTab
+              telemetry={telemetry}
+              history={realtimeHistory}
+              prediction={prediction}
+            />
+          )}
 
-        {activeTab === 'DATA' && (
-          <DataTab />
-        )}
+          {activeTab === 'DATA' && (
+            <DataTab />
+          )}
 
-        {activeTab === 'HISTORY' && (
-          <HistoryTab records={historyRecords} />
-        )}
+          {activeTab === 'HISTORY' && (
+            <HistoryTab records={historyRecords} />
+          )}
 
-        {activeTab === 'PIPELINE' && (
-          <PipelineTab
-            workflowRuns={workflowRuns}
-            onNewRun={handleAddNewWorkflowRun}
-            onNavigateToMetrics={() => setActiveTab('MODELS')}
-          />
-        )}
+          {activeTab === 'PIPELINE' && (
+            <PipelineTab
+              workflowRuns={workflowRuns}
+              onNewRun={handleAddNewWorkflowRun}
+              onNavigateToMetrics={() => setActiveTab('MODELS')}
+            />
+          )}
 
-        {activeTab === 'MODELS' && (
-          <ModelsTab models={models} />
-        )}
+          {activeTab === 'MODELS' && (
+            <ModelsTab models={models} />
+          )}
 
-        {activeTab === 'MOBILE' && (
-          <MobileTab />
-        )}
-      </main>
+          {activeTab === 'MOBILE' && (
+            <MobileTab />
+          )}
+        </main>
 
-      <footer style={{
-        padding: '1.25rem 2rem',
-        borderTop: '1px solid var(--border-color)',
-        textAlign: 'center',
-        fontSize: '0.8rem',
-        color: 'var(--text-muted)'
-      }}>
-        ProWatch Health IoT Platform • ESP32-S3 Firmware • MAX30102 + MPU6050 Sensors • n8n Workflow • Supabase Database • Python ML Service • Next.js
-      </footer>
-    </div>
+        <DashboardFooter />
+      </div>
+    </LanguageProvider>
   );
 }

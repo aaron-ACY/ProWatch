@@ -33,7 +33,9 @@ export interface MeasurementRecord {
   heart_rate: number;
   spo2: number;
   accel_magnitude: number;
-  dominant_activity: string;
+  dominant_activity?: string;
   is_anomaly: boolean;
   notes?: string;
+  status?: string;
+  risk_level?: string;
 }
