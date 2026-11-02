@@ -22,12 +22,38 @@ export const MobileTab: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Cấu hình URL linh hoạt: Môi trường Vercel Cloud (biến môi trường) hoặc Localhost (:8085)
+  const envMobileUrl = process.env.NEXT_PUBLIC_MOBILE_APP_URL?.trim();
+
   const [iframeKey, setIframeKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isCenterOnly, setIsCenterOnly] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadTimeout, setLoadTimeout] = useState(false);
   const [scale, setScale] = useState<number>(0.82); // Tỷ lệ mặc định vừa vặn màn hình
+
+  // Tự động nhận diện môi trường: Local (:8085) vs Cloud Hosted
+  const [isLocalHost, setIsLocalHost] = useState(true);
+  const [urlMode, setUrlMode] = useState<'local' | 'cloud'>('local');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      setIsLocalHost(isLocal);
+      if (envMobileUrl && !isLocal) {
+        setUrlMode('cloud');
+      } else if (!isLocal) {
+        setUrlMode('cloud');
+      } else {
+        setUrlMode('local');
+      }
+    }
+  }, [envMobileUrl]);
+
+  // URL thực tế cấp cho iframe và các nút liên kết
+  const activeMobileUrl = (urlMode === 'cloud' && envMobileUrl)
+    ? envMobileUrl
+    : 'http://localhost:8085';
 
   useEffect(() => {
     setLoadTimeout(false);
@@ -342,9 +368,77 @@ export const MobileTab: React.FC = () => {
             <span>{isFullscreen ? t('mobile.exitFullscreen') : t('mobile.fullscreen')}</span>
           </button>
 
+          {/* Environment Mode Switcher: Local (:8085) vs Cloud Vercel */}
+          {envMobileUrl ? (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#f1f5f9',
+              borderRadius: '10px',
+              border: '1px solid var(--border-color)',
+              padding: '2px',
+              gap: '2px'
+            }}>
+              <button
+                onClick={() => { setUrlMode('local'); setIsLoaded(false); }}
+                title="Sử dụng cổng Local 8085"
+                style={{
+                  padding: '0 0.6rem',
+                  height: '30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  backgroundColor: urlMode === 'local' ? '#ffffff' : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.74rem',
+                  fontWeight: urlMode === 'local' ? 600 : 500,
+                  color: urlMode === 'local' ? '#0f172a' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  boxShadow: urlMode === 'local' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                }}
+              >
+                <span>💻 Local :8085</span>
+              </button>
+              <button
+                onClick={() => { setUrlMode('cloud'); setIsLoaded(false); }}
+                title={`Sử dụng Cloud URL: ${envMobileUrl}`}
+                style={{
+                  padding: '0 0.6rem',
+                  height: '30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  backgroundColor: urlMode === 'cloud' ? '#4f46e5' : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.74rem',
+                  fontWeight: urlMode === 'cloud' ? 600 : 500,
+                  color: urlMode === 'cloud' ? '#ffffff' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  boxShadow: urlMode === 'cloud' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'
+                }}
+              >
+                <span>☁️ Cloud Vercel</span>
+              </button>
+            </div>
+          ) : (
+            <span style={{
+              fontSize: '0.72rem',
+              padding: '0.25rem 0.6rem',
+              borderRadius: '8px',
+              backgroundColor: isLocalHost ? '#f1f5f9' : '#fef3c7',
+              color: isLocalHost ? '#475569' : '#b45309',
+              border: '1px solid var(--border-color)',
+              fontWeight: 600
+            }}>
+              {isLocalHost ? '💻 Local Dev (:8085)' : '☁️ Vercel Mode'}
+            </span>
+          )}
+
           {/* Open in separate tab */}
           <a
-            href="http://localhost:8085"
+            href={activeMobileUrl}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -451,39 +545,51 @@ export const MobileTab: React.FC = () => {
                       {t('mobile.launching')}
                     </p>
                     {loadTimeout && (
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
-                        <button
-                          onClick={handleRefresh}
-                          style={{
-                            padding: '0.35rem 0.75rem',
-                            borderRadius: '6px',
-                            backgroundColor: '#4f46e5',
-                            border: 'none',
-                            color: 'white',
-                            fontSize: '0.72rem',
-                            fontWeight: 600,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          🔄 {t('mobile.retry')}
-                        </button>
-                        <a
-                          href="http://localhost:8085"
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            padding: '0.35rem 0.75rem',
-                            borderRadius: '6px',
-                            backgroundColor: '#1e293b',
-                            border: '1px solid #475569',
-                            color: '#38bdf8',
-                            fontSize: '0.72rem',
-                            fontWeight: 600,
-                            textDecoration: 'none'
-                          }}
-                        >
-                          {t('mobile.openPort')}
-                        </a>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.45rem', marginTop: '0.25rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            onClick={handleRefresh}
+                            style={{
+                              padding: '0.35rem 0.75rem',
+                              borderRadius: '6px',
+                              backgroundColor: '#4f46e5',
+                              border: 'none',
+                              color: 'white',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🔄 {t('mobile.retry')}
+                          </button>
+                          <a
+                            href={activeMobileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              padding: '0.35rem 0.75rem',
+                              borderRadius: '6px',
+                              backgroundColor: '#1e293b',
+                              border: '1px solid #475569',
+                              color: '#38bdf8',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              textDecoration: 'none'
+                            }}
+                          >
+                            {urlMode === 'cloud' ? 'Mở Cloud App ↗' : t('mobile.openPort')}
+                          </a>
+                        </div>
+                        {urlMode === 'cloud' && !envMobileUrl && (
+                          <span style={{ fontSize: '0.7rem', color: '#f87171', textAlign: 'center', maxWidth: '300px' }}>
+                            Chưa cấu hình biến <code>NEXT_PUBLIC_MOBILE_APP_URL</code> trên Vercel.
+                          </span>
+                        )}
+                        {urlMode === 'local' && (
+                          <span style={{ fontSize: '0.7rem', color: '#94a3b8', textAlign: 'center', maxWidth: '300px' }}>
+                            Chạy <code>npm run mobile</code> trong web để bật cổng 8085.
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -493,7 +599,7 @@ export const MobileTab: React.FC = () => {
                 <iframe
                   key={iframeKey}
                   ref={iframeRef}
-                  src="http://localhost:8085"
+                  src={activeMobileUrl}
                   allow="bluetooth; bluetooth-scanning; fullscreen; accelerometer; gyroscope"
                   allowFullScreen={true}
                   onLoad={() => setIsLoaded(true)}
@@ -539,7 +645,11 @@ export const MobileTab: React.FC = () => {
                 <span>{t('mobile.statusTitle')}</span>
               </div>
               <p style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: 1.55, margin: 0 }}>
-                {t('mobile.statusDesc')}
+                {urlMode === 'cloud' && envMobileUrl
+                  ? (language === 'vi'
+                      ? `Ứng dụng di động đang kết nối trực tiếp phiên bản Cloud Vercel (${envMobileUrl}). Tương tác trực tiếp với Supabase Database.`
+                      : `Mobile app is running from Cloud Vercel deployment (${envMobileUrl}). Real-time sync with Supabase Database.`)
+                  : t('mobile.statusDesc')}
               </p>
 
               <div style={{
@@ -556,7 +666,7 @@ export const MobileTab: React.FC = () => {
                 }}>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{t('mobile.port')}</div>
                   <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0284c7', marginTop: '0.15rem' }}>
-                    :8085
+                    {urlMode === 'cloud' ? 'Cloud Vercel' : ':8085'}
                   </div>
                 </div>
 
