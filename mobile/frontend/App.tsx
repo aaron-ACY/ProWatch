@@ -57,6 +57,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 
 import { AppSplashScreen } from './src/components/AppSplashScreen';
 import { MFAChallengeModal } from './src/components/MFAChallengeModal';
+import { AutoUpdateModal } from './src/components/AutoUpdateModal';
 import { bleService } from './src/services/bleService';
 
 const RootContent: React.FC = () => {
@@ -84,6 +85,7 @@ const RootContent: React.FC = () => {
         onVerify={verifyMfaLogin}
         onCancel={cancelMfaLogin}
       />
+      <AutoUpdateModal />
     </>
   );
 };

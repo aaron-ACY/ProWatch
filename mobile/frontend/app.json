@@ -40,6 +40,7 @@
         "READ_CALL_LOG",
         "RECEIVE_SMS",
         "READ_SMS",
+        "REQUEST_INSTALL_PACKAGES",
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.BLUETOOTH_CONNECT"

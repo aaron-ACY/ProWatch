@@ -20,3 +20,4 @@ services:
         value: postgres.hyyrkyuarclrpwlpssvc
       - key: SPRING_DATASOURCE_PASSWORD
         sync: false
+
