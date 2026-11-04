@@ -6,8 +6,8 @@
 export const APP_INFO = {
   name: 'ProWatch Health',
   tagline: 'Giai phap theo doi suc khoe thong minh',
-  version: '1.0.17',
-  buildNumber: 18,
+  version: '1.0.20',
+  buildNumber: 19,
   releaseDate: '2026-11-05',
   apkFileName: 'ProWatch-Health.apk',
   environment: 'development',

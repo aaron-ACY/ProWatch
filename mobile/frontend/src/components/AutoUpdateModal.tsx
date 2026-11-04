@@ -82,7 +82,7 @@ export const AutoUpdateModal: React.FC = () => {
       const remoteVersion = normalizeVersion(rawTag);
       const localVersion = normalizeVersion(APP_INFO.version);
 
-      if (compareSemver(remoteVersion, localVersion) <= 0) {
+      if (remoteVersion === localVersion && compareSemver(remoteVersion, localVersion) === 0) {
         return;
       }
 

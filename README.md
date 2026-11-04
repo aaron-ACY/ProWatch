@@ -18,7 +18,7 @@
 
 The system deploys an ultra-lightweight **TinyML (Multilayer Perceptron)** neural network directly onto the **Seeed Studio XIAO ESP32-S3** microcontroller. This empowers real-time on-device clinical health risk assessment (*Low / Medium / High Risk*) adhering to the international **NEWS2 (National Early Warning Score)** medical protocol with an inference latency of just **1.2 ms** and an ultra-compact memory footprint of **3.1 KB**. Biometric vitals (BPM, SpO2, Accelerometer) are ingested via Bluetooth Low Energy (BLE) and Wi-Fi into the **Spring Boot microservice (:8080)**, synced with **Supabase PostgreSQL Cloud**, and monitored live across Web and Mobile dashboards.
 
-📱 **Standalone Android App (APK):** Download and install the pre-compiled production release at [`mobile/ProWatch-Health.apk`](mobile/ProWatch-Health.apk) (Version `v1.0.17` - Build `18`).
+📱 **Standalone Android App (APK):** Download and install the pre-compiled production release at [`mobile/ProWatch-Health.apk`](mobile/ProWatch-Health.apk) (Version `v1.0.20` - Build `19`).
 
 ---
 
