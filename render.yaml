@@ -2,7 +2,6 @@ services:
   - type: web
     name: prowatch-backend
     runtime: docker
-    repo: https://github.com/aaron-ACY/ProWatch
     branch: main
     rootDir: mobile/backend
     dockerfilePath: ./Dockerfile
@@ -15,9 +14,8 @@ services:
       - key: SPRING_PROFILES_ACTIVE
         value: local
       - key: SUPABASE_POOLER_HOST
-        value: aws-0-ap-southeast-1.pooler.supabase.com
+        sync: false
       - key: SPRING_DATASOURCE_USERNAME
-        value: postgres.hyyrkyuarclrpwlpssvc
+        sync: false
       - key: SPRING_DATASOURCE_PASSWORD
         sync: false
-
