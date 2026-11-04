@@ -204,81 +204,36 @@ class BleService {
     }
   }
 
-  // Yêu cầu đầy đủ các quyền thiết yếu ngay khi vừa mở ứng dụng sau khi cài đặt
-  public async requestAllStartupPermissions(): Promise<boolean> {
+  // Kiểm tra quyền Bluetooth và Định vị trên Android (chỉ hỏi nếu hệ điều hành chưa cấp)
+  public async requestPermissions(): Promise<boolean> {
     if (Platform.OS !== 'android') return true;
 
     try {
-      const permissionsToRequest: any[] = [
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-      ];
-
       if (Platform.Version >= 31) {
-        permissionsToRequest.push(
+        const scanGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN);
+        const connectGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT);
+        if (scanGranted && connectGranted) {
+          return true;
+        }
+        const result = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        ]);
+        return (
+          result[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === PermissionsAndroid.RESULTS.GRANTED &&
+          result[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] === PermissionsAndroid.RESULTS.GRANTED
         );
       }
 
-      if (Platform.Version >= 33 && PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS) {
-        permissionsToRequest.push(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-      }
+      const locGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+      if (locGranted) return true;
 
-      if (PermissionsAndroid.PERMISSIONS.BODY_SENSORS) {
-        permissionsToRequest.push(PermissionsAndroid.PERMISSIONS.BODY_SENSORS);
-      }
-
-      if (PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE) {
-        permissionsToRequest.push(PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE);
-      }
-      if (PermissionsAndroid.PERMISSIONS.READ_CALL_LOG) {
-        permissionsToRequest.push(PermissionsAndroid.PERMISSIONS.READ_CALL_LOG);
-      }
-      if (PermissionsAndroid.PERMISSIONS.RECEIVE_SMS) {
-        permissionsToRequest.push(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS);
-      }
-      if (PermissionsAndroid.PERMISSIONS.READ_SMS) {
-        permissionsToRequest.push(PermissionsAndroid.PERMISSIONS.READ_SMS);
-      }
-
-      const ungranted: any[] = [];
-      for (const perm of permissionsToRequest) {
-        if (perm) {
-          const granted = await PermissionsAndroid.check(perm);
-          if (!granted) {
-            ungranted.push(perm);
-          }
-        }
-      }
-
-      if (ungranted.length === 0) {
-        return true;
-      }
-
-      const result = await PermissionsAndroid.requestMultiple(ungranted);
-      if (Platform.Version >= 31) {
-        const scanGranted =
-          result[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === PermissionsAndroid.RESULTS.GRANTED ||
-          (await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN));
-        const connectGranted =
-          result[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] === PermissionsAndroid.RESULTS.GRANTED ||
-          (await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT));
-        return scanGranted && connectGranted;
-      }
-      return (
-        result[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED ||
-        (await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION))
-      );
+      const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
     } catch (err) {
-      console.warn('[BLE] Lỗi khi xin quyền khởi động ứng dụng:', err);
+      console.warn('[BLE] Lỗi kiểm tra quyền Bluetooth:', err);
       return false;
     }
-  }
-
-  // Yêu cầu quyền Bluetooth và Định vị trên Android
-  public async requestPermissions(): Promise<boolean> {
-    return this.requestAllStartupPermissions();
   }
 
   public isSupported(): boolean {

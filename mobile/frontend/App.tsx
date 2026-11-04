@@ -58,7 +58,6 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 import { AppSplashScreen } from './src/components/AppSplashScreen';
 import { MFAChallengeModal } from './src/components/MFAChallengeModal';
 import { AutoUpdateModal } from './src/components/AutoUpdateModal';
-import { bleService } from './src/services/bleService';
 
 const RootContent: React.FC = () => {
   const { 
@@ -92,16 +91,6 @@ const RootContent: React.FC = () => {
 
 export default function App() {
   const [isSplashFinished, setIsSplashFinished] = React.useState(false);
-
-  // Yêu cầu cấp các quyền thiết yếu (Bluetooth, Vị trí, Thông báo, Cảm biến) ngay khi mở ứng dụng lần đầu
-  React.useEffect(() => {
-    if (isSplashFinished && Platform.OS === 'android') {
-      const timer = setTimeout(() => {
-        bleService.requestAllStartupPermissions().catch(() => {});
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isSplashFinished]);
 
   return (
     <SafeAreaProvider>
