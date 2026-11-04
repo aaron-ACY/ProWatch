@@ -40,9 +40,13 @@ export const SpO2Gauge: React.FC<SpO2GaugeProps> = ({
           </View>
           <Text style={styles.title}>Nồng độ Oxy trong máu (SpO2)</Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
-          <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
-        </View>
+        {(isMeasuring || (isConnected && percentage > 0)) && (
+          <View style={[styles.statusBadge, { backgroundColor: isMeasuring ? Colors.warningLight : status.bg }]}>
+            <Text style={[styles.statusText, { color: isMeasuring ? Colors.warning : status.color }]}>
+              {isMeasuring ? `Đang đo: ${measurementProgress}%` : status.label}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Main Value Display */}
@@ -50,7 +54,6 @@ export const SpO2Gauge: React.FC<SpO2GaugeProps> = ({
         <Text style={styles.percentageText}>{isConnected && percentage > 0 ? percentage : '--'}</Text>
         <Text style={styles.percentSymbol}>%</Text>
       </View>
-      <Text style={styles.subLabel}>Đo bằng cảm biến ánh sáng phản xạ đồng hồ</Text>
 
       {/* Visual Range Indicator Bar */}
       <View style={styles.scaleContainer}>
@@ -74,14 +77,6 @@ export const SpO2Gauge: React.FC<SpO2GaugeProps> = ({
               ]} 
             />
           )}
-        </View>
-
-        {/* Labels below scale */}
-        <View style={styles.scaleLabels}>
-          <Text style={styles.scaleLabelText}>85%</Text>
-          <Text style={styles.scaleLabelText}>90% (Cảnh báo)</Text>
-          <Text style={styles.scaleLabelText}>95% (Chuẩn)</Text>
-          <Text style={styles.scaleLabelText}>100%</Text>
         </View>
       </View>
 
@@ -156,20 +151,22 @@ const styles = StyleSheet.create({
   },
   centerValue: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 6,
   },
   percentageText: {
     fontSize: 52,
     fontWeight: '900',
     color: Colors.textPrimary,
     letterSpacing: -1,
+    includeFontPadding: false,
   },
   percentSymbol: {
     fontSize: 22,
     fontWeight: '700',
     color: Colors.spo2,
+    includeFontPadding: false,
   },
   subLabel: {
     fontSize: 12,

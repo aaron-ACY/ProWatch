@@ -1517,6 +1517,13 @@ export const SettingsScreen: React.FC = () => {
               v{APP_INFO.version} (Build {APP_INFO.buildNumber})
             </Text>
           </View>
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <Text style={styles.infoKey}>Gói cài đặt (APK)</Text>
+            <Text style={[styles.infoVal, { color: Colors.textSecondary, fontWeight: '600' }]}>
+              {APP_INFO.apkFileName || 'ProWatch-Health.apk'}
+            </Text>
+          </View>
         </View>
 
         {/* Supabase 2FA Security Section (Dạng Toggle) */}

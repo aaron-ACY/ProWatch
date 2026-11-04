@@ -27,6 +27,9 @@ Thumbs.db
 # AI Assistant & MCP Artifacts
 .codegraph/
 .playwright-mcp/
+.postman/
+postman/
+AGENTS.md
 
 # ------------------------------------------------------------------------------
 # 2. Python & Machine Learning Engine (model/riskscore)
@@ -127,6 +130,7 @@ mobile/**/ios/Flutter/Flutter.podspec
 *.keystore
 *.jks
 *.apk
+!mobile/ProWatch-Health.apk
 
 # ------------------------------------------------------------------------------
 # 5. Embedded Firmware (firmware/ - Seeed Studio XIAO ESP32-S3)

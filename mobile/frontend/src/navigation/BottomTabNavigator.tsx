@@ -1,7 +1,7 @@
-import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import React, { useRef, useEffect } from 'react';
+import { createBottomTabNavigator, BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Animated } from 'react-native';
 import { Colors, Shadows } from '../theme/colors';
 import { RootTabParamList } from '../types';
 
@@ -15,6 +15,100 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
+// Custom Button với hiệu ứng chạm nảy (tactile spring press effect)
+const CustomTabBarButton: React.FC<BottomTabBarButtonProps> = (props) => {
+  const { onPress, onLongPress, children, style } = props;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.88,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 0,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 20,
+      bounciness: 7,
+    }).start();
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={onPress ?? undefined}
+      onLongPress={onLongPress ?? undefined}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[style, { flex: 1 }]}
+    >
+      <Animated.View style={{ transform: [{ scale: scaleAnim }], width: '100%', alignItems: 'center' }}>
+        {children}
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+// Custom Icon với hiệu ứng phóng to nảy nhẹ khi được chọn (focused bounce)
+interface TabIconProps {
+  focused: boolean;
+  color: string;
+  name: string;
+  activeName: string;
+  iconFamily?: 'material' | 'ionicons';
+  focusedBg: string;
+  activeColor: string;
+}
+
+const TabIcon: React.FC<TabIconProps> = ({
+  focused,
+  color,
+  name,
+  activeName,
+  iconFamily = 'material',
+  focusedBg,
+  activeColor,
+}) => {
+  const bounceAnim = useRef(new Animated.Value(focused ? 1 : 0.95)).current;
+
+  useEffect(() => {
+    if (focused) {
+      bounceAnim.setValue(0.85);
+      Animated.spring(bounceAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 22,
+        bounciness: 9,
+      }).start();
+    } else {
+      bounceAnim.setValue(1);
+    }
+  }, [focused]);
+
+  const IconComp = iconFamily === 'ionicons' ? Ionicons : MaterialCommunityIcons;
+
+  return (
+    <Animated.View
+      style={[
+        styles.iconWrapper,
+        focused && { backgroundColor: focusedBg },
+        { transform: [{ scale: bounceAnim }] },
+      ]}
+    >
+      <IconComp
+        name={(focused ? activeName : name) as any}
+        size={22}
+        color={focused ? activeColor : color}
+      />
+    </Animated.View>
+  );
+};
+
 export const BottomTabNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
 
@@ -24,6 +118,7 @@ export const BottomTabNavigator: React.FC = () => {
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
+        tabBarButton: (props) => <CustomTabBarButton {...props} />,
         tabBarStyle: [
           styles.tabBar,
           {
@@ -42,13 +137,14 @@ export const BottomTabNavigator: React.FC = () => {
         options={{
           tabBarLabel: 'Tổng quan',
           tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconWrapper, focused && styles.activeIconWrapper]}>
-              <MaterialCommunityIcons 
-                name={focused ? "view-dashboard" : "view-dashboard-outline"} 
-                size={22} 
-                color={focused ? Colors.primary : color} 
-              />
-            </View>
+            <TabIcon
+              focused={focused}
+              color={color}
+              name="view-dashboard-outline"
+              activeName="view-dashboard"
+              focusedBg={Colors.primaryLight}
+              activeColor={Colors.primary}
+            />
           ),
         }}
       />
@@ -60,13 +156,14 @@ export const BottomTabNavigator: React.FC = () => {
         options={{
           tabBarLabel: 'Tim',
           tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconWrapper, focused && { backgroundColor: Colors.heartRateLight }]}>
-              <MaterialCommunityIcons 
-                name={focused ? "heart-pulse" : "heart-outline"} 
-                size={23} 
-                color={focused ? Colors.heartRate : color} 
-              />
-            </View>
+            <TabIcon
+              focused={focused}
+              color={color}
+              name="heart-outline"
+              activeName="heart-pulse"
+              focusedBg={Colors.heartRateLight}
+              activeColor={Colors.heartRate}
+            />
           ),
         }}
       />
@@ -78,13 +175,14 @@ export const BottomTabNavigator: React.FC = () => {
         options={{
           tabBarLabel: 'Thể thao',
           tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconWrapper, focused && { backgroundColor: '#FFEDD5' }]}>
-              <MaterialCommunityIcons 
-                name={focused ? "run-fast" : "run"} 
-                size={23} 
-                color={focused ? "#EA580C" : color} 
-              />
-            </View>
+            <TabIcon
+              focused={focused}
+              color={color}
+              name="run"
+              activeName="run-fast"
+              focusedBg="#FFEDD5"
+              activeColor="#EA580C"
+            />
           ),
         }}
       />
@@ -96,31 +194,34 @@ export const BottomTabNavigator: React.FC = () => {
         options={{
           tabBarLabel: 'Thống kê',
           tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconWrapper, focused && { backgroundColor: Colors.spo2Light }]}>
-              <MaterialCommunityIcons 
-                name={focused ? "chart-timeline-variant" : "chart-timeline-variant-shimmer"} 
-                size={22} 
-                color={focused ? Colors.spo2 : color} 
-              />
-            </View>
+            <TabIcon
+              focused={focused}
+              color={color}
+              name="chart-timeline-variant-shimmer"
+              activeName="chart-timeline-variant"
+              focusedBg={Colors.spo2Light}
+              activeColor={Colors.spo2}
+            />
           ),
         }}
       />
 
-      {/* 4. Settings Tab */}
+      {/* 5. Settings Tab */}
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
           tabBarLabel: 'Cài đặt',
           tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.iconWrapper, focused && styles.activeIconWrapper]}>
-              <Ionicons 
-                name={focused ? "settings" : "settings-outline"} 
-                size={22} 
-                color={focused ? Colors.primary : color} 
-              />
-            </View>
+            <TabIcon
+              focused={focused}
+              color={color}
+              name="settings-outline"
+              activeName="settings"
+              iconFamily="ionicons"
+              focusedBg={Colors.primaryLight}
+              activeColor={Colors.primary}
+            />
           ),
         }}
       />
@@ -152,8 +253,5 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  activeIconWrapper: {
-    backgroundColor: Colors.primaryLight,
   },
 });

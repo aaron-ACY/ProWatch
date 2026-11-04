@@ -175,52 +175,6 @@ export const SportScreen: React.FC = () => {
   const stepsGoalPercent = Math.min(100, Math.round((healthSummary.steps / (healthSummary.stepsGoal || 10000)) * 100));
   const calGoalPercent = Math.min(100, Math.round((healthSummary.calories / 600) * 100));
 
-  // Phân loại hiển thị MPU6050 Activity (WALK / RUN / REST / SLEEP)
-  const getActivityMeta = (act?: string) => {
-    const code = (act || 'REST').toUpperCase().trim();
-    switch (code) {
-      case 'WALK':
-        return {
-          code: 'WALK',
-          label: 'Đang đi bộ (WALK)',
-          icon: 'walk' as const,
-          color: '#16A34A',
-          bg: '#DCFCE7',
-          description: 'Cảm biến MPU6050 phát hiện bước chân nhịp đi bộ (< 2 steps/s)',
-        };
-      case 'RUN':
-        return {
-          code: 'RUN',
-          label: 'Đang chạy bộ (RUN)',
-          icon: 'run-fast' as const,
-          color: '#EA580C',
-          bg: '#FFEDD5',
-          description: 'Cảm biến MPU6050 phát hiện nhịp chạy cường độ cao (≥ 2 steps/s)',
-        };
-      case 'SLEEP':
-        return {
-          code: 'SLEEP',
-          label: 'Đang ngủ (SLEEP)',
-          icon: 'power-sleep' as const,
-          color: '#6366F1',
-          bg: '#EEF2FF',
-          description: 'Bất động liên tục > 5 phút & Nhịp tim nghỉ < 60 BPM',
-        };
-      case 'REST':
-      default:
-        return {
-          code: code || 'REST',
-          label: code === 'REST' ? 'Nghỉ ngơi / Đứng yên (REST)' : code,
-          icon: 'human-male' as const,
-          color: '#4B5563',
-          bg: '#F3F4F6',
-          description: 'Cơ thể đang ở trạng thái tĩnh, ít chuyển động',
-        };
-    }
-  };
-
-  const activityMeta = getActivityMeta(healthSummary.currentActivity);
-
   return (
     <View style={{ flex: 1 }}>
       {/* Workout Completion Modal (Popup kết thúc bài tập hoạt động 100% trên Web & Mobile) */}
@@ -290,42 +244,6 @@ export const SportScreen: React.FC = () => {
           <View>
             <Text style={styles.headerTitle}>Thể thao & Luyện tập</Text>
             <Text style={styles.headerSubtitle}>Theo dõi bài tập & hiệu suất vận động</Text>
-          </View>
-
-          <View style={[
-            styles.deviceBadge,
-            watchStatus.connected ? styles.deviceBadgeConnected : styles.deviceBadgeDisconnected
-          ]}>
-            <View style={[
-              styles.dot, 
-              { backgroundColor: watchStatus.connected ? Colors.success : Colors.textMuted }
-            ]} />
-            <Text style={[
-              styles.deviceBadgeText,
-              { color: watchStatus.connected ? Colors.success : Colors.textMuted }
-            ]}>
-              {watchStatus.connected ? 'ESP32-S3' : 'Ngoại tuyến'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Real-time MPU6050 Activity State Banner */}
-        <View style={[styles.mpuBanner, Shadows.sm]}>
-          <View style={[styles.mpuIconBox, { backgroundColor: activityMeta.bg }]}>
-            <MaterialCommunityIcons name={activityMeta.icon} size={28} color={activityMeta.color} />
-          </View>
-          <View style={styles.mpuInfo}>
-            <View style={styles.mpuTagRow}>
-              <Text style={styles.mpuTagTitle}>TRẠNG THÁI MPU6050 (BLE)</Text>
-              <View style={[styles.mpuLiveDot, { backgroundColor: watchStatus.connected ? activityMeta.color : Colors.textMuted }]} />
-              <Text style={[styles.mpuLiveText, { color: watchStatus.connected ? activityMeta.color : Colors.textMuted }]}>
-                {watchStatus.connected ? 'THỜI GIAN THỰC' : 'CHỜ KẾT NỐI'}
-              </Text>
-            </View>
-            <Text style={[styles.mpuStateLabel, { color: activityMeta.color }]}>
-              {activityMeta.label}
-            </Text>
-            <Text style={styles.mpuDesc}>{activityMeta.description}</Text>
           </View>
         </View>
 
@@ -569,82 +487,10 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
   },
-  deviceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    gap: 6,
-  },
-  deviceBadgeConnected: {
-    backgroundColor: '#DCFCE7',
-  },
-  deviceBadgeDisconnected: {
-    backgroundColor: Colors.cardMuted,
-  },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-  },
-  deviceBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  // MPU6050 Live Banner
-  mpuBanner: {
-    backgroundColor: Colors.white,
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  mpuIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  mpuInfo: {
-    flex: 1,
-  },
-  mpuTagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  mpuTagTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: Colors.textMuted,
-    letterSpacing: 0.5,
-  },
-  mpuLiveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginHorizontal: 6,
-  },
-  mpuLiveText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  mpuStateLabel: {
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 2,
-  },
-  mpuDesc: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    lineHeight: 14,
   },
 
   // Activity Summary Grid

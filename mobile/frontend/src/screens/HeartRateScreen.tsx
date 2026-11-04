@@ -228,20 +228,6 @@ export const HeartRateScreen: React.FC = () => {
   const maxSpo2 = spo2Pcts.length > 0 ? Math.max(...spo2Pcts) : (currentSpO2 > 0 ? currentSpO2 : 0);
   const avgSpo2 = spo2Pcts.length > 0 ? Math.round(spo2Pcts.reduce((a, b) => a + b, 0) / spo2Pcts.length) : (currentSpO2 > 0 ? currentSpO2 : 0);
 
-  const totalReadings = hrHistory.length;
-  const zoneCounts = {
-    resting: hrHistory.filter(h => h.bpm < 60).length,
-    normal: hrHistory.filter(h => h.bpm >= 60 && h.bpm <= 100).length,
-    fatBurn: hrHistory.filter(h => h.bpm > 100 && h.bpm <= 130).length,
-    cardio: hrHistory.filter(h => h.bpm > 130).length,
-  };
-  const zonePct = {
-    resting: totalReadings > 0 ? Math.round((zoneCounts.resting / totalReadings) * 100) : 0,
-    normal: totalReadings > 0 ? Math.round((zoneCounts.normal / totalReadings) * 100) : 0,
-    fatBurn: totalReadings > 0 ? Math.round((zoneCounts.fatBurn / totalReadings) * 100) : 0,
-    cardio: totalReadings > 0 ? Math.round((zoneCounts.cardio / totalReadings) * 100) : 0,
-  };
-
   return (
     <ScrollView 
       style={styles.screen}
@@ -254,38 +240,7 @@ export const HeartRateScreen: React.FC = () => {
           <Text style={styles.title}>Theo dõi sức khỏe</Text>
           <Text style={styles.subtitle}>Đo Nhịp tim & Nồng độ oxy trong máu (SpO2)</Text>
         </View>
-        <View style={[
-          styles.connBadge, 
-          { backgroundColor: watchStatus.connected ? '#D1FAE5' : '#FEE2E2' }
-        ]}>
-          <View style={[
-            styles.connDot, 
-            { backgroundColor: watchStatus.connected ? Colors.success : Colors.danger }
-          ]} />
-          <Text style={[
-            styles.connText, 
-            { color: watchStatus.connected ? Colors.success : Colors.danger }
-          ]}>
-            {watchStatus.connected ? 'Đã kết nối' : 'Ngoại tuyến'}
-          </Text>
-        </View>
       </View>
-
-      {/* Banner thông báo nếu chưa kết nối đồng hồ */}
-      {!watchStatus.connected && (
-        <TouchableOpacity 
-          style={[styles.disconnectBanner, Shadows.sm]}
-          onPress={() => navigation.navigate('Settings')}
-          activeOpacity={0.85}
-        >
-          <MaterialCommunityIcons name="cloud-check" size={20} color="#0284C7" />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={[styles.disconnectBannerTitle, { color: '#0369A1' }]}>Đang hiển thị dữ liệu lưu từ Supabase</Text>
-            <Text style={[styles.disconnectBannerSub, { color: '#075985' }]}>Chưa kết nối Bluetooth với đồng hồ • Chạm để kết nối và đo mới</Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={18} color="#0284C7" />
-        </TouchableOpacity>
-      )}
 
       {/* Dual Live Quick Status Cards (Click to switch measurement tab) */}
       <View style={styles.quickCardsRow}>
@@ -303,7 +258,6 @@ export const HeartRateScreen: React.FC = () => {
             <View style={[styles.quickCardIconBox, { backgroundColor: Colors.heartRateLight }]}>
               <MaterialCommunityIcons name="heart-pulse" size={18} color={Colors.heartRate} />
             </View>
-            {activeTab === 'hr' && <View style={[styles.activeDot, { backgroundColor: Colors.heartRate }]} />}
           </View>
           <Text style={styles.quickCardLabel}>Nhịp tim (HR)</Text>
           <Text style={[styles.quickCardValue, { color: Colors.heartRate }]}>
@@ -329,7 +283,6 @@ export const HeartRateScreen: React.FC = () => {
             <View style={[styles.quickCardIconBox, { backgroundColor: Colors.spo2Light }]}>
               <MaterialCommunityIcons name="water-percent" size={18} color={Colors.spo2} />
             </View>
-            {activeTab === 'spo2' && <View style={[styles.activeDot, { backgroundColor: Colors.spo2 }]} />}
           </View>
           <Text style={styles.quickCardLabel}>Oxy máu (SpO2)</Text>
           <Text style={[styles.quickCardValue, { color: Colors.spo2 }]}>
@@ -344,38 +297,6 @@ export const HeartRateScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Segmented Switcher */}
-      <View style={styles.segmentedRow}>
-        <TouchableOpacity 
-          style={[styles.segmentBtn, activeTab === 'hr' && styles.segmentBtnActiveHr]}
-          onPress={() => setActiveTab('hr')}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons 
-            name="heart-pulse" 
-            size={18} 
-            color={activeTab === 'hr' ? Colors.white : Colors.heartRate} 
-          />
-          <Text style={[styles.segmentBtnText, activeTab === 'hr' && styles.segmentBtnTextActive]}>
-            Đo Nhịp tim (HR)
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.segmentBtn, activeTab === 'spo2' && styles.segmentBtnActiveSpo2]}
-          onPress={() => setActiveTab('spo2')}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons 
-            name="water-percent" 
-            size={18} 
-            color={activeTab === 'spo2' ? Colors.white : Colors.spo2} 
-          />
-          <Text style={[styles.segmentBtnText, activeTab === 'spo2' && styles.segmentBtnTextActive]}>
-            Đo Oxy máu (SpO2)
-          </Text>
-        </TouchableOpacity>
-      </View>
 
       {/* ============================================================== */}
       {/* SECTION 1: ĐO NHỊP TIM (HR)                                     */}
@@ -453,133 +374,6 @@ export const HeartRateScreen: React.FC = () => {
                   : 'Bấm nút "Bắt đầu đo nhịp tim" ở trên và đặt ngón tay lên cảm biến MAX30105 của đồng hồ để nhận diện chỉ số.'}
               </Text>
             </View>
-          </View>
-
-          {/* Heart Rate Zones Section */}
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Phân bổ vùng nhịp tim</Text>
-            <Text style={styles.sectionSub}>
-              {totalReadings > 0 ? `Dựa trên ${totalReadings} lượt đo đã đồng bộ` : 'Chưa có dữ liệu phân bổ'}
-            </Text>
-          </View>
-
-          <View style={[styles.card, Shadows.sm]}>
-            {/* Zone 1 */}
-            <View style={styles.zoneItem}>
-              <View style={styles.zoneHeader}>
-                <View style={styles.zoneNameGroup}>
-                  <View style={[styles.zoneDot, { backgroundColor: '#0284C7' }]} />
-                  <Text style={styles.zoneName}>Nghỉ ngơi (&lt;60 BPM)</Text>
-                </View>
-                <View style={styles.zoneRight}>
-                  <Text style={styles.zoneDuration}>{zoneCounts.resting} lượt</Text>
-                  <Text style={[styles.zonePercent, { color: '#0284C7' }]}>{zonePct.resting}%</Text>
-                </View>
-              </View>
-              <View style={styles.zoneBarTrack}>
-                <View style={[styles.zoneBarFill, { width: `${Math.max(zonePct.resting, totalReadings > 0 && zoneCounts.resting > 0 ? 5 : 0)}%`, backgroundColor: '#0284C7' }]} />
-              </View>
-            </View>
-
-            {/* Zone 2 */}
-            <View style={styles.zoneItem}>
-              <View style={styles.zoneHeader}>
-                <View style={styles.zoneNameGroup}>
-                  <View style={[styles.zoneDot, { backgroundColor: Colors.success }]} />
-                  <Text style={styles.zoneName}>Bình thường (60 - 100 BPM)</Text>
-                </View>
-                <View style={styles.zoneRight}>
-                  <Text style={styles.zoneDuration}>{zoneCounts.normal} lượt</Text>
-                  <Text style={[styles.zonePercent, { color: Colors.success }]}>{zonePct.normal}%</Text>
-                </View>
-              </View>
-              <View style={styles.zoneBarTrack}>
-                <View style={[styles.zoneBarFill, { width: `${Math.max(zonePct.normal, totalReadings > 0 && zoneCounts.normal > 0 ? 5 : 0)}%`, backgroundColor: Colors.success }]} />
-              </View>
-            </View>
-
-            {/* Zone 3 */}
-            <View style={styles.zoneItem}>
-              <View style={styles.zoneNameGroup}>
-                <View style={[styles.zoneDot, { backgroundColor: Colors.warning }]} />
-                <Text style={styles.zoneName}>Đốt mỡ (100 - 130 BPM)</Text>
-              </View>
-              <View style={styles.zoneRight}>
-                <Text style={styles.zoneDuration}>{zoneCounts.fatBurn} lượt</Text>
-                <Text style={[styles.zonePercent, { color: Colors.warning }]}>{zonePct.fatBurn}%</Text>
-              </View>
-            </View>
-            <View style={styles.zoneBarTrack}>
-              <View style={[styles.zoneBarFill, { width: `${Math.max(zonePct.fatBurn, totalReadings > 0 && zoneCounts.fatBurn > 0 ? 5 : 0)}%`, backgroundColor: Colors.warning }]} />
-            </View>
-
-            {/* Zone 4 */}
-            <View style={styles.zoneItem}>
-              <View style={styles.zoneHeader}>
-                <View style={styles.zoneNameGroup}>
-                  <View style={[styles.zoneDot, { backgroundColor: Colors.heartRate }]} />
-                  <Text style={styles.zoneName}>Cardio đỉnh (&gt;130 BPM)</Text>
-                </View>
-                <View style={styles.zoneRight}>
-                  <Text style={styles.zoneDuration}>{zoneCounts.cardio} lượt</Text>
-                  <Text style={[styles.zonePercent, { color: Colors.heartRate }]}>{zonePct.cardio}%</Text>
-                </View>
-              </View>
-              <View style={styles.zoneBarTrack}>
-                <View style={[styles.zoneBarFill, { width: `${Math.max(zonePct.cardio, totalReadings > 0 && zoneCounts.cardio > 0 ? 5 : 0)}%`, backgroundColor: Colors.heartRate }]} />
-              </View>
-            </View>
-          </View>
-
-          {/* History Log */}
-          <View style={styles.historyHeaderRow}>
-            <View>
-              <Text style={styles.sectionTitle}>Lịch sử đo nhịp tim</Text>
-              <Text style={styles.sectionSub}>Dữ liệu đồng bộ từ đồng hồ & máy chủ</Text>
-            </View>
-            <View style={styles.historyPill}>
-              <Text style={styles.historyCount}>{hrHistory.length} lượt đo</Text>
-            </View>
-          </View>
-
-          <View style={[styles.card, Shadows.sm, { paddingVertical: 6 }]}>
-            {hrHistory.length === 0 ? (
-              <View style={{ padding: 24, alignItems: 'center' }}>
-                <MaterialCommunityIcons name="heart-pulse" size={32} color={Colors.textMuted} />
-                <Text style={{ marginTop: 8, fontSize: 13, color: Colors.textSecondary, textAlign: 'center' }}>
-                  Chưa có bản ghi đo nào. Chạm "Bắt đầu đo nhịp tim" ở trên để thực hiện đo!
-                </Text>
-              </View>
-            ) : (
-              hrHistory.slice(0, 15).map((item, index) => {
-                const zone = getBpmZone(item.bpm);
-                return (
-                  <View 
-                    key={item.id} 
-                    style={[
-                      styles.historyItem, 
-                      index === Math.min(hrHistory.length, 15) - 1 && { borderBottomWidth: 0 }
-                    ]}
-                  >
-                    <View style={styles.historyLeft}>
-                      <View style={[styles.historyIcon, { backgroundColor: zone.bg }]}>
-                        <MaterialCommunityIcons name="heart" size={17} color={zone.color} />
-                      </View>
-                      <View>
-                        <View style={styles.historyBpmRow}>
-                          <Text style={styles.historyBpm}>{item.bpm}</Text>
-                          <Text style={styles.historyUnit}>BPM</Text>
-                          <View style={[styles.miniZoneTag, { backgroundColor: zone.bg }]}>
-                            <Text style={[styles.miniZoneText, { color: zone.color }]}>{zone.name}</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.historyTime}>{item.timestamp} • {item.activity || 'Đo chủ động'}</Text>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })
-            )}
           </View>
         </View>
       )}
@@ -659,68 +453,6 @@ export const HeartRateScreen: React.FC = () => {
               </Text>
             </View>
           </View>
-
-          {/* History Log SpO2 */}
-          <View style={styles.historyHeaderRow}>
-            <View>
-              <Text style={styles.sectionTitle}>Lịch sử đo SpO2</Text>
-              <Text style={styles.sectionSub}>Bản ghi oxy trong máu từ đồng hồ</Text>
-            </View>
-            <View style={styles.historyPill}>
-              <Text style={styles.historyCount}>{spo2History.length} lượt đo</Text>
-            </View>
-          </View>
-
-          <View style={[styles.card, Shadows.sm, { paddingVertical: 6 }]}>
-            {spo2History.length === 0 ? (
-              <View style={{ padding: 24, alignItems: 'center' }}>
-                <MaterialCommunityIcons name="water-percent" size={32} color={Colors.textMuted} />
-                <Text style={{ marginTop: 8, fontSize: 13, color: Colors.textSecondary, textAlign: 'center' }}>
-                  Chưa có lượt đo SpO2 nào. Nhấn "Bắt đầu kiểm tra SpO2" ở trên để đo oxy máu!
-                </Text>
-              </View>
-            ) : (
-              spo2History.slice(0, 15).map((item, index) => {
-                const isOptimal = item.percentage >= 95;
-                return (
-                  <View 
-                    key={item.id} 
-                    style={[
-                      styles.historyItem, 
-                      index === Math.min(spo2History.length, 15) - 1 && { borderBottomWidth: 0 }
-                    ]}
-                  >
-                    <View style={styles.historyLeft}>
-                      <View style={[styles.historyIcon, { backgroundColor: isOptimal ? Colors.spo2Light : '#FEF3C7' }]}>
-                        <MaterialCommunityIcons 
-                          name="water-percent" 
-                          size={17} 
-                          color={isOptimal ? Colors.spo2 : Colors.warning} 
-                        />
-                      </View>
-                      <View>
-                        <View style={styles.historyBpmRow}>
-                          <Text style={[styles.historyBpm, { color: Colors.spo2 }]}>{item.percentage}%</Text>
-                          <View style={[
-                            styles.miniZoneTag, 
-                            { backgroundColor: isOptimal ? '#D1FAE5' : '#FEF3C7' }
-                          ]}>
-                            <Text style={[
-                              styles.miniZoneText, 
-                              { color: isOptimal ? Colors.success : Colors.warning }
-                            ]}>
-                              {item.percentage >= 97 ? 'Tối ưu' : item.percentage >= 95 ? 'Bình thường' : 'Quá thấp ⚠️'}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={styles.historyTime}>{item.timestamp}</Text>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
         </View>
       )}
 
@@ -752,43 +484,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 12,
     color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  connBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    gap: 6,
-  },
-  connDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  connText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  disconnectBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 12,
-  },
-  disconnectBannerTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#DC2626',
-  },
-  disconnectBannerSub: {
-    fontSize: 11,
-    color: '#991B1B',
     marginTop: 2,
   },
   quickCardsRow: {
@@ -825,11 +520,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  activeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
   quickCardLabel: {
     fontSize: 11,
     fontWeight: '700',
@@ -849,39 +539,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.textMuted,
     marginTop: 4,
-  },
-  segmentedRow: {
-    flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
-    borderRadius: 14,
-    padding: 3,
-    marginBottom: 14,
-    gap: 4,
-  },
-  segmentBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 6,
-  },
-  segmentBtnActiveHr: {
-    backgroundColor: Colors.heartRate,
-    ...Shadows.sm,
-  },
-  segmentBtnActiveSpo2: {
-    backgroundColor: Colors.spo2,
-    ...Shadows.sm,
-  },
-  segmentBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  segmentBtnTextActive: {
-    color: Colors.white,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -995,120 +652,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     marginBottom: 10,
-  },
-  zoneItem: {
-    marginBottom: 10,
-  },
-  zoneHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  zoneNameGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  zoneDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  zoneName: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  zoneRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  zoneDuration: {
-    fontSize: 11,
-    color: Colors.textMuted,
-  },
-  zonePercent: {
-    fontSize: 11.5,
-    fontWeight: '700',
-  },
-  zoneBarTrack: {
-    height: 5,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  zoneBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  historyHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 14,
-    marginBottom: 8,
-  },
-  historyPill: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  historyCount: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  historyLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  historyIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  historyBpmRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  historyBpm: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-  },
-  historyUnit: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginRight: 6,
-  },
-  miniZoneTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 6,
-  },
-  miniZoneText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  historyTime: {
-    fontSize: 10.5,
-    color: Colors.textMuted,
-    marginTop: 2,
   },
 });
