@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { supabase } from '../utils/supabase';
 import { mfaService } from '../services/mfaService';
+import { supabaseService } from '../services/supabaseService';
 
 export interface HealthProfileData {
   gender: string;
@@ -48,6 +49,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userHeight = profile?.height || sbUser.user_metadata?.height;
     const userWeight = profile?.weight || sbUser.user_metadata?.weight;
     const isComplete = Boolean(dob && userGender && (userHeight || sbUser.user_metadata?.isProfileComplete));
+
+    // Tự động liên kết user_id và cập nhật đầy đủ thông tin cho bảng devices trên Supabase
+    supabaseService.syncDeviceStatus({ userId: sbUser.id }).catch(() => {});
 
     return {
       id: sbUser.id,

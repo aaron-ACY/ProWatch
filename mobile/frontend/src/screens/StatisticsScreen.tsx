@@ -17,6 +17,7 @@ import Svg, { Rect, Path, Circle, Text as SvgText, Line } from 'react-native-svg
 import { Colors, Shadows } from '../theme/colors';
 import { watchService } from '../services/watchService';
 import { SpO2Reading, HeartRateReading, RootTabParamList } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 
 type TimeframeTab = 'today' | 'week' | 'month';
 
@@ -52,6 +53,7 @@ const buildSmoothPath = (pts: { x: number; y: number }[]): string => {
 
 export const StatisticsScreen: React.FC = () => {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
+  const { t } = useLanguage();
   const { width: windowWidth } = useWindowDimensions();
   const [timeframe, setTimeframe] = useState<TimeframeTab>('today');
   const [historyTab, setHistoryTab] = useState<'hr' | 'spo2'>('hr');
@@ -178,12 +180,20 @@ export const StatisticsScreen: React.FC = () => {
     time: string, 
     unit: string
   ) => {
-    const periodText = timeframe === 'today' ? 'hôm nay' : timeframe === 'week' ? 'tuần này' : 'tháng này';
+    const periodText =
+      timeframe === 'today'
+        ? t('hôm nay', 'today')
+        : timeframe === 'week'
+        ? t('tuần này', 'this week')
+        : t('tháng này', 'this month');
     if (!val || val <= 0) {
-      return `Trung bình ${periodText} · Chưa có bản ghi`;
+      return t(`Trung bình ${periodText} · Chưa có bản ghi`, `Avg ${periodText} · No records yet`);
     }
     const cleanTime = time.includes(' ') ? time.split(' ')[0] : time;
-    return `Trung bình ${periodText} · mới nhất ${val}${unit === '%' ? '%' : ''} lúc ${cleanTime || '14:30'}`;
+    return t(
+      `Trung bình ${periodText} · mới nhất ${val}${unit === '%' ? '%' : ''} lúc ${cleanTime || '14:30'}`,
+      `Avg ${periodText} · latest ${val}${unit === '%' ? '%' : ''} at ${cleanTime || '14:30'}`
+    );
   };
 
   // Ánh xạ mảng dữ liệu đo thật sang tọa độ đồ thị (x, y)
@@ -195,9 +205,9 @@ export const StatisticsScreen: React.FC = () => {
     if (readings.length === 0) return [];
     const safeTop = 22;
     const safeBottom = 76;
-    const minSafe = isHr ? 50 : 95;
+    const minSafe = isHr ? 50 : 70;
     const maxSafe = isHr ? 150 : 100;
-    const usableW = chartW - 36; // chừa 36px bên phải cho nhãn 150/100 và 50/95
+    const usableW = chartW - 36; // chừa 36px bên phải cho nhãn 150/100 và 50/70
 
     // Sắp xếp tăng dần theo thời gian (từ cũ tới mới)
     const sorted = [...readings].reverse();
@@ -242,8 +252,8 @@ export const StatisticsScreen: React.FC = () => {
   const timeLabels = timeframe === 'today'
     ? ['00:00', '06:00', '12:00', '18:00', '24:00']
     : timeframe === 'week'
-    ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
-    : ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'];
+    ? [t('T2', 'Mon'), t('T3', 'Tue'), t('T4', 'Wed'), t('T5', 'Thu'), t('T6', 'Fri'), t('T7', 'Sat'), t('CN', 'Sun')]
+    : [t('Tuần 1', 'Week 1'), t('Tuần 2', 'Week 2'), t('Tuần 3', 'Week 3'), t('Tuần 4', 'Week 4')];
 
   return (
     <ScrollView 
@@ -268,13 +278,16 @@ export const StatisticsScreen: React.FC = () => {
             </View>
             <View style={styles.onboardBadge}>
               <MaterialCommunityIcons name="star-four-points" size={12} color="#059669" />
-              <Text style={styles.onboardBadgeText}>Lần đầu sử dụng</Text>
+              <Text style={styles.onboardBadgeText}>{t('Lần đầu sử dụng', 'First-time setup')}</Text>
             </View>
           </View>
 
-          <Text style={styles.onboardTitle}>Bắt đầu theo dõi sức khỏe của bạn</Text>
+          <Text style={styles.onboardTitle}>{t('Bắt đầu theo dõi sức khỏe của bạn', 'Start tracking your health')}</Text>
           <Text style={styles.onboardDesc}>
-            Chưa có bản ghi đo nào từ đồng hồ. Hãy đeo đồng hồ thông minh và bắt đầu lần đo nhịp tim hoặc SpO₂ đầu tiên để xem phân tích biểu đồ trực quan tại đây.
+            {t(
+              'Chưa có bản ghi đo nào từ đồng hồ. Hãy đeo đồng hồ thông minh và bắt đầu lần đo nhịp tim hoặc SpO₂ đầu tiên để xem phân tích biểu đồ trực quan tại đây.',
+              'No measurement records from your watch yet. Wear your smartwatch and start your first Heart Rate or SpO₂ measurement to view visual analytics here.'
+            )}
           </Text>
 
           <View style={styles.onboardActionsRow}>
@@ -284,7 +297,7 @@ export const StatisticsScreen: React.FC = () => {
               activeOpacity={0.85}
             >
               <MaterialCommunityIcons name="heart-flash" size={18} color="#FFFFFF" />
-              <Text style={styles.onboardPrimaryBtnText}>Bắt đầu đo ngay</Text>
+              <Text style={styles.onboardPrimaryBtnText}>{t('Bắt đầu đo ngay', 'Measure now')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -298,7 +311,7 @@ export const StatisticsScreen: React.FC = () => {
               ) : (
                 <>
                   <MaterialCommunityIcons name="cloud-sync-outline" size={18} color={Colors.textPrimary} />
-                  <Text style={styles.onboardSecondaryBtnText}>Đồng bộ Cloud</Text>
+                  <Text style={styles.onboardSecondaryBtnText}>{t('Đồng bộ Cloud', 'Sync Cloud')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -330,7 +343,12 @@ export const StatisticsScreen: React.FC = () => {
         )}
         {(['today', 'week', 'month'] as TimeframeTab[]).map((tab, idx) => {
           const isActive = timeframe === tab;
-          const label = tab === 'today' ? 'Ngày' : tab === 'week' ? 'Tuần' : 'Tháng';
+          const label =
+            tab === 'today'
+              ? t('Ngày', 'Day')
+              : tab === 'week'
+              ? t('Tuần', 'Week')
+              : t('Tháng', 'Month');
           return (
             <TouchableOpacity
               key={tab}
@@ -355,7 +373,7 @@ export const StatisticsScreen: React.FC = () => {
           <View style={styles.cardHeaderLeft}>
             <View style={styles.titleWithDot}>
               <View style={[styles.headerDot, { backgroundColor: '#E11D48' }]} />
-              <Text style={styles.cardTitle}>Nhịp tim</Text>
+              <Text style={styles.cardTitle}>{t('Nhịp tim', 'Heart Rate')}</Text>
             </View>
             <Text style={styles.cardSubtitle}>
               {getSubTitleText(latestHrVal, latestHrTime, 'BPM')}
@@ -472,19 +490,19 @@ export const StatisticsScreen: React.FC = () => {
         {/* 3 Thống kê đáy card */}
         <View style={styles.cardStatsRow}>
           <View style={styles.cardStatCol}>
-            <Text style={styles.cardStatLabel}>Thấp nhất</Text>
+            <Text style={styles.cardStatLabel}>{t('Thấp nhất', 'Lowest')}</Text>
             <Text style={styles.cardStatVal}>
               {minHr > 0 ? minHr : '--'} <Text style={styles.cardStatUnit}>BPM</Text>
             </Text>
           </View>
           <View style={styles.cardStatCol}>
-            <Text style={styles.cardStatLabel}>Cao nhất</Text>
+            <Text style={styles.cardStatLabel}>{t('Cao nhất', 'Highest')}</Text>
             <Text style={styles.cardStatVal}>
               {maxHr > 0 ? maxHr : '--'} <Text style={styles.cardStatUnit}>BPM</Text>
             </Text>
           </View>
           <View style={styles.cardStatCol}>
-            <Text style={styles.cardStatLabel}>Số lần đo</Text>
+            <Text style={styles.cardStatLabel}>{t('Số lần đo', 'Measurements')}</Text>
             <Text style={styles.cardStatVal}>{filteredHr.length}</Text>
           </View>
         </View>
@@ -499,7 +517,7 @@ export const StatisticsScreen: React.FC = () => {
           <View style={styles.cardHeaderLeft}>
             <View style={styles.titleWithDot}>
               <View style={[styles.headerDot, { backgroundColor: '#2563EB' }]} />
-              <Text style={styles.cardTitle}>Oxy máu (SpO₂)</Text>
+              <Text style={styles.cardTitle}>{t('Oxy máu (SpO₂)', 'Blood Oxygen (SpO₂)')}</Text>
             </View>
             <Text style={styles.cardSubtitle}>
               {getSubTitleText(latestSpo2Val, latestSpo2Time, '%')}
@@ -514,7 +532,7 @@ export const StatisticsScreen: React.FC = () => {
         {/* Chart View with Safe Zone Box & Real Measured Line */}
         <View style={styles.chartWrapper}>
           <Svg height="96" width={chartDrawWidth} viewBox={`0 0 ${chartDrawWidth} 96`}>
-            {/* Vùng an toàn xanh nhạt (95 - 100%) */}
+            {/* Vùng hiển thị biểu đồ (70 - 100%) */}
             <Rect 
               x="0" 
               y="12" 
@@ -524,7 +542,7 @@ export const StatisticsScreen: React.FC = () => {
               fill="#ECFDF5" 
             />
 
-            {/* Nhãn trục Y bên phải: 100 và 95 */}
+            {/* Nhãn trục Y bên phải: 100 và 70 */}
             <SvgText 
               x={chartDrawWidth - 6} 
               y="24" 
@@ -543,7 +561,7 @@ export const StatisticsScreen: React.FC = () => {
               fontWeight="600" 
               textAnchor="end"
             >
-              95
+              70
             </SvgText>
 
             {spo2Points.length > 0 ? (
@@ -595,19 +613,19 @@ export const StatisticsScreen: React.FC = () => {
         {/* 3 Thống kê đáy card */}
         <View style={styles.cardStatsRow}>
           <View style={styles.cardStatCol}>
-            <Text style={styles.cardStatLabel}>Thấp nhất</Text>
+            <Text style={styles.cardStatLabel}>{t('Thấp nhất', 'Lowest')}</Text>
             <Text style={styles.cardStatVal}>
               {minSpo2 > 0 ? minSpo2 : '--'} <Text style={styles.cardStatUnit}>%</Text>
             </Text>
           </View>
           <View style={styles.cardStatCol}>
-            <Text style={styles.cardStatLabel}>Cao nhất</Text>
+            <Text style={styles.cardStatLabel}>{t('Cao nhất', 'Highest')}</Text>
             <Text style={styles.cardStatVal}>
               {maxSpo2 > 0 ? maxSpo2 : '--'} <Text style={styles.cardStatUnit}>%</Text>
             </Text>
           </View>
           <View style={styles.cardStatCol}>
-            <Text style={styles.cardStatLabel}>Số lần đo</Text>
+            <Text style={styles.cardStatLabel}>{t('Số lần đo', 'Measurements')}</Text>
             <Text style={styles.cardStatVal}>{filteredSpo2.length}</Text>
           </View>
         </View>
@@ -617,7 +635,7 @@ export const StatisticsScreen: React.FC = () => {
       {/* 4. LỊCH SỬ ĐO GẦN ĐÂY (VỚI ANIMATION TRƯỢT TAB)                */}
       {/* ============================================================== */}
       <View style={styles.historySectionHeader}>
-        <Text style={styles.historySectionTitle}>Lịch sử đo</Text>
+        <Text style={styles.historySectionTitle}>{t('Lịch sử đo', 'Measurement History')}</Text>
         <View 
           style={styles.historyTabPills}
           onLayout={(e) => setHistoryPillsWidth(e.nativeEvent.layout.width)}
@@ -645,7 +663,7 @@ export const StatisticsScreen: React.FC = () => {
             activeOpacity={0.7}
           >
             <Text style={[styles.historyTabPillText, historyTab === 'hr' && styles.historyTabPillTextActive]}>
-              Nhịp tim ({hrHistory.length})
+              {t('Nhịp tim', 'Heart Rate')} ({hrHistory.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -654,7 +672,7 @@ export const StatisticsScreen: React.FC = () => {
             activeOpacity={0.7}
           >
             <Text style={[styles.historyTabPillText, historyTab === 'spo2' && styles.historyTabPillTextActive]}>
-              Oxy máu ({spo2History.length})
+              {t('Oxy máu', 'SpO₂')} ({spo2History.length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -667,9 +685,12 @@ export const StatisticsScreen: React.FC = () => {
               <View style={[styles.emptyHistoryIconCircle, { backgroundColor: '#FEE2E2' }]}>
                 <MaterialCommunityIcons name="heart-plus-outline" size={30} color="#E11D48" />
               </View>
-              <Text style={styles.emptyHistoryTitle}>Chưa có bản ghi nhịp tim nào</Text>
+              <Text style={styles.emptyHistoryTitle}>{t('Chưa có bản ghi nhịp tim nào', 'No heart rate records yet')}</Text>
               <Text style={styles.emptyHistorySub}>
-                Kết quả đo nhịp tim từ đồng hồ sẽ được lưu trữ và thống kê tự động tại đây.
+                {t(
+                  'Kết quả đo nhịp tim từ đồng hồ sẽ được lưu trữ và thống kê tự động tại đây.',
+                  'Heart rate measurements from your watch will be automatically saved and analyzed here.'
+                )}
               </Text>
               <TouchableOpacity
                 style={[styles.emptyActionBtn, { backgroundColor: '#E11D48' }]}
@@ -677,12 +698,17 @@ export const StatisticsScreen: React.FC = () => {
                 activeOpacity={0.85}
               >
                 <MaterialCommunityIcons name="heart" size={15} color="#FFFFFF" />
-                <Text style={styles.emptyActionBtnText}>Đo nhịp tim ngay</Text>
+                <Text style={styles.emptyActionBtnText}>{t('Đo nhịp tim ngay', 'Measure Heart Rate')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
             hrHistory.map((item, idx) => {
-              const zone = item.bpm < 60 ? 'Nghỉ ngơi' : item.bpm <= 100 ? 'Bình thường' : 'Quá cao ⚠️';
+              const zone =
+                item.bpm < 60
+                  ? t('Nghỉ ngơi', 'Resting')
+                  : item.bpm <= 100
+                  ? t('Bình thường', 'Normal')
+                  : t('Quá cao ⚠️', 'High ⚠️');
               const zoneColor = item.bpm < 60 ? '#0284C7' : item.bpm <= 100 ? '#10B981' : Colors.heartRate;
               const zoneBg = item.bpm < 60 ? '#E0F2FE' : item.bpm <= 100 ? '#ECFDF5' : '#FEE2E2';
               return (
@@ -712,9 +738,12 @@ export const StatisticsScreen: React.FC = () => {
               <View style={[styles.emptyHistoryIconCircle, { backgroundColor: '#EFF6FF' }]}>
                 <MaterialCommunityIcons name="water-percent" size={30} color="#2563EB" />
               </View>
-              <Text style={styles.emptyHistoryTitle}>Chưa có bản ghi Oxy máu (SpO₂)</Text>
+              <Text style={styles.emptyHistoryTitle}>{t('Chưa có bản ghi Oxy máu (SpO₂)', 'No SpO₂ records yet')}</Text>
               <Text style={styles.emptyHistorySub}>
-                Kết quả đo nồng độ oxy trong máu sẽ xuất hiện tại đây sau khi hoàn tất đo.
+                {t(
+                  'Kết quả đo nồng độ oxy trong máu sẽ xuất hiện tại đây sau khi hoàn tất đo.',
+                  'Blood oxygen saturation measurements will appear here upon completion.'
+                )}
               </Text>
               <TouchableOpacity
                 style={[styles.emptyActionBtn, { backgroundColor: '#2563EB' }]}
@@ -722,7 +751,7 @@ export const StatisticsScreen: React.FC = () => {
                 activeOpacity={0.85}
               >
                 <MaterialCommunityIcons name="water" size={15} color="#FFFFFF" />
-                <Text style={styles.emptyActionBtnText}>Đo SpO₂ ngay</Text>
+                <Text style={styles.emptyActionBtnText}>{t('Đo SpO₂ ngay', 'Measure SpO₂')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -744,7 +773,11 @@ export const StatisticsScreen: React.FC = () => {
                   </View>
                   <View style={[styles.statusPill, { backgroundColor: isOptimal ? '#ECFDF5' : '#FEF3C7' }]}>
                     <Text style={[styles.statusPillText, { color: isOptimal ? '#10B981' : '#D97706' }]}>
-                      {item.percentage >= 97 ? 'Tối ưu' : item.percentage >= 95 ? 'Bình thường' : 'Quá thấp ⚠️'}
+                      {item.percentage >= 97
+                        ? t('Tối ưu', 'Optimal')
+                        : item.percentage >= 95
+                        ? t('Bình thường', 'Normal')
+                        : t('Quá thấp ⚠️', 'Low ⚠️')}
                     </Text>
                   </View>
                 </View>

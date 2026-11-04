@@ -198,7 +198,7 @@ public class DeviceController {
                     .heartRate(heartRate)
                     .spo2(spo2)
                     .battery(battery != null ? battery : 90)
-                    .activity("Đo theo lệnh từ App")
+                    .activity(null)
                     .connectionMode("HYBRID")
                     .firmwareVersion("v1.2.0-hybrid")
                     .build();

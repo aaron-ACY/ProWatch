@@ -7,6 +7,7 @@ import { BottomTabNavigator } from './src/navigation/BottomTabNavigator';
 import { AuthNavigator } from './src/navigation/AuthNavigator';
 import { ProfileSetupScreen } from './src/screens/ProfileSetupScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { LanguageProvider } from './src/context/LanguageContext';
 import { Colors } from './src/theme/colors';
 
 // Reset focus outline and default border for HTML inputs on React Native Web
@@ -56,6 +57,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 
 import { AppSplashScreen } from './src/components/AppSplashScreen';
 import { MFAChallengeModal } from './src/components/MFAChallengeModal';
+import { bleService } from './src/services/bleService';
 
 const RootContent: React.FC = () => {
   const { 
@@ -89,17 +91,29 @@ const RootContent: React.FC = () => {
 export default function App() {
   const [isSplashFinished, setIsSplashFinished] = React.useState(false);
 
+  // Yêu cầu cấp các quyền thiết yếu (Bluetooth, Vị trí, Thông báo, Cảm biến) ngay khi mở ứng dụng lần đầu
+  React.useEffect(() => {
+    if (isSplashFinished && Platform.OS === 'android') {
+      const timer = setTimeout(() => {
+        bleService.requestAllStartupPermissions().catch(() => {});
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isSplashFinished]);
+
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-          <StatusBar style={isSplashFinished ? "dark" : "light"} />
-          <RootContent />
-        </SafeAreaView>
-        {!isSplashFinished && (
-          <AppSplashScreen onFinish={() => setIsSplashFinished(true)} />
-        )}
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+            <StatusBar style={isSplashFinished ? "dark" : "light"} />
+            <RootContent />
+          </SafeAreaView>
+          {!isSplashFinished && (
+            <AppSplashScreen onFinish={() => setIsSplashFinished(true)} />
+          )}
+        </AuthProvider>
+      </LanguageProvider>
     </SafeAreaProvider>
   );
 }

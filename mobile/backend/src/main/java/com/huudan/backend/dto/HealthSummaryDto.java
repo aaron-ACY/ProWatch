@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -15,6 +17,7 @@ public class HealthSummaryDto {
     private Integer steps;
     private Integer stepsGoal;
     private Integer calories;
+    private Double sleepHours;
     private Integer restingHr;
     private Integer maxHrToday;
     private Integer minHrToday;
@@ -23,6 +26,16 @@ public class HealthSummaryDto {
     private Boolean isCharging;
     private Boolean isConnected;
     private String lastSync;
-    private java.time.Instant lastHeartRateTime;
-    private java.time.Instant lastSpo2Time;
+    private Instant lastHeartRateTime;
+    private Instant lastSpo2Time;
+
+    // AI Risk & Activity
+    private Double riskScore;
+    private String riskLevel;
+    private String currentActivity;
+
+    // Thống kê đo lường
+    private Integer totalMeasurementsToday;
+    private Long totalMeasurementsTotal;
 }
+

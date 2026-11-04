@@ -158,10 +158,43 @@ CREATE TRIGGER set_devices_updated_at
     BEFORE UPDATE ON public.devices
     FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
--- Khởi tạo thiết bị mẫu mặc định của dự án
-INSERT INTO public.devices (device_id, device_name, model, firmware_version, connection_mode)
-VALUES ('XIAO-ESP32S3-PROWATCH-01', 'XIAO ESP32S3 ProWatch', 'XIAO-ESP32S3', '1.0.0', 'BLE')
-ON CONFLICT (device_id) DO NOTHING;
+-- Khởi tạo thiết bị mẫu mặc định của dự án (đầy đủ tất cả các cột, không để NULL)
+INSERT INTO public.devices (
+    device_id,
+    device_name,
+    mac_address,
+    model,
+    firmware_version,
+    battery_level,
+    is_charging,
+    connection_mode,
+    ip_address,
+    is_online,
+    last_heartbeat
+)
+VALUES (
+    'XIAO-ESP32S3-PROWATCH-01',
+    'ProWatch-S3 (XIAO ESP32-S3)',
+    'DC:54:75:E3:S3:01',
+    'Seeed XIAO ESP32-S3',
+    'v1.5.3-max30102-no-offline',
+    90,
+    false,
+    'BLE',
+    'BLE-GATT-DIRECT',
+    true,
+    timezone('utc', now())
+)
+ON CONFLICT (device_id) DO UPDATE SET
+    device_name = COALESCE(public.devices.device_name, EXCLUDED.device_name),
+    mac_address = COALESCE(public.devices.mac_address, EXCLUDED.mac_address),
+    model = COALESCE(public.devices.model, EXCLUDED.model),
+    firmware_version = COALESCE(public.devices.firmware_version, EXCLUDED.firmware_version),
+    battery_level = COALESCE(public.devices.battery_level, EXCLUDED.battery_level),
+    is_charging = COALESCE(public.devices.is_charging, EXCLUDED.is_charging),
+    connection_mode = COALESCE(public.devices.connection_mode, EXCLUDED.connection_mode),
+    ip_address = COALESCE(public.devices.ip_address, EXCLUDED.ip_address),
+    last_heartbeat = COALESCE(public.devices.last_heartbeat, EXCLUDED.last_heartbeat);
 
 -- ------------------------------------------------------------------------------
 -- 5. BẢNG HEALTH_RECORDS (HỢP NHẤT DỮ LIỆU ĐO SỨC KHỎE: NHỊP TIM, SPO2)

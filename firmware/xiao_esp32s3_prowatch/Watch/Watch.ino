@@ -1,6 +1,7 @@
 #include <Arduino_GFX_Library.h>
 #include <Wire.h>
-#include "MAX30105.h" 
+#include "MAX30105.h"
+#include "heartRate.h"
 
 #include <time.h>
 #include <sys/time.h>
@@ -71,7 +72,7 @@ void triggerLocalHealthNotification(int measuredBpm, int measuredSpo2);
 // Pin: đặt số chân ADC nếu có mạch chia áp đo pin, -1 = chưa có
 #define BATTERY_ADC_PIN       -1
 
-#define FIRMWARE_VER          "v1.5.3-max30102-no-offline"
+#define FIRMWARE_VER          "v1.5.3"
 
 bool t0=false,t1=false,t2=false;
 bool lastT0=false,lastT1=false,lastT2=false;
@@ -686,7 +687,6 @@ void updateBleTelemetry(bool force)
   } else {
     cB = bpm;
     cS = spo2;
-    cAct = currentActivity;
   }
 
   if (batteryValid) {
@@ -1101,12 +1101,13 @@ void finishHr()
   }
 
   notifyHrInstant(finalBpm);
-  bleForceNotify = true;
 
-  // Báo cho App qua BLE biết đã đo xong nhịp tim kèm đúng con số trên đồng hồ
+  // Báo cho App qua BLE biết đã đo xong nhịp tim kèm đúng con số trên đồng hồ và điểm rủi ro AI
   if (bleConnected && pActivityCharacteristic) {
-    char doneHrMsg[32];
-    snprintf(doneHrMsg, sizeof(doneHrMsg), "DONE_HR:%d", finalBpm);
+    float hrAiRisk = valid ? predictRisk((float)finalBpm, (float)(hasSpo2 && spo2 > 0 ? spo2 : 98), 36.6f) : 0.05f;
+    const char* hrRiskLevel = getRiskLevelStr(hrAiRisk);
+    char doneHrMsg[48];
+    snprintf(doneHrMsg, sizeof(doneHrMsg), "DONE_HR:%d:%.2f:%s", finalBpm, hrAiRisk, hrRiskLevel);
     currentActivity = String(doneHrMsg);
     pActivityCharacteristic->setValue(doneHrMsg);
     pActivityCharacteristic->notify();
@@ -1125,6 +1126,7 @@ void finishHr()
       heart_draw_graph();
     }
     if (valid) {
+      delay(35); // Đảm bảo gói DONE_HR được phát đi trước khi gửi gói RISK
       triggerLocalHealthNotification(finalBpm, 0); // Hiện thông báo kết quả nhịp tim trên đồng hồ
     }
     currentActivity = "REST";
@@ -1134,6 +1136,7 @@ void finishHr()
   Serial.println("[Sensor] ⏳ Đang đo Nồng độ oxy trong máu (SpO2)...");
   currentActivity = "MEASURING_SPO2";
   if (bleConnected && pActivityCharacteristic) {
+    delay(35); // Tránh ghi đè gói DONE_HR trên cùng characteristic 19b10003
     pActivityCharacteristic->setValue("MEASURING_SPO2");
     pActivityCharacteristic->notify();
   }
@@ -1182,12 +1185,14 @@ void finishSpo2()
   }
 
   notifySpo2Instant(finalSpo2);
-  bleForceNotify = true;
 
-  // Báo cho App qua BLE biết đã đo xong SpO2 kèm đúng con số trên đồng hồ
+  // Báo cho App qua BLE biết đã đo xong SpO2 kèm đúng con số trên đồng hồ và điểm rủi ro AI
   if (bleConnected && pActivityCharacteristic) {
-    char doneSpo2Msg[32];
-    snprintf(doneSpo2Msg, sizeof(doneSpo2Msg), "DONE_SPO2:%d", finalSpo2);
+    int refHr = (hrForRecord > 0) ? hrForRecord : (hasHr && bpm > 0 ? bpm : 75);
+    float spo2AiRisk = valid ? predictRisk((float)refHr, (float)finalSpo2, 36.6f) : 0.05f;
+    const char* spo2RiskLevel = getRiskLevelStr(spo2AiRisk);
+    char doneSpo2Msg[48];
+    snprintf(doneSpo2Msg, sizeof(doneSpo2Msg), "DONE_SPO2:%d:%.2f:%s", finalSpo2, spo2AiRisk, spo2RiskLevel);
     currentActivity = String(doneSpo2Msg);
     pActivityCharacteristic->setValue(doneSpo2Msg);
     pActivityCharacteristic->notify();
@@ -1195,6 +1200,7 @@ void finishSpo2()
 
   // Tự động hiển thị popup thông báo kết quả đo nếu có ít nhất 1 chỉ số hợp lệ
   if (hrForRecord > 0 || finalSpo2 > 0) {
+    delay(35); // Đảm bảo gói DONE_SPO2 được phát đi trước khi gửi gói RISK
     triggerLocalHealthNotification(hrForRecord, finalSpo2);
   }
   currentActivity = "REST";
@@ -1696,7 +1702,6 @@ bool isNotifCategoryAllowed(const String &type)
 // Tự động đánh giá và hiển thị Popup thông báo/cảnh báo khi đo xong Nhịp tim & SpO2
 void triggerLocalHealthNotification(int measuredBpm, int measuredSpo2)
 {
-  if (!notifEnabled || !notifHealth) return;
   if (measuredBpm <= 0 && measuredSpo2 <= 0) return;
 
   // 1. Chạy Edge AI đánh giá điểm rủi ro sức khỏe
@@ -1704,6 +1709,16 @@ void triggerLocalHealthNotification(int measuredBpm, int measuredSpo2)
   const char* riskDesc = getRiskDescription(aiRisk);
   const char* riskLevel = getRiskLevelStr(aiRisk);
   uint16_t riskColor = getRiskColorRgb565(aiRisk);
+
+  // 2. Luôn gửi kết quả đánh giá AI qua BLE lên App điện thoại (kể cả khi tắt popup trên đồng hồ)
+  if (bleConnected && pActivityCharacteristic) {
+    char riskBle[32];
+    snprintf(riskBle, sizeof(riskBle), "RISK:%.2f,%s", aiRisk, riskLevel);
+    pActivityCharacteristic->setValue(riskBle);
+    pActivityCharacteristic->notify();
+  }
+
+  if (!notifEnabled || !notifHealth) return;
 
   bool hrLow = (measuredBpm > 0 && measuredBpm < hrAlertLow);
   bool hrHigh = (measuredBpm > 0 && measuredBpm > hrAlertHigh);
@@ -1737,14 +1752,6 @@ void triggerLocalHealthNotification(int measuredBpm, int measuredSpo2)
   } else {
     snprintf(bodyBuf, sizeof(bodyBuf), "O2:%d%% | AI: %s",
              measuredSpo2, riskDesc);
-  }
-
-  // 2. Gửi kết quả đánh giá AI qua BLE lên App điện thoại
-  if (bleConnected && pActivityCharacteristic) {
-    char riskBle[32];
-    snprintf(riskBle, sizeof(riskBle), "RISK:%.2f,%s", aiRisk, riskLevel);
-    pActivityCharacteristic->setValue(riskBle);
-    pActivityCharacteristic->notify();
   }
 
   String nType = isWarning ? "HEALTH_WARN" : "HEALTH_OK";

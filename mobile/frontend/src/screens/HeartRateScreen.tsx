@@ -15,11 +15,13 @@ import { SpO2Gauge } from '../components/SpO2Gauge';
 import { Colors, Shadows } from '../theme/colors';
 import { watchService } from '../services/watchService';
 import { HeartRateReading, SpO2Reading, RootTabParamList } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 
 type MeasureTab = 'hr' | 'spo2';
 
 export const HeartRateScreen: React.FC = () => {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<MeasureTab>('hr');
   const [watchStatus, setWatchStatus] = useState(watchService.getWatchStatus());
   
@@ -208,10 +210,10 @@ export const HeartRateScreen: React.FC = () => {
   const spo2LowThr = custom.spo2AlertLow || 95;
 
   const getBpmZone = (bpm: number) => {
-    if (!bpm || bpm <= 0) return { name: 'Chưa đo', color: Colors.textMuted, bg: Colors.background };
-    if (bpm < hrLowThr) return { name: 'Quá thấp', color: Colors.warning, bg: '#FEF3C7' };
-    if (bpm <= hrHighThr) return { name: 'Bình thường', color: Colors.success, bg: '#D1FAE5' };
-    return { name: 'Quá cao', color: Colors.heartRate, bg: '#FEE2E2' };
+    if (!bpm || bpm <= 0) return { name: t('Chưa đo', 'Not measured'), color: Colors.textMuted, bg: Colors.background };
+    if (bpm < hrLowThr) return { name: t('Quá thấp', 'Too low'), color: Colors.warning, bg: '#FEF3C7' };
+    if (bpm <= hrHighThr) return { name: t('Bình thường', 'Normal'), color: Colors.success, bg: '#D1FAE5' };
+    return { name: t('Quá cao', 'Too high'), color: Colors.heartRate, bg: '#FEE2E2' };
   };
 
   const currentZone = getBpmZone(currentBpm);
@@ -237,8 +239,8 @@ export const HeartRateScreen: React.FC = () => {
       {/* Title Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Theo dõi sức khỏe</Text>
-          <Text style={styles.subtitle}>Đo Nhịp tim & Nồng độ oxy trong máu (SpO2)</Text>
+          <Text style={styles.title}>{t('Theo dõi sức khỏe', 'Health Vitals Monitor')}</Text>
+          <Text style={styles.subtitle}>{t('Đo Nhịp tim & Nồng độ oxy trong máu (SpO2)', 'Measure Heart Rate & Blood Oxygen (SpO2)')}</Text>
         </View>
       </View>
 
@@ -259,13 +261,13 @@ export const HeartRateScreen: React.FC = () => {
               <MaterialCommunityIcons name="heart-pulse" size={18} color={Colors.heartRate} />
             </View>
           </View>
-          <Text style={styles.quickCardLabel}>Nhịp tim (HR)</Text>
+          <Text style={styles.quickCardLabel}>{t('Nhịp tim (HR)', 'Heart Rate (HR)')}</Text>
           <Text style={[styles.quickCardValue, { color: Colors.heartRate }]}>
             {currentBpm > 0 ? currentBpm : '--'}
             <Text style={styles.quickCardUnit}> BPM</Text>
           </Text>
           <Text style={styles.quickCardSub}>
-            {watchStatus.connected ? currentZone.name : (currentBpm > 0 ? 'Lần đo gần nhất' : 'Chưa đo')}
+            {watchStatus.connected ? currentZone.name : (currentBpm > 0 ? t('Lần đo gần nhất', 'Latest reading') : t('Chưa đo', 'Not measured'))}
           </Text>
         </TouchableOpacity>
 
@@ -284,15 +286,15 @@ export const HeartRateScreen: React.FC = () => {
               <MaterialCommunityIcons name="water-percent" size={18} color={Colors.spo2} />
             </View>
           </View>
-          <Text style={styles.quickCardLabel}>Oxy máu (SpO2)</Text>
+          <Text style={styles.quickCardLabel}>{t('Oxy máu (SpO2)', 'Blood Oxygen (SpO2)')}</Text>
           <Text style={[styles.quickCardValue, { color: Colors.spo2 }]}>
             {currentSpO2 > 0 ? currentSpO2 : '--'}
             <Text style={styles.quickCardUnit}> %</Text>
           </Text>
           <Text style={styles.quickCardSub}>
             {watchStatus.connected 
-              ? (currentSpO2 >= 95 ? 'Bình thường ✅' : currentSpO2 > 0 ? 'Quá thấp ⚠️' : 'Chưa đo') 
-              : (currentSpO2 > 0 ? 'Lần đo gần nhất' : 'Chưa đo')}
+              ? (currentSpO2 >= 95 ? t('Bình thường ✅', 'Normal ✅') : currentSpO2 > 0 ? t('Quá thấp ⚠️', 'Too low ⚠️') : t('Chưa đo', 'Not measured')) 
+              : (currentSpO2 > 0 ? t('Lần đo gần nhất', 'Latest reading') : t('Chưa đo', 'Not measured'))}
           </Text>
         </TouchableOpacity>
       </View>
@@ -321,13 +323,13 @@ export const HeartRateScreen: React.FC = () => {
                 <View style={[styles.statIconBadge, { backgroundColor: '#E0F2FE' }]}>
                   <Feather name="arrow-down-right" size={13} color="#0284C7" />
                 </View>
-                <Text style={styles.statLabel}>Thấp nhất</Text>
+                <Text style={styles.statLabel}>{t('Thấp nhất', 'Min')}</Text>
               </View>
               <Text style={styles.statValue}>
                 {watchStatus.connected && minBpm > 0 ? minBpm : '--'}{' '}
                 <Text style={styles.statUnit}>BPM</Text>
               </Text>
-              <Text style={styles.statSub}>Hôm nay</Text>
+              <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
             </View>
 
             {/* Avg */}
@@ -336,13 +338,13 @@ export const HeartRateScreen: React.FC = () => {
                 <View style={[styles.statIconBadge, { backgroundColor: '#FEE2E2' }]}>
                   <MaterialCommunityIcons name="heart-pulse" size={13} color={Colors.heartRate} />
                 </View>
-                <Text style={[styles.statLabel, { color: Colors.heartRate }]}>Trung bình</Text>
+                <Text style={[styles.statLabel, { color: Colors.heartRate }]}>{t('Trung bình', 'Average')}</Text>
               </View>
               <Text style={[styles.statValue, { color: Colors.heartRate }]}>
                 {watchStatus.connected && avgBpm > 0 ? avgBpm : '--'}{' '}
                 <Text style={[styles.statUnit, { color: Colors.heartRate }]}>BPM</Text>
               </Text>
-              <Text style={styles.statSub}>Hôm nay</Text>
+              <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
             </View>
 
             {/* Max */}
@@ -351,13 +353,13 @@ export const HeartRateScreen: React.FC = () => {
                 <View style={[styles.statIconBadge, { backgroundColor: '#FEF3C7' }]}>
                   <Feather name="arrow-up-right" size={13} color={Colors.warning} />
                 </View>
-                <Text style={styles.statLabel}>Cao nhất</Text>
+                <Text style={styles.statLabel}>{t('Cao nhất', 'Max')}</Text>
               </View>
               <Text style={styles.statValue}>
                 {watchStatus.connected && maxBpm > 0 ? maxBpm : '--'}{' '}
                 <Text style={styles.statUnit}>BPM</Text>
               </Text>
-              <Text style={styles.statSub}>Hôm nay</Text>
+              <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
             </View>
           </View>
 
@@ -367,11 +369,17 @@ export const HeartRateScreen: React.FC = () => {
               <MaterialCommunityIcons name="heart-flash" size={22} color={Colors.primary} />
             </View>
             <View style={styles.insightContent}>
-              <Text style={styles.insightTitle}>Tiêu chuẩn nhịp tim sinh lý</Text>
+              <Text style={styles.insightTitle}>{t('Tiêu chuẩn nhịp tim sinh lý', 'Physiological Heart Rate Standard')}</Text>
               <Text style={styles.insightDesc}>
                 {watchStatus.connected && currentBpm > 0
-                  ? `Nhịp tim hiện tại: ${currentBpm} BPM (${currentZone.name}). Ngưỡng chuẩn y tế khi nghỉ ngơi: ${hrLowThr} - ${hrHighThr} BPM.`
-                  : 'Bấm nút "Bắt đầu đo nhịp tim" ở trên và đặt ngón tay lên cảm biến MAX30105 của đồng hồ để nhận diện chỉ số.'}
+                  ? t(
+                      `Nhịp tim hiện tại: ${currentBpm} BPM (${currentZone.name}). Ngưỡng chuẩn y tế khi nghỉ ngơi: ${hrLowThr} - ${hrHighThr} BPM.`,
+                      `Current HR: ${currentBpm} BPM (${currentZone.name}). Medical resting range: ${hrLowThr} - ${hrHighThr} BPM.`
+                    )
+                  : t(
+                      'Bấm nút "Bắt đầu đo nhịp tim" ở trên và đặt ngón tay lên cảm biến MAX30105 của đồng hồ để nhận diện chỉ số.',
+                      'Tap "Start Measurement" above and place your finger on the watch MAX30105 sensor.'
+                    )}
               </Text>
             </View>
           </View>
@@ -401,13 +409,13 @@ export const HeartRateScreen: React.FC = () => {
                 <View style={[styles.statIconBadge, { backgroundColor: '#E0F2FE' }]}>
                   <Feather name="arrow-down-right" size={13} color="#0284C7" />
                 </View>
-                <Text style={styles.statLabel}>Thấp nhất</Text>
+                <Text style={styles.statLabel}>{t('Thấp nhất', 'Min')}</Text>
               </View>
               <Text style={styles.statValue}>
                 {watchStatus.connected && minSpo2 > 0 ? minSpo2 : '--'}{' '}
                 <Text style={styles.statUnit}>%</Text>
               </Text>
-              <Text style={styles.statSub}>Hôm nay</Text>
+              <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
             </View>
 
             {/* Avg SpO2 */}
@@ -416,13 +424,13 @@ export const HeartRateScreen: React.FC = () => {
                 <View style={[styles.statIconBadge, { backgroundColor: Colors.spo2Light }]}>
                   <MaterialCommunityIcons name="water-percent" size={13} color={Colors.spo2} />
                 </View>
-                <Text style={[styles.statLabel, { color: Colors.spo2 }]}>Trung bình</Text>
+                <Text style={[styles.statLabel, { color: Colors.spo2 }]}>{t('Trung bình', 'Average')}</Text>
               </View>
               <Text style={[styles.statValue, { color: Colors.spo2 }]}>
                 {watchStatus.connected && avgSpo2 > 0 ? avgSpo2 : '--'}{' '}
                 <Text style={[styles.statUnit, { color: Colors.spo2 }]}>%</Text>
               </Text>
-              <Text style={styles.statSub}>Hôm nay</Text>
+              <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
             </View>
 
             {/* Max SpO2 */}
@@ -431,13 +439,13 @@ export const HeartRateScreen: React.FC = () => {
                 <View style={[styles.statIconBadge, { backgroundColor: '#D1FAE5' }]}>
                   <Feather name="arrow-up-right" size={13} color={Colors.success} />
                 </View>
-                <Text style={styles.statLabel}>Cao nhất</Text>
+                <Text style={styles.statLabel}>{t('Cao nhất', 'Max')}</Text>
               </View>
               <Text style={styles.statValue}>
                 {watchStatus.connected && maxSpo2 > 0 ? maxSpo2 : '--'}{' '}
                 <Text style={styles.statUnit}>%</Text>
               </Text>
-              <Text style={styles.statSub}>Hôm nay</Text>
+              <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
             </View>
           </View>
 
@@ -447,9 +455,12 @@ export const HeartRateScreen: React.FC = () => {
               <MaterialCommunityIcons name="shield-check" size={22} color={Colors.spo2} />
             </View>
             <View style={styles.insightContent}>
-              <Text style={styles.insightTitle}>Chỉ số SpO2 y tế tham chiếu</Text>
+              <Text style={styles.insightTitle}>{t('Chỉ số SpO2 y tế tham chiếu', 'Medical SpO2 Reference')}</Text>
               <Text style={styles.insightDesc}>
-                {`• 95% - 100%: Nồng độ oxy trong máu lý tưởng (Tối ưu).\n• 90% - 94%: Cần chú ý, cơ thể có dấu hiệu thiếu oxy nhẹ.\n• < 90%: Thiếu oxy nặng (Báo động), cần hỗ trợ y tế.`}
+                {t(
+                  `• 95% - 100%: Nồng độ oxy trong máu lý tưởng (Tối ưu).\n• 90% - 94%: Cần chú ý, cơ thể có dấu hiệu thiếu oxy nhẹ.\n• < 90%: Thiếu oxy nặng (Báo động), cần hỗ trợ y tế.`,
+                  `• 95% - 100%: Optimal blood oxygen saturation.\n• 90% - 94%: Mild hypoxia warning, monitor closely.\n• < 90%: Severe hypoxia alert, seek medical attention.`
+                )}
               </Text>
             </View>
           </View>

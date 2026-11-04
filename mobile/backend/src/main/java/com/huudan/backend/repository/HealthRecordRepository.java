@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,4 +20,13 @@ public interface HealthRecordRepository extends JpaRepository<HealthRecord, Long
     Optional<HealthRecord> findTopByDeviceIdOrderByRecordedAtDesc(String deviceId);
 
     boolean existsByDeviceIdAndOfflineSeq(String deviceId, Long offlineSeq);
+
+    List<HealthRecord> findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtAsc(String deviceId, Instant start, Instant end);
+
+    List<HealthRecord> findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtDesc(String deviceId, Instant start, Instant end);
+
+    long countByDeviceIdAndRecordedAtBetween(String deviceId, Instant start, Instant end);
+
+    long countByDeviceId(String deviceId);
 }
+

@@ -21,6 +21,7 @@ import { watchService, WatchNotificationType } from '../services/watchService';
 import { bleService, WatchMenu, WATCH_MENUS, WATCH_FIRMWARE_VERSION } from '../services/bleService';
 import { WatchCustomization, WatchFaceType, WatchStatus } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { APP_INFO } from '../config/appInfo';
 import { mfaService, MfaStatus } from '../services/mfaService';
 import { MFAEnrollmentModal } from '../components/MFAEnrollmentModal';
@@ -122,6 +123,7 @@ const DEMO_NOTIF_TYPES: Array<{
 
 export const SettingsScreen: React.FC = () => {
   const { user, logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const [settings, setSettings] = useState<WatchCustomization>(watchService.getCustomization());
   const [watchStatus, setWatchStatus] = useState<WatchStatus>(watchService.getWatchStatus());
   const [isTestingDevice, setIsTestingDevice] = useState(false);
@@ -138,32 +140,11 @@ export const SettingsScreen: React.FC = () => {
     } catch (e) {}
   };
 
-  // Quyền đọc thông báo hệ thống Android (NotificationListenerService)
-  const [androidNotifGranted, setAndroidNotifGranted] = useState<boolean>(false);
-
-  const refreshAndroidNotifPermission = useCallback(async () => {
-    if (Platform.OS === 'android') {
-      const granted = await watchService.isAndroidNotificationPermissionGranted();
-      setAndroidNotifGranted(granted);
-    }
-  }, []);
-
   useFocusEffect(
     useCallback(() => {
       refreshMfaStatus();
-      refreshAndroidNotifPermission();
-    }, [refreshAndroidNotifPermission])
+    }, [])
   );
-
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const sub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        refreshAndroidNotifPermission();
-      }
-    });
-    return () => sub.remove();
-  }, [refreshAndroidNotifPermission]);
 
   const handleToggleMfa = async (newValue: boolean) => {
     setIsLoadingMfa(true);
@@ -249,17 +230,6 @@ export const SettingsScreen: React.FC = () => {
     const ok = await watchService.syncNotificationConfig(undefined, { [key]: value });
     if (!ok && bleService.isConnected()) {
       showNotification('error', 'Lỗi đồng bộ', 'Không thể gửi cấu hình thông báo sang đồng hồ.');
-    }
-  };
-
-  const handleOpenAndroidNotifSettings = async () => {
-    const ok = await watchService.openAndroidNotificationPermissionSettings();
-    if (!ok) {
-      showNotification(
-        'error',
-        'Không thể mở Cài đặt',
-        'Vui lòng vào Cài đặt điện thoại -> Quyền truy cập đặc biệt -> Truy cập thông báo -> Bật cho ProWatch.'
-      );
     }
   };
 
@@ -795,7 +765,7 @@ export const SettingsScreen: React.FC = () => {
               onPress={dismissCurrentNotification}
               activeOpacity={0.8}
             >
-              <Text style={styles.basicPopupBtnText}>Đã hiểu</Text>
+              <Text style={styles.basicPopupBtnText}>{t('Đã hiểu', 'Got it')}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -807,7 +777,7 @@ export const SettingsScreen: React.FC = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Cài đặt hệ thống</Text>
+          <Text style={styles.title}>{t('Cài đặt hệ thống', 'System Settings')}</Text>
         </View>
 
         {/* User Profile Card */}
@@ -818,17 +788,103 @@ export const SettingsScreen: React.FC = () => {
             </Text>
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{user?.name || 'Người dùng'}</Text>
+            <Text style={styles.profileName}>{user?.name || t('Người dùng', 'User')}</Text>
             <Text style={styles.profileEmail}>{user?.email || 'user@prowatch.com'}</Text>
           </View>
           <View style={styles.profileBadge}>
             <MaterialCommunityIcons name="shield-check" size={14} color={Colors.primary} />
-            <Text style={styles.profileBadgeText}>Đã xác thực</Text>
+            <Text style={styles.profileBadgeText}>{t('Đã xác thực', 'Verified')}</Text>
+          </View>
+        </View>
+
+        {/* Cài đặt Ngôn ngữ (VI / EN) */}
+        <Text style={styles.sectionTitle}>{t('Ngôn ngữ ứng dụng', 'App Language')}</Text>
+        <View style={[styles.card, Shadows.sm]}>
+          <View style={styles.switchRow}>
+            <View style={[styles.notifTypeIcon, { backgroundColor: Colors.primaryLight }]}>
+              <MaterialCommunityIcons name="translate" size={20} color={Colors.primary} />
+            </View>
+            <View style={styles.switchInfo}>
+              <Text style={styles.switchLabel}>
+                {t('Chuyển đổi ngôn ngữ (VI / EN)', 'Switch Language (VI / EN)')}
+              </Text>
+              <Text style={styles.switchSub}>
+                {language === 'vi'
+                  ? 'Đang sử dụng: Tiếng Việt (VI)'
+                  : 'Current language: English (EN)'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.langSwitchRow}>
+            <TouchableOpacity
+              style={[
+                styles.langOptionBtn,
+                language === 'vi' && styles.langOptionBtnActive,
+              ]}
+              onPress={() => setLanguage('vi')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.langFlagText}>🇻🇳</Text>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.langOptionTitle,
+                    language === 'vi' && styles.langOptionTitleActive,
+                  ]}
+                >
+                  Tiếng Việt
+                </Text>
+                <Text
+                  style={[
+                    styles.langOptionCode,
+                    language === 'vi' && styles.langOptionCodeActive,
+                  ]}
+                >
+                  VI • Mặc định
+                </Text>
+              </View>
+              {language === 'vi' && (
+                <MaterialCommunityIcons name="check-circle" size={18} color={Colors.primary} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.langOptionBtn,
+                language === 'en' && styles.langOptionBtnActive,
+              ]}
+              onPress={() => setLanguage('en')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.langFlagText}>🇬🇧</Text>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.langOptionTitle,
+                    language === 'en' && styles.langOptionTitleActive,
+                  ]}
+                >
+                  English
+                </Text>
+                <Text
+                  style={[
+                    styles.langOptionCode,
+                    language === 'en' && styles.langOptionCodeActive,
+                  ]}
+                >
+                  EN • International
+                </Text>
+              </View>
+              {language === 'en' && (
+                <MaterialCommunityIcons name="check-circle" size={18} color={Colors.primary} />
+              )}
+            </TouchableOpacity>
           </View>
         </View>
 
         {/* Kết nối thiết bị & Bluetooth (Dạng Toggle Component riêng biệt) */}
-        <Text style={styles.sectionTitle}>Kết nối thiết bị & Bluetooth</Text>
+        <Text style={styles.sectionTitle}>{t('Kết nối thiết bị & Bluetooth', 'Device & Bluetooth Connection')}</Text>
         <BluetoothConnectionToggle
           watchStatus={watchStatus}
           isConnecting={isConnecting}
@@ -842,9 +898,11 @@ export const SettingsScreen: React.FC = () => {
         />
 
         {/* Điều khiển đồng hồ từ xa (XIAO ESP32-S3) */}
-        <Text style={styles.sectionTitle}>Điều khiển đồng hồ từ xa</Text>
+        <Text style={styles.sectionTitle}>{t('Điều khiển đồng hồ từ xa', 'Remote Watch Control')}</Text>
         <View style={[styles.card, Shadows.sm]}>
-          <Text style={styles.controlSubTitle}>Chuyển nhanh màn hình (Firmware v1.5.1)</Text>
+          <Text style={styles.controlSubTitle}>
+            {t('Chuyển nhanh màn hình (Firmware v1.5.1)', 'Quick Screen Switch (Firmware v1.5.1)')}
+          </Text>
           <View style={styles.menuGrid}>
             {WATCH_MENUS.map((m) => (
               <TouchableOpacity
@@ -888,7 +946,9 @@ export const SettingsScreen: React.FC = () => {
               activeOpacity={0.8}
             >
               <Feather name="chevron-left" size={16} color={watchStatus.connected ? Colors.textPrimary : Colors.textMuted} />
-              <Text style={[styles.navStepText, !watchStatus.connected && styles.textDisabled]}>Trang trước (D2)</Text>
+              <Text style={[styles.navStepText, !watchStatus.connected && styles.textDisabled]}>
+                {t('Trang trước (D2)', 'Prev Page (D2)')}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -897,14 +957,16 @@ export const SettingsScreen: React.FC = () => {
               disabled={!watchStatus.connected}
               activeOpacity={0.8}
             >
-              <Text style={[styles.navStepText, !watchStatus.connected && styles.textDisabled]}>Trang sau (D0)</Text>
+              <Text style={[styles.navStepText, !watchStatus.connected && styles.textDisabled]}>
+                {t('Trang sau (D0)', 'Next Page (D0)')}
+              </Text>
               <Feather name="chevron-right" size={16} color={watchStatus.connected ? Colors.textPrimary : Colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.divider} />
 
-          <Text style={styles.controlSubTitle}>Tiện ích nguồn & Thời gian</Text>
+          <Text style={styles.controlSubTitle}>{t('Tiện ích nguồn & Thời gian', 'Power & Time Utilities')}</Text>
           <View style={styles.quickActionRow}>
             <TouchableOpacity
               style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
@@ -913,7 +975,7 @@ export const SettingsScreen: React.FC = () => {
               activeOpacity={0.8}
             >
               <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color={watchStatus.connected ? "#D97706" : Colors.textMuted} />
-              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>Bật màn</Text>
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Bật màn', 'Screen On')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -923,7 +985,7 @@ export const SettingsScreen: React.FC = () => {
               activeOpacity={0.8}
             >
               <MaterialCommunityIcons name="power-sleep" size={16} color={watchStatus.connected ? Colors.textSecondary : Colors.textMuted} />
-              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>Tắt màn</Text>
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Tắt màn', 'Screen Off')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -933,7 +995,7 @@ export const SettingsScreen: React.FC = () => {
               activeOpacity={0.8}
             >
               <MaterialCommunityIcons name="sync" size={16} color={watchStatus.connected ? Colors.primary : Colors.textMuted} />
-              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>Đồng bộ giờ</Text>
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Đồng bộ giờ', 'Sync Time')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -943,13 +1005,13 @@ export const SettingsScreen: React.FC = () => {
               activeOpacity={0.8}
             >
               <MaterialCommunityIcons name="delete-sweep-outline" size={16} color={watchStatus.connected ? Colors.danger : Colors.textMuted} />
-              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>Xóa offline</Text>
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Xóa offline', 'Clear Offline')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Notification Settings Section (Sử dụng toggle, tinh gọn các loại thông báo) */}
-        <Text style={styles.sectionTitle}>Cài đặt các loại thông báo</Text>
+        <Text style={styles.sectionTitle}>{t('Cài đặt các loại thông báo', 'Notification Categories')}</Text>
         <View style={[styles.card, Shadows.sm]}>
           {/* Master toggle */}
           <View style={styles.switchRow}>
@@ -957,8 +1019,10 @@ export const SettingsScreen: React.FC = () => {
               <MaterialCommunityIcons name="bell-ring" size={20} color={Colors.primary} />
             </View>
             <View style={styles.switchInfo}>
-              <Text style={styles.switchLabel}>Đồng bộ thông báo đồng hồ</Text>
-              <Text style={styles.switchSub}>Bật/tắt toàn bộ nhận tin & cảnh báo trên đồng hồ</Text>
+              <Text style={styles.switchLabel}>{t('Đồng bộ thông báo đồng hồ', 'Sync Watch Notifications')}</Text>
+              <Text style={styles.switchSub}>
+                {t('Bật/tắt toàn bộ nhận tin & cảnh báo trên đồng hồ', 'Enable/disable all alerts & messages on watch')}
+              </Text>
             </View>
             <Switch
               value={settings.notificationsEnabled}
@@ -972,57 +1036,6 @@ export const SettingsScreen: React.FC = () => {
 
           {settings.notificationsEnabled && (
             <>
-              {Platform.OS === 'android' && (
-                <>
-                  <View style={styles.divider} />
-                  <View style={styles.switchRow}>
-                    <View
-                      style={[
-                        styles.notifTypeIcon,
-                        { backgroundColor: androidNotifGranted ? '#DCFCE7' : '#FEF3C7' },
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={androidNotifGranted ? 'shield-check' : 'shield-lock-outline'}
-                        size={18}
-                        color={androidNotifGranted ? '#16A34A' : '#D97706'}
-                      />
-                    </View>
-                    <View style={styles.switchInfo}>
-                      <Text style={styles.switchLabel}>Quyền đọc Cuộc gọi & SMS Android</Text>
-                      <Text style={styles.switchSub}>
-                        {androidNotifGranted
-                          ? 'Đã cấp quyền: Tự động đẩy Cuộc gọi đến & Tin nhắn SMS sang đồng hồ'
-                          : 'Cần bật quyền Truy cập thông báo để nhận Cuộc gọi đến & SMS từ điện thoại'}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[
-                        styles.quickActionBtn,
-                        {
-                          flex: 0,
-                          paddingHorizontal: 10,
-                          paddingVertical: 6,
-                          backgroundColor: androidNotifGranted ? Colors.background : Colors.primaryLight,
-                          borderColor: androidNotifGranted ? Colors.border : Colors.primary,
-                        },
-                      ]}
-                      onPress={handleOpenAndroidNotifSettings}
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        style={[
-                          styles.quickActionText,
-                          { color: androidNotifGranted ? Colors.textSecondary : Colors.primary },
-                        ]}
-                      >
-                        {androidNotifGranted ? 'Cài đặt' : 'Cấp quyền'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-
               <View style={styles.divider} />
 
               {/* 1. Cuộc gọi đến */}
@@ -1031,8 +1044,10 @@ export const SettingsScreen: React.FC = () => {
                   <MaterialCommunityIcons name="phone-incoming" size={18} color="#16A34A" />
                 </View>
                 <View style={styles.switchInfo}>
-                  <Text style={styles.switchLabel}>Cuộc gọi đến</Text>
-                  <Text style={styles.switchSub}>Bật sáng màn hình và hiển thị người gọi trên XIAO ESP32-S3</Text>
+                  <Text style={styles.switchLabel}>{t('Cuộc gọi đến', 'Incoming Calls')}</Text>
+                  <Text style={styles.switchSub}>
+                    {t('Bật sáng màn hình và hiển thị người gọi trên XIAO ESP32-S3', 'Wake screen and display caller on XIAO ESP32-S3')}
+                  </Text>
                 </View>
                 <Switch
                   value={notifCategories.calls}
@@ -1050,8 +1065,10 @@ export const SettingsScreen: React.FC = () => {
                   <MaterialCommunityIcons name="message-text" size={18} color="#0284C7" />
                 </View>
                 <View style={styles.switchInfo}>
-                  <Text style={styles.switchLabel}>Tin nhắn SMS</Text>
-                  <Text style={styles.switchSub}>Xem trước người gửi và nội dung tin nhắn SMS trên đồng hồ</Text>
+                  <Text style={styles.switchLabel}>{t('Tin nhắn SMS', 'SMS Messages')}</Text>
+                  <Text style={styles.switchSub}>
+                    {t('Xem trước người gửi và nội dung tin nhắn SMS trên đồng hồ', 'Preview sender and SMS text on watch')}
+                  </Text>
                 </View>
                 <Switch
                   value={notifCategories.sms}
@@ -1069,8 +1086,10 @@ export const SettingsScreen: React.FC = () => {
                   <MaterialCommunityIcons name="cup-water" size={18} color="#D97706" />
                 </View>
                 <View style={styles.switchInfo}>
-                  <Text style={styles.switchLabel}>Nhắc nhở uống nước</Text>
-                  <Text style={styles.switchSub}>Nhắc bổ sung nước định kỳ trên màn hình đồng hồ</Text>
+                  <Text style={styles.switchLabel}>{t('Nhắc nhở uống nước', 'Hydration Reminder')}</Text>
+                  <Text style={styles.switchSub}>
+                    {t('Nhắc bổ sung nước định kỳ trên màn hình đồng hồ', 'Periodic hydration reminder on watch screen')}
+                  </Text>
                 </View>
                 <Switch
                   value={notifCategories.water}
@@ -1088,9 +1107,9 @@ export const SettingsScreen: React.FC = () => {
                   <MaterialCommunityIcons name="heart-pulse" size={18} color={Colors.heartRate} />
                 </View>
                 <View style={styles.switchInfo}>
-                  <Text style={styles.switchLabel}>Cảnh báo Nhịp tim & SpO2</Text>
+                  <Text style={styles.switchLabel}>{t('Cảnh báo Nhịp tim & SpO2', 'Heart Rate & SpO2 Alerts')}</Text>
                   <Text style={styles.switchSub}>
-                    Thông báo khi chỉ số Quá thấp / Bình thường / Quá cao sau khi đo
+                    {t('Thông báo khi chỉ số Quá thấp / Bình thường / Quá cao sau khi đo', 'Alert when reading is Too Low / Normal / Too High after measurement')}
                   </Text>
                 </View>
                 <Switch
@@ -1379,18 +1398,18 @@ export const SettingsScreen: React.FC = () => {
         </View>
 
         {/* Display & Sensor Toggles */}
-        <Text style={styles.sectionTitle}>Màn hình & Cảm biến</Text>
+        <Text style={styles.sectionTitle}>{t('Màn hình & Cảm biến', 'Display & Sensors')}</Text>
         <View style={[styles.card, Shadows.sm]}>
           <View style={styles.switchRow}>
             <View style={[styles.notifTypeIcon, { backgroundColor: '#FEF3C7' }]}>
               <MaterialCommunityIcons name="brightness-6" size={18} color="#D97706" />
             </View>
             <View style={styles.switchInfo}>
-              <Text style={styles.switchLabel}>Màn hình luôn bật (AOD)</Text>
+              <Text style={styles.switchLabel}>{t('Màn hình luôn bật (AOD)', 'Always On Display (AOD)')}</Text>
               <Text style={styles.switchSub}>
                 {settings.alwaysOnDisplay
-                  ? 'Đang bật: Giữ mặt đồng hồ luôn sáng mờ (~15%) khi nghỉ'
-                  : 'Đang tắt: Tự động tắt hẳn màn hình sau 10 giây không chạm'}
+                  ? t('Đang bật: Giữ mặt đồng hồ luôn sáng mờ (~15%) khi nghỉ', 'Enabled: Keep watch face dimly lit (~15%) when idle')
+                  : t('Đang tắt: Tự động tắt hẳn màn hình sau 10 giây không chạm', 'Disabled: Turn screen off completely after 10s of inactivity')}
               </Text>
             </View>
             <Switch
@@ -1408,11 +1427,11 @@ export const SettingsScreen: React.FC = () => {
               <MaterialCommunityIcons name="gesture-tap-hold" size={18} color="#0284C7" />
             </View>
             <View style={styles.switchInfo}>
-              <Text style={styles.switchLabel}>Nhấc tay sáng màn hình</Text>
+              <Text style={styles.switchLabel}>{t('Nhấc tay sáng màn hình', 'Raise to Wake')}</Text>
               <Text style={styles.switchSub}>
                 {settings.raiseToWake
-                  ? 'Đang bật: Tự động bật sáng màn hình khi xoay/nhấc cổ tay'
-                  : 'Đang tắt: Chỉ bật màn hình khi chạm nút cảm ứng D0/D1/D2'}
+                  ? t('Đang bật: Tự động bật sáng màn hình khi xoay/nhấc cổ tay', 'Enabled: Automatically wake screen when raising wrist')
+                  : t('Đang tắt: Chỉ bật màn hình khi chạm nút cảm ứng D0/D1/D2', 'Disabled: Only wake screen on D0/D1/D2 touch buttons')}
               </Text>
             </View>
             <Switch
@@ -1437,7 +1456,7 @@ export const SettingsScreen: React.FC = () => {
                   color={watchStatus.connected ? Colors.primary : Colors.textMuted}
                 />
                 <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
-                  Mô phỏng cử chỉ nhấc tay sáng màn hình
+                  {t('Mô phỏng cử chỉ nhấc tay sáng màn hình', 'Simulate Raise to Wake gesture')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1445,14 +1464,14 @@ export const SettingsScreen: React.FC = () => {
         </View>
 
         {/* Health Warning Thresholds */}
-        <Text style={styles.sectionTitle}>Ngưỡng cảnh báo y tế</Text>
+        <Text style={styles.sectionTitle}>{t('Ngưỡng cảnh báo y tế', 'Medical Alert Thresholds')}</Text>
         <View style={[styles.card, Shadows.sm]}>
           <View style={styles.thresholdRow}>
             <View style={styles.thresholdLeft}>
               <View style={[styles.miniIcon, { backgroundColor: Colors.heartRateLight }]}>
                 <MaterialCommunityIcons name="heart-flash" size={16} color={Colors.heartRate} />
               </View>
-              <Text style={styles.thresholdLabel}>Cảnh báo nhịp tim cao</Text>
+              <Text style={styles.thresholdLabel}>{t('Cảnh báo nhịp tim cao', 'High Heart Rate Alert')}</Text>
             </View>
             <View style={styles.thresholdValueBox}>
               <Text style={styles.thresholdValueText}>&gt; {settings.hrAlertHigh} BPM</Text>
@@ -1466,7 +1485,7 @@ export const SettingsScreen: React.FC = () => {
               <View style={[styles.miniIcon, { backgroundColor: Colors.spo2Light }]}>
                 <MaterialCommunityIcons name="water-alert" size={16} color={Colors.spo2} />
               </View>
-              <Text style={styles.thresholdLabel}>Cảnh báo SpO2 thấp</Text>
+              <Text style={styles.thresholdLabel}>{t('Cảnh báo SpO2 thấp', 'Low SpO2 Alert')}</Text>
             </View>
             <View style={styles.thresholdValueBox}>
               <Text style={styles.thresholdValueText}>&lt; {settings.spo2AlertLow}%</Text>
@@ -1476,50 +1495,50 @@ export const SettingsScreen: React.FC = () => {
 
 
         {/* Device Hardware Info */}
-        <Text style={styles.sectionTitle}>Thông tin phần cứng</Text>
+        <Text style={styles.sectionTitle}>{t('Thông tin phần cứng', 'Hardware Information')}</Text>
         <View style={[styles.card, Shadows.sm]}>
           <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>Bộ xử lý chính</Text>
+            <Text style={styles.infoKey}>{t('Bộ xử lý chính', 'Main Processor')}</Text>
             <Text style={[styles.infoVal, { color: Colors.primary, fontWeight: '700' }]}>
               Seeed Studio XIAO ESP32-S3
             </Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>Trạng thái kết nối</Text>
+            <Text style={styles.infoKey}>{t('Trạng thái kết nối', 'Connection Status')}</Text>
             <Text style={[styles.infoVal, { color: watchStatus.connected ? Colors.success : Colors.danger, fontWeight: '700' }]}>
-              {watchStatus.connected ? 'Đang hoạt động (BLE/Wi-Fi)' : 'Chưa kết nối'}
+              {watchStatus.connected ? t('Đang hoạt động (BLE/Wi-Fi)', 'Connected (BLE/Wi-Fi)') : t('Chưa kết nối', 'Disconnected')}
             </Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>Phiên bản Firmware</Text>
+            <Text style={styles.infoKey}>{t('Phiên bản Firmware', 'Firmware Version')}</Text>
             <Text style={styles.infoVal}>{watchStatus.firmwareVersion || WATCH_FIRMWARE_VERSION}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>Địa chỉ Bluetooth MAC</Text>
+            <Text style={styles.infoKey}>{t('Địa chỉ Bluetooth MAC', 'Bluetooth MAC Address')}</Text>
             <Text style={styles.infoVal}>{watchStatus.bleAddress}</Text>
           </View>
         </View>
 
         {/* App Info & Version */}
-        <Text style={styles.sectionTitle}>Thông tin ứng dụng</Text>
+        <Text style={styles.sectionTitle}>{t('Thông tin ứng dụng', 'Application Information')}</Text>
         <View style={[styles.card, Shadows.sm]}>
           <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>Ứng dụng</Text>
+            <Text style={styles.infoKey}>{t('Ứng dụng', 'Application')}</Text>
             <Text style={styles.infoVal}>{APP_INFO.name}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>Phiên bản (Version)</Text>
+            <Text style={styles.infoKey}>{t('Phiên bản (Version)', 'Version')}</Text>
             <Text style={[styles.infoVal, { color: Colors.primary, fontWeight: '700' }]}>
               v{APP_INFO.version} (Build {APP_INFO.buildNumber})
             </Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>Gói cài đặt (APK)</Text>
+            <Text style={styles.infoKey}>{t('Gói cài đặt (APK)', 'APK Package')}</Text>
             <Text style={[styles.infoVal, { color: Colors.textSecondary, fontWeight: '600' }]}>
               {APP_INFO.apkFileName || 'ProWatch-Health.apk'}
             </Text>
@@ -1527,7 +1546,7 @@ export const SettingsScreen: React.FC = () => {
         </View>
 
         {/* Supabase 2FA Security Section (Dạng Toggle) */}
-        <Text style={styles.sectionTitle}>Bảo mật tài khoản & Xác thực 2 bước</Text>
+        <Text style={styles.sectionTitle}>{t('Bảo mật tài khoản & Xác thực 2 bước', 'Account Security & Two-Factor Auth')}</Text>
         <View style={[styles.card, Shadows.sm]}>
           <View style={styles.mfaToggleRow}>
             <View style={[styles.mfaIconCircle, mfaStatus?.isEnabled ? styles.mfaIconActive : styles.mfaIconInactive]}>
@@ -1539,7 +1558,7 @@ export const SettingsScreen: React.FC = () => {
             </View>
 
             <View style={styles.mfaToggleInfo}>
-              <Text style={styles.mfaTitleText}>Xác thực 2 bước (2FA)</Text>
+              <Text style={styles.mfaTitleText}>{t('Xác thực 2 bước (2FA)', 'Two-Factor Authentication (2FA)')}</Text>
             </View>
 
             {/* Toggle Switch */}
@@ -1563,7 +1582,7 @@ export const SettingsScreen: React.FC = () => {
           activeOpacity={0.8}
         >
           <Feather name="log-out" size={18} color={Colors.white} />
-          <Text style={styles.logoutBtnText}>Đăng xuất</Text>
+          <Text style={styles.logoutBtnText}>{t('Đăng xuất', 'Sign Out')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -2998,5 +3017,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: Colors.white,
+  },
+  langSwitchRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  langOptionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.cardMuted,
+  },
+  langOptionBtnActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
+  },
+  langFlagText: {
+    fontSize: 20,
+  },
+  langOptionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  langOptionTitleActive: {
+    color: Colors.primary,
+  },
+  langOptionCode: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  langOptionCodeActive: {
+    color: Colors.primary,
   },
 });

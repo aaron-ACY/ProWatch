@@ -1,5 +1,6 @@
 package com.huudan.backend.controller;
 
+import com.huudan.backend.dto.HealthStatisticsDto;
 import com.huudan.backend.dto.HealthSummaryDto;
 import com.huudan.backend.entity.HealthRecord;
 import com.huudan.backend.service.TelemetryService;
@@ -33,4 +34,15 @@ public class HealthController {
         log.debug("Health summary sync for device {}: BPM={}, SpO2={}", deviceId, summary.getCurrentBpm(), summary.getCurrentSpO2());
         return ResponseEntity.ok(summary);
     }
+
+    @GetMapping("/statistics")
+    public ResponseEntity<HealthStatisticsDto> getHealthStatistics(
+            @RequestParam(defaultValue = "XIAO-ESP32S3-PROWATCH-01") String deviceId,
+            @RequestParam(defaultValue = "today") String timeframe) {
+        HealthStatisticsDto stats = telemetryService.getHealthStatistics(deviceId, timeframe);
+        log.debug("Health statistics sync for device {}: timeframe={}, hasData={}, avgHr={}", 
+                deviceId, timeframe, stats.getHasData(), stats.getAvgHr());
+        return ResponseEntity.ok(stats);
+    }
 }
+

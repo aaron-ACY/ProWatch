@@ -1,0 +1,6 @@
+#FileLock
+#Thu Nov 05 00:30:52 ICT 2026
+hostName=HuuDan.lan
+id=1a1a76e85ea63b4dc737f28d9cb189c7fafb1720a6d
+method=file
+server=192.168.100.176\:52626

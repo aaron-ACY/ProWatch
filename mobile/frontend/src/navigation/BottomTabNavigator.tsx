@@ -12,6 +12,7 @@ import { StatisticsScreen } from '../screens/StatisticsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLanguage } from '../context/LanguageContext';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
@@ -111,6 +112,7 @@ const TabIcon: React.FC<TabIconProps> = ({
 
 export const BottomTabNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
 
   return (
     <Tab.Navigator
@@ -135,7 +137,7 @@ export const BottomTabNavigator: React.FC = () => {
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          tabBarLabel: 'Tổng quan',
+          tabBarLabel: t('Tổng quan', 'Overview'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               focused={focused}
@@ -154,7 +156,7 @@ export const BottomTabNavigator: React.FC = () => {
         name="HeartRate"
         component={HeartRateScreen}
         options={{
-          tabBarLabel: 'Tim',
+          tabBarLabel: t('Tim', 'Heart'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               focused={focused}
@@ -173,7 +175,7 @@ export const BottomTabNavigator: React.FC = () => {
         name="Sport"
         component={SportScreen}
         options={{
-          tabBarLabel: 'Thể thao',
+          tabBarLabel: t('Thể thao', 'Sport'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               focused={focused}
@@ -192,7 +194,7 @@ export const BottomTabNavigator: React.FC = () => {
         name="Statistics"
         component={StatisticsScreen}
         options={{
-          tabBarLabel: 'Thống kê',
+          tabBarLabel: t('Thống kê', 'Statistics'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               focused={focused}
@@ -211,7 +213,7 @@ export const BottomTabNavigator: React.FC = () => {
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarLabel: 'Cài đặt',
+          tabBarLabel: t('Cài đặt', 'Settings'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               focused={focused}

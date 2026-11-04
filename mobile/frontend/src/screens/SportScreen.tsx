@@ -12,6 +12,7 @@ import { Colors, Shadows } from '../theme/colors';
 import { watchService } from '../services/watchService';
 import { HealthSummary, WatchStatus } from '../types';
 import { useFocusEffect } from '@react-navigation/native';
+import { useLanguage } from '../context/LanguageContext';
 
 interface SportMode {
   id: string;
@@ -43,6 +44,7 @@ interface WorkoutSession {
 }
 
 export const SportScreen: React.FC = () => {
+  const { t } = useLanguage();
   const [healthSummary, setHealthSummary] = useState<HealthSummary>(watchService.getHealthSummary());
   const [watchStatus, setWatchStatus] = useState<WatchStatus>(watchService.getWatchStatus());
   
@@ -242,8 +244,8 @@ export const SportScreen: React.FC = () => {
         {/* 1. Header */}
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.headerTitle}>Thể thao & Luyện tập</Text>
-            <Text style={styles.headerSubtitle}>Theo dõi bài tập & hiệu suất vận động</Text>
+            <Text style={styles.headerTitle}>{t('Thể thao & Luyện tập', 'Sports & Workouts')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Theo dõi bài tập & hiệu suất vận động', 'Track workouts & fitness performance')}</Text>
           </View>
         </View>
 
@@ -255,11 +257,11 @@ export const SportScreen: React.FC = () => {
               <MaterialCommunityIcons name="foot-print" size={20} color="#EA580C" />
             </View>
             <Text style={styles.activityValue}>{healthSummary.steps.toLocaleString()}</Text>
-            <Text style={styles.activityLabel}>Bước chân</Text>
+            <Text style={styles.activityLabel}>{t('Bước chân', 'Steps')}</Text>
             <View style={styles.progressBarBg}>
               <View style={[styles.progressBarFill, { width: `${stepsGoalPercent}%`, backgroundColor: '#EA580C' }]} />
             </View>
-            <Text style={styles.progressSub}>{stepsGoalPercent}% mục tiêu (10k)</Text>
+            <Text style={styles.progressSub}>{stepsGoalPercent}% {t('mục tiêu (10k)', 'goal (10k)')}</Text>
           </View>
 
           {/* Calories Card */}
@@ -268,11 +270,11 @@ export const SportScreen: React.FC = () => {
               <MaterialCommunityIcons name="fire" size={20} color="#DC2626" />
             </View>
             <Text style={styles.activityValue}>{healthSummary.calories}</Text>
-            <Text style={styles.activityLabel}>Calo tiêu hao</Text>
+            <Text style={styles.activityLabel}>{t('Calo tiêu hao', 'Calories')}</Text>
             <View style={styles.progressBarBg}>
               <View style={[styles.progressBarFill, { width: `${calGoalPercent}%`, backgroundColor: '#DC2626' }]} />
             </View>
-            <Text style={styles.progressSub}>{calGoalPercent}% mục tiêu (600 kcal)</Text>
+            <Text style={styles.progressSub}>{calGoalPercent}% {t('mục tiêu (600 kcal)', 'goal (600 kcal)')}</Text>
           </View>
 
           {/* Distance Card */}
@@ -281,16 +283,16 @@ export const SportScreen: React.FC = () => {
               <MaterialCommunityIcons name="map-marker-distance" size={20} color="#0284C7" />
             </View>
             <Text style={styles.activityValue}>{distanceKm} <Text style={styles.unitText}>km</Text></Text>
-            <Text style={styles.activityLabel}>Quãng đường</Text>
+            <Text style={styles.activityLabel}>{t('Quãng đường', 'Distance')}</Text>
             <View style={styles.progressBarBg}>
               <View style={[styles.progressBarFill, { width: '70%', backgroundColor: '#0284C7' }]} />
             </View>
-            <Text style={styles.progressSub}>Ước tính theo bước chân</Text>
+            <Text style={styles.progressSub}>{t('Ước tính theo bước chân', 'Estimated from steps')}</Text>
           </View>
         </View>
 
         {/* 3. Live Workout Tracking Panel */}
-        <Text style={styles.sectionTitle}>Chế độ luyện tập trực tiếp</Text>
+        <Text style={styles.sectionTitle}>{t('Chế độ luyện tập trực tiếp', 'Live Workout Mode')}</Text>
         
         {isWorkingOut ? (
           /* LIVE WORKOUT ACTIVE PANEL */
@@ -369,7 +371,7 @@ export const SportScreen: React.FC = () => {
         ) : (
           /* SPORT SELECTION & START PANEL */
           <View style={[styles.card, Shadows.sm]}>
-            <Text style={styles.selectPrompt}>Chọn môn thể thao chuẩn bị tập:</Text>
+            <Text style={styles.selectPrompt}>{t('Chọn môn thể thao chuẩn bị tập:', 'Select a sport mode to start:')}</Text>
             <View style={styles.sportGrid}>
               {SPORT_MODES.map((sport) => {
                 const isSelected = selectedSport.id === sport.id;
@@ -401,13 +403,13 @@ export const SportScreen: React.FC = () => {
               activeOpacity={0.85}
             >
               <MaterialCommunityIcons name="play-circle-outline" size={22} color={Colors.white} />
-              <Text style={styles.startWorkoutBtnText}>Bắt đầu bài tập {selectedSport.name}</Text>
+              <Text style={styles.startWorkoutBtnText}>{t(`Bắt đầu bài tập ${selectedSport.name}`, `Start ${selectedSport.name} Workout`)}</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* 4. Workout History Section */}
-        <Text style={styles.sectionTitle}>Lịch sử buổi tập gần đây</Text>
+        <Text style={styles.sectionTitle}>{t('Lịch sử buổi tập gần đây', 'Recent Workout History')}</Text>
         <View style={[styles.card, Shadows.sm]}>
           {workoutHistory.map((session, index) => (
             <React.Fragment key={session.id}>
@@ -430,21 +432,21 @@ export const SportScreen: React.FC = () => {
         </View>
 
         {/* 5. Recovery & Fitness Insights Card */}
-        <Text style={styles.sectionTitle}>Thể trạng & Khả năng phục hồi</Text>
+        <Text style={styles.sectionTitle}>{t('Thể trạng & Khả năng phục hồi', 'Fitness & Recovery Insights')}</Text>
         <View style={[styles.card, Shadows.sm]}>
           <View style={styles.recoveryRow}>
             <View style={styles.recoveryItem}>
-              <Text style={styles.recoveryLabel}>Thời gian hồi phục</Text>
-              <Text style={[styles.recoveryValue, { color: Colors.primary }]}>14 giờ</Text>
-              <Text style={styles.recoverySub}>Sẵn sàng vận động tốt</Text>
+              <Text style={styles.recoveryLabel}>{t('Thời gian hồi phục', 'Recovery Time')}</Text>
+              <Text style={[styles.recoveryValue, { color: Colors.primary }]}>{t('14 giờ', '14 hrs')}</Text>
+              <Text style={styles.recoverySub}>{t('Sẵn sàng vận động tốt', 'Ready for training')}</Text>
             </View>
 
             <View style={styles.verticalDivider} />
 
             <View style={styles.recoveryItem}>
-              <Text style={styles.recoveryLabel}>VO2 Max ước tính</Text>
+              <Text style={styles.recoveryLabel}>{t('VO2 Max ước tính', 'Estimated VO2 Max')}</Text>
               <Text style={[styles.recoveryValue, { color: Colors.success }]}>44.5</Text>
-              <Text style={styles.recoverySub}>ml/kg/min (Khá tốt)</Text>
+              <Text style={styles.recoverySub}>{t('ml/kg/min (Khá tốt)', 'ml/kg/min (Good)')}</Text>
             </View>
           </View>
 

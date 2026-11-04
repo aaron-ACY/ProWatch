@@ -1,9 +1,6 @@
 package com.huudan.backend.service;
 
-import com.huudan.backend.dto.HealthSummaryDto;
-import com.huudan.backend.dto.LiveTelemetryDto;
-import com.huudan.backend.dto.TelemetryRequest;
-import com.huudan.backend.dto.TelemetryResponse;
+import com.huudan.backend.dto.*;
 import com.huudan.backend.entity.Activity;
 import com.huudan.backend.entity.Device;
 import com.huudan.backend.entity.DeviceConfig;
@@ -18,7 +15,11 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,23 +66,58 @@ public class TelemetryService {
                     + " -> Thời điểm đo: " + recordTime + " | BPM: " + req.getHeartRate() + " | SpO2: " + req.getSpo2() + "%");
         }
 
-        // 1. Cập nhật trạng thái thiết bị Device (online, battery, charging)
+        // 1. Cập nhật trạng thái thiết bị Device (online, battery, charging, macAddress, firmware, ipAddress)
         Optional<Device> devOpt = deviceRepo.findByDeviceId(deviceId);
         Device device = devOpt.orElseGet(() -> Device.builder()
                 .deviceId(deviceId)
-                .deviceName("XIAO ESP32-S3 Watch")
-                .macAddress(req.getMacAddress())
-                .model("XIAO-ESP32-S3")
+                .deviceName("ProWatch-S3 (XIAO ESP32-S3)")
+                .macAddress(req.getMacAddress() != null && !req.getMacAddress().isBlank() ? req.getMacAddress() : "DC:54:75:E3:S3:01")
+                .model("Seeed XIAO ESP32-S3")
+                .firmwareVersion(req.getFirmwareVersion() != null && !req.getFirmwareVersion().isBlank() ? req.getFirmwareVersion() : "v1.5.3-max30102-no-offline")
+                .batteryLevel(req.getBattery() != null ? req.getBattery() : 90)
+                .isCharging(req.getIsCharging() != null ? req.getIsCharging() : false)
+                .connectionMode(req.getConnectionMode() != null ? req.getConnectionMode() : "BLE")
+                .ipAddress("BLE-GATT-DIRECT")
                 .createdAt(now)
                 .build());
 
         device.setIsOnline(true);
         device.setLastHeartbeat(now);
+        if (device.getDeviceName() == null || device.getDeviceName().isBlank()) {
+            device.setDeviceName("ProWatch-S3 (XIAO ESP32-S3)");
+        }
+        if (req.getMacAddress() != null && !req.getMacAddress().isBlank()) {
+            device.setMacAddress(req.getMacAddress());
+        } else if (device.getMacAddress() == null || device.getMacAddress().isBlank()) {
+            device.setMacAddress("DC:54:75:E3:S3:01");
+        }
         if (userUuid != null) device.setUserId(userUuid);
-        if (req.getBattery() != null) device.setBatteryLevel(req.getBattery());
-        if (req.getIsCharging() != null) device.setIsCharging(req.getIsCharging());
-        if (req.getConnectionMode() != null) device.setConnectionMode(req.getConnectionMode());
-        if (req.getFirmwareVersion() != null) device.setFirmwareVersion(req.getFirmwareVersion());
+        if (device.getModel() == null || device.getModel().isBlank()) {
+            device.setModel("Seeed XIAO ESP32-S3");
+        }
+        if (req.getBattery() != null) {
+            device.setBatteryLevel(req.getBattery());
+        } else if (device.getBatteryLevel() == null) {
+            device.setBatteryLevel(90);
+        }
+        if (req.getIsCharging() != null) {
+            device.setIsCharging(req.getIsCharging());
+        } else if (device.getIsCharging() == null) {
+            device.setIsCharging(false);
+        }
+        if (req.getConnectionMode() != null && !req.getConnectionMode().isBlank()) {
+            device.setConnectionMode(req.getConnectionMode());
+        } else if (device.getConnectionMode() == null || device.getConnectionMode().isBlank()) {
+            device.setConnectionMode("BLE");
+        }
+        if (req.getFirmwareVersion() != null && !req.getFirmwareVersion().isBlank()) {
+            device.setFirmwareVersion(req.getFirmwareVersion());
+        } else if (device.getFirmwareVersion() == null || device.getFirmwareVersion().isBlank()) {
+            device.setFirmwareVersion("v1.5.3-max30102-no-offline");
+        }
+        if (device.getIpAddress() == null || device.getIpAddress().isBlank()) {
+            device.setIpAddress("BLE-GATT-DIRECT");
+        }
         deviceRepo.save(device);
 
         boolean isHealthDuplicate = false;
@@ -97,10 +133,14 @@ public class TelemetryService {
             computedRiskLevel = mapRiskLevel(computedRiskScore);
         }
 
+        Long effectiveSeq = (req.getOfflineSeq() != null && req.getOfflineSeq() > 0)
+                ? req.getOfflineSeq()
+                : recordTime.getEpochSecond();
+
         if (hasHealthData) {
-            if (req.getOfflineSeq() != null && healthRecordRepo.existsByDeviceIdAndOfflineSeq(deviceId, req.getOfflineSeq())) {
+            if (healthRecordRepo.existsByDeviceIdAndOfflineSeq(deviceId, effectiveSeq)) {
                 log.info("⏩ [OFFLINE SYNC DEDUPLICATED] Bản ghi Seq #{} của {} đã tồn tại trên health_records, bỏ qua.",
-                        req.getOfflineSeq(), deviceId);
+                        effectiveSeq, deviceId);
                 isHealthDuplicate = true;
             } else {
                 HealthRecord record = HealthRecord.builder()
@@ -110,26 +150,26 @@ public class TelemetryService {
                         .spo2(req.getSpo2() != null && req.getSpo2() > 0 ? req.getSpo2() : null)
                         .riskScore(computedRiskScore)
                         .riskLevel(computedRiskLevel)
-                        .offlineSeq(req.getOfflineSeq())
+                        .offlineSeq(effectiveSeq)
                         .recordedAt(recordTime)
                         .build();
                 HealthRecord saved = healthRecordRepo.save(record);
-                log.info("💾 [BACKEND SAVE HEALTH SUCCESS] Đã lưu HealthRecord ID={} (BPM={}, SpO2={}%, RiskScore={}, RiskLevel={})",
-                        saved.getId(), saved.getHeartRate(), saved.getSpo2(), saved.getRiskScore(), saved.getRiskLevel());
+                log.info("💾 [BACKEND SAVE HEALTH SUCCESS] Đã lưu HealthRecord ID={} (Seq=#{} | BPM={}, SpO2={}%, RiskScore={}, RiskLevel={})",
+                        saved.getId(), saved.getOfflineSeq(), saved.getHeartRate(), saved.getSpo2(), saved.getRiskScore(), saved.getRiskLevel());
             }
         }
 
-        // 3. Lưu bản ghi vận động & cảm biến MPU6050 vào bảng activities
-        boolean hasActivityData = (req.getSteps() != null && req.getSteps() > 0)
+        // 3. Lưu bản ghi vận động & cảm biến MPU6050 vào bảng activities (tách biệt với lần đo HR/SpO2)
+        boolean hasActivityData = !hasHealthData && ((req.getSteps() != null && req.getSteps() > 0)
                 || (req.getCalories() != null && req.getCalories() > 0)
                 || (req.getAccelX() != null || req.getAccelY() != null || req.getAccelZ() != null)
-                || (req.getActivity() != null && !req.getActivity().isBlank() && !"Tự động đo".equalsIgnoreCase(req.getActivity()) && !"Đo chủ động".equalsIgnoreCase(req.getActivity()));
+                || (req.getActivity() != null && !req.getActivity().isBlank() && !"Tự động đo".equalsIgnoreCase(req.getActivity())));
 
         if (hasActivityData) {
-            boolean isActivityDuplicate = req.getOfflineSeq() != null && activityRepo.existsByDeviceIdAndOfflineSeq(deviceId, req.getOfflineSeq());
+            boolean isActivityDuplicate = activityRepo.existsByDeviceIdAndOfflineSeq(deviceId, effectiveSeq);
             if (isActivityDuplicate) {
                 log.info("⏩ [ACTIVITY DEDUPLICATED] Bản ghi Seq #{} của {} đã tồn tại trên activities, bỏ qua.",
-                        req.getOfflineSeq(), deviceId);
+                        effectiveSeq, deviceId);
             } else {
                 Activity act = Activity.builder()
                         .deviceId(deviceId)
@@ -140,7 +180,7 @@ public class TelemetryService {
                         .accelX(req.getAccelX())
                         .accelY(req.getAccelY())
                         .accelZ(req.getAccelZ())
-                        .offlineSeq(req.getOfflineSeq())
+                        .offlineSeq(effectiveSeq)
                         .recordedAt(recordTime)
                         .createdAt(now)
                         .build();
@@ -255,11 +295,29 @@ public class TelemetryService {
                         .orElse(0.0)
         );
 
-        // Chỉ khi đồng hồ đang kết nối (online) mới trả về số đo trực tiếp; nếu không có bản ghi hoặc offline trả về null/0
-        Integer currentBpm = isConnected ? latestHrRecord.map(HealthRecord::getHeartRate).orElse(null) : null;
-        Integer currentSpo2 = isConnected ? latestSpo2Record.map(HealthRecord::getSpo2).orElse(null) : null;
-        Integer steps = isConnected ? latestActivity.map(Activity::getSteps).orElse(0) : 0;
-        Integer calories = isConnected ? latestActivity.map(a -> a.getCalories() != null ? a.getCalories().intValue() : 0).orElse(0) : 0;
+        // Luôn bảo lưu số đo gần nhất của người dùng ngay cả khi đồng hồ tạm thời ngắt kết nối
+        Integer currentBpm = latestHrRecord.map(HealthRecord::getHeartRate).orElse(null);
+        Integer currentSpo2 = latestSpo2Record.map(HealthRecord::getSpo2).orElse(null);
+        Integer steps = latestActivity.map(Activity::getSteps).orElse(0);
+        Integer calories = latestActivity.map(a -> a.getCalories() != null ? a.getCalories().intValue() : 0).orElse(0);
+        String currentActivity = latestActivity.map(Activity::getActivity).filter(a -> a != null && !a.isBlank()).orElse("REST");
+
+        // Đánh giá điểm rủi ro AI từ bản ghi hoặc tính toán trực tiếp
+        Double riskScore = recentRecords.stream()
+                .filter(r -> r.getRiskScore() != null)
+                .map(HealthRecord::getRiskScore)
+                .findFirst()
+                .orElseGet(() -> evaluateRiskScore(currentBpm, currentSpo2));
+
+        String riskLevel = recentRecords.stream()
+                .filter(r -> r.getRiskLevel() != null && !r.getRiskLevel().isBlank())
+                .map(HealthRecord::getRiskLevel)
+                .findFirst()
+                .orElseGet(() -> mapRiskLevel(riskScore));
+
+        Instant startOfDay = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant();
+        int totalToday = (int) healthRecordRepo.countByDeviceIdAndRecordedAtBetween(effectiveId, startOfDay, Instant.now());
+        long totalAll = healthRecordRepo.countByDeviceId(effectiveId);
 
         return HealthSummaryDto.builder()
                 .currentBpm(currentBpm)
@@ -267,6 +325,7 @@ public class TelemetryService {
                 .steps(steps != null ? steps : 0)
                 .stepsGoal(10000)
                 .calories(calories != null ? calories : 0)
+                .sleepHours(7.5)
                 .restingHr(minHr)
                 .maxHrToday(maxHr)
                 .minHrToday(minHr)
@@ -277,7 +336,189 @@ public class TelemetryService {
                 .lastSync(devOpt.map(d -> d.getLastHeartbeat().toString()).orElse("Chưa đồng bộ"))
                 .lastHeartRateTime(latestHrRecord.map(HealthRecord::getRecordedAt).orElse(null))
                 .lastSpo2Time(latestSpo2Record.map(HealthRecord::getRecordedAt).orElse(null))
+                .riskScore(riskScore)
+                .riskLevel(riskLevel)
+                .currentActivity(currentActivity)
+                .totalMeasurementsToday(totalToday)
+                .totalMeasurementsTotal(totalAll)
                 .build();
+    }
+
+    /**
+     * Lấy dữ liệu thống kê Ngày / Tuần / Tháng đồng bộ hoàn toàn với logic hiển thị đồ thị của App
+     */
+    public HealthStatisticsDto getHealthStatistics(String deviceId, String timeframe) {
+        final String effectiveId = (deviceId == null || deviceId.isBlank() || "XIAO-ESP32S3-01".equals(deviceId))
+                ? "XIAO-ESP32S3-PROWATCH-01"
+                : deviceId;
+
+        String tf = (timeframe == null || timeframe.isBlank()) ? "today" : timeframe.toLowerCase();
+        Instant now = Instant.now();
+        Instant start;
+        String periodText;
+
+        if ("week".equals(tf)) {
+            start = now.minus(Duration.ofDays(7));
+            periodText = "tuần này";
+        } else if ("month".equals(tf)) {
+            start = now.minus(Duration.ofDays(30));
+            periodText = "tháng này";
+        } else {
+            tf = "today";
+            start = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant();
+            periodText = "hôm nay";
+        }
+
+        List<HealthRecord> periodRecords = healthRecordRepo.findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtAsc(
+                effectiveId, start, now);
+
+        List<HealthRecord> allRecent = healthRecordRepo.findByDeviceIdOrderByRecordedAtDesc(
+                effectiveId, PageRequest.of(0, 50));
+
+        boolean hasData = !allRecent.isEmpty();
+
+        // Thống kê Nhịp tim
+        List<HealthRecord> hrRecords = periodRecords.stream()
+                .filter(r -> r.getHeartRate() != null && r.getHeartRate() > 0)
+                .toList();
+
+        int avgHr = (int) Math.round(hrRecords.stream().mapToInt(HealthRecord::getHeartRate).average().orElse(0.0));
+        int minHr = hrRecords.stream().mapToInt(HealthRecord::getHeartRate).min().orElse(0);
+        int maxHr = hrRecords.stream().mapToInt(HealthRecord::getHeartRate).max().orElse(0);
+
+        HealthRecord latestHrRec = !hrRecords.isEmpty() ? hrRecords.get(hrRecords.size() - 1) : null;
+        if (latestHrRec == null && !allRecent.isEmpty()) {
+            latestHrRec = allRecent.stream().filter(r -> r.getHeartRate() != null && r.getHeartRate() > 0).findFirst().orElse(null);
+        }
+        Integer latestHr = latestHrRec != null ? latestHrRec.getHeartRate() : 0;
+        String latestHrTime = latestHrRec != null ? formatTime(latestHrRec.getRecordedAt()) : "";
+
+        // Thống kê SpO2
+        List<HealthRecord> spo2Records = periodRecords.stream()
+                .filter(r -> r.getSpo2() != null && r.getSpo2() > 0)
+                .toList();
+
+        int avgSpo2 = (int) Math.round(spo2Records.stream().mapToInt(HealthRecord::getSpo2).average().orElse(0.0));
+        int minSpo2 = spo2Records.stream().mapToInt(HealthRecord::getSpo2).min().orElse(0);
+        int maxSpo2 = spo2Records.stream().mapToInt(HealthRecord::getSpo2).max().orElse(0);
+
+        HealthRecord latestSpo2Rec = !spo2Records.isEmpty() ? spo2Records.get(spo2Records.size() - 1) : null;
+        if (latestSpo2Rec == null && !allRecent.isEmpty()) {
+            latestSpo2Rec = allRecent.stream().filter(r -> r.getSpo2() != null && r.getSpo2() > 0).findFirst().orElse(null);
+        }
+        Integer latestSpo2 = latestSpo2Rec != null ? latestSpo2Rec.getSpo2() : 0;
+        String latestSpo2Time = latestSpo2Rec != null ? formatTime(latestSpo2Rec.getRecordedAt()) : "";
+
+        // Điểm biểu đồ cho App (theo thang đo chuẩn max 150 BPM cho Nhịp tim)
+        List<ChartPointDto> hrPoints = mapChartPoints(hrRecords, true, tf);
+        List<ChartPointDto> spo2Points = mapChartPoints(spo2Records, false, tf);
+
+        // Lịch sử đo đồng nhất (giữ nguyên khi chuyển tab)
+        List<HealthRecordItemDto> hrHistory = allRecent.stream()
+                .filter(r -> r.getHeartRate() != null && r.getHeartRate() > 0)
+                .map(r -> HealthRecordItemDto.builder()
+                        .id(String.valueOf(r.getId()))
+                        .bpm(r.getHeartRate())
+                        .timestamp(formatDisplayTime(r.getRecordedAt()))
+                        .status(mapHrStatus(r.getHeartRate()))
+                        .activity(null)
+                        .build())
+                .toList();
+
+        List<HealthRecordItemDto> spo2History = allRecent.stream()
+                .filter(r -> r.getSpo2() != null && r.getSpo2() > 0)
+                .map(r -> HealthRecordItemDto.builder()
+                        .id(String.valueOf(r.getId()))
+                        .percentage(r.getSpo2())
+                        .timestamp(formatDisplayTime(r.getRecordedAt()))
+                        .status(mapSpo2Status(r.getSpo2()))
+                        .build())
+                .toList();
+
+        return HealthStatisticsDto.builder()
+                .timeframe(tf)
+                .periodText(periodText)
+                .hasData(hasData)
+                .avgHr(avgHr)
+                .minHr(minHr)
+                .maxHr(maxHr)
+                .latestHr(latestHr)
+                .latestHrTime(latestHrTime)
+                .hrCount(hrRecords.size())
+                .hrPoints(hrPoints)
+                .avgSpo2(avgSpo2)
+                .minSpo2(minSpo2)
+                .maxSpo2(maxSpo2)
+                .latestSpo2(latestSpo2)
+                .latestSpo2Time(latestSpo2Time)
+                .spo2Count(spo2Records.size())
+                .spo2Points(spo2Points)
+                .hrHistory(hrHistory)
+                .spo2History(spo2History)
+                .build();
+    }
+
+    private List<ChartPointDto> mapChartPoints(List<HealthRecord> records, boolean isHr, String tf) {
+        if (records == null || records.isEmpty()) return List.of();
+        double minSafe = isHr ? 50.0 : 70.0;
+        double maxSafe = isHr ? 150.0 : 100.0;
+        double safeTop = 22.0;
+        double safeBottom = 76.0;
+        double chartWidth = 280.0;
+        ZoneId zone = ZoneId.systemDefault();
+
+        return records.stream().map(r -> {
+            int val = isHr ? r.getHeartRate() : r.getSpo2();
+            double yRatio = (val - minSafe) / (maxSafe - minSafe);
+            double y = safeBottom - yRatio * (safeBottom - safeTop);
+            double clampedY = Math.max(14.0, Math.min(84.0, y));
+
+            ZonedDateTime zdt = r.getRecordedAt().atZone(zone);
+            double x;
+            if ("today".equals(tf)) {
+                double frac = (zdt.getHour() + zdt.getMinute() / 60.0) / 24.0;
+                x = 10.0 + Math.max(0.05, Math.min(0.95, frac)) * (chartWidth - 20.0);
+            } else {
+                x = 14.0;
+            }
+
+            return ChartPointDto.builder()
+                    .x(Math.round(x * 10.0) / 10.0)
+                    .y(Math.round(clampedY * 10.0) / 10.0)
+                    .value(val)
+                    .timestamp(formatTime(r.getRecordedAt()))
+                    .build();
+        }).toList();
+    }
+
+    private String mapHrStatus(int bpm) {
+        if (bpm < 60) return "resting";
+        if (bpm <= 100) return "normal";
+        if (bpm <= 120) return "elevated";
+        return "high";
+    }
+
+    private String mapSpo2Status(int spo2) {
+        if (spo2 >= 98) return "optimal";
+        if (spo2 >= 95) return "normal";
+        return "low";
+    }
+
+    private String formatTime(Instant instant) {
+        if (instant == null) return "--:--";
+        ZonedDateTime zdt = instant.atZone(ZoneId.systemDefault());
+        return String.format("%02d:%02d", zdt.getHour(), zdt.getMinute());
+    }
+
+    private String formatDisplayTime(Instant instant) {
+        if (instant == null) return "--:--";
+        ZonedDateTime zdt = instant.atZone(ZoneId.systemDefault());
+        LocalDate today = LocalDate.now();
+        String timeStr = String.format("%02d:%02d", zdt.getHour(), zdt.getMinute());
+        if (zdt.toLocalDate().equals(today)) {
+            return timeStr + " hôm nay";
+        }
+        return String.format("%s %02d/%02d", timeStr, zdt.getDayOfMonth(), zdt.getMonthValue());
     }
 
     /**

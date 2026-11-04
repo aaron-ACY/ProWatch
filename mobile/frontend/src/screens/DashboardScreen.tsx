@@ -16,9 +16,11 @@ import { watchService } from '../services/watchService';
 import { HealthSummary, WatchStatus, RootTabParamList } from '../types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useLanguage } from '../context/LanguageContext';
 
 export const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
+  const { t } = useLanguage();
   const [healthSummary, setHealthSummary] = useState<HealthSummary>(watchService.getHealthSummary());
   const [watchStatus, setWatchStatus] = useState<WatchStatus>(watchService.getWatchStatus());
   const [refreshing, setRefreshing] = useState(false);
@@ -79,7 +81,7 @@ export const DashboardScreen: React.FC = () => {
 
     if (riskLevel === 'High' || (bpm > 0 && (bpm > 120 || bpm < 45)) || (spo2 > 0 && spo2 < 90)) {
       return {
-        statusText: 'Nguy cơ',
+        statusText: t('Nguy cơ', 'At Risk'),
         titleColor: '#DC2626',
         bg: '#FEF2F2',
         textColor: '#991B1B',
@@ -88,7 +90,7 @@ export const DashboardScreen: React.FC = () => {
     }
     if (riskLevel === 'Medium' || (bpm > 0 && (bpm > 100 || bpm < 50)) || (spo2 > 0 && spo2 < 95)) {
       return {
-        statusText: 'Chú ý',
+        statusText: t('Chú ý', 'Caution'),
         titleColor: '#D97706',
         bg: '#FFFBEB',
         textColor: '#92400E',
@@ -96,7 +98,7 @@ export const DashboardScreen: React.FC = () => {
       };
     }
     return {
-      statusText: 'Tốt',
+      statusText: t('Tốt', 'Good'),
       titleColor: '#047857', // Màu xanh ngọc đậm sang trọng
       bg: '#F0FDF4',        // Nền xanh ngọc pastel trong trẻo (Tailwind Emerald 50)
       textColor: '#059669',    // Xanh ngọc trung tính hài hòa
@@ -149,10 +151,10 @@ export const DashboardScreen: React.FC = () => {
       >
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.headerGreeting}>Tổng quan hôm nay</Text>
+          <Text style={styles.headerGreeting}>{t('Tổng quan hôm nay', 'Today Overview')}</Text>
           <TouchableOpacity 
             style={styles.notificationBtn}
-            onPress={() => Alert.alert('Thông báo', 'Tất cả chỉ số nhịp tim và oxy máu đều trong ngưỡng an toàn.')}
+            onPress={() => Alert.alert(t('Thông báo', 'Notifications'), t('Tất cả chỉ số nhịp tim và oxy máu đều trong ngưỡng an toàn.', 'All heart rate and blood oxygen readings are within safe thresholds.'))}
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="bell-outline" size={22} color="#0F172A" />
@@ -161,7 +163,7 @@ export const DashboardScreen: React.FC = () => {
         </View>
 
         {/* ================= COMPONENT 1: HOẠT ĐỘNG ================= */}
-        <Text style={styles.sectionTitle}>Hoạt động</Text>
+        <Text style={styles.sectionTitle}>{t('Hoạt động', 'Activity')}</Text>
         <TouchableOpacity 
           style={[styles.activityCard, Shadows.sm]}
           onPress={() => navigation.navigate('Sport')}
@@ -231,7 +233,7 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.activityStatRow}>
               <View style={[styles.statDotSquare, { backgroundColor: '#F59E0B' }]} />
               <View style={styles.statInfo}>
-                <Text style={styles.statLabel}>Bước chân</Text>
+                <Text style={styles.statLabel}>{t('Bước chân', 'Steps')}</Text>
                 <Text style={styles.statValue}>
                   {currentSteps.toLocaleString()} <Text style={styles.statGoal}>/ {stepsGoal.toLocaleString()}</Text>
                 </Text>
@@ -245,7 +247,7 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.activityStatRow}>
               <View style={[styles.statDotSquare, { backgroundColor: Colors.heartRate }]} />
               <View style={styles.statInfo}>
-                <Text style={styles.statLabel}>Tiêu hao</Text>
+                <Text style={styles.statLabel}>{t('Tiêu hao', 'Calories')}</Text>
                 <Text style={styles.statValue}>
                   {currentCalo} <Text style={styles.statGoal}>/ {caloGoal} kcal</Text>
                 </Text>
@@ -258,7 +260,7 @@ export const DashboardScreen: React.FC = () => {
         </TouchableOpacity>
 
         {/* ================= COMPONENT 2: CHỈ SỐ SỨC KHỎE ================= */}
-        <Text style={styles.sectionTitle}>Chỉ số sức khỏe</Text>
+        <Text style={styles.sectionTitle}>{t('Chỉ số sức khỏe', 'Health Vitals')}</Text>
         <View style={[styles.healthCard, Shadows.sm]}>
           {/* CỘT TRÁI: NHỊP TIM & SPO2 VỚI THANH ĐO NGƯỠNG AN TOÀN */}
           <View style={styles.healthLeftCol}>
@@ -272,7 +274,7 @@ export const DashboardScreen: React.FC = () => {
                 <View style={[styles.vitalsIconBox, { backgroundColor: '#FEE2E2' }]}>
                   <MaterialCommunityIcons name="heart" size={16} color={Colors.heartRate} />
                 </View>
-                <Text style={styles.vitalsTitle}>Nhịp tim</Text>
+                <Text style={styles.vitalsTitle}>{t('Nhịp tim', 'Heart Rate')}</Text>
               </View>
 
               <View style={styles.vitalsValRow}>
@@ -293,7 +295,7 @@ export const DashboardScreen: React.FC = () => {
                   <View style={styles.rangeBarKnobInner} />
                 </View>
               </View>
-              <Text style={styles.rangeBarText}>Ngưỡng an toàn 50–100</Text>
+              <Text style={styles.rangeBarText}>{t('Ngưỡng an toàn 50–100', 'Safe zone 50–100')}</Text>
             </TouchableOpacity>
 
             <View style={styles.vitalsDivider} />
@@ -308,7 +310,7 @@ export const DashboardScreen: React.FC = () => {
                 <View style={[styles.vitalsIconBox, { backgroundColor: '#E0F2FE' }]}>
                   <MaterialCommunityIcons name="water" size={16} color={Colors.spo2} />
                 </View>
-                <Text style={styles.vitalsTitle}>Oxy máu (SpO₂)</Text>
+                <Text style={styles.vitalsTitle}>{t('Oxy máu (SpO₂)', 'Blood Oxygen (SpO₂)')}</Text>
               </View>
 
               <View style={styles.vitalsValRow}>
@@ -329,7 +331,7 @@ export const DashboardScreen: React.FC = () => {
                   <View style={styles.rangeBarKnobInner} />
                 </View>
               </View>
-              <Text style={styles.rangeBarText}>Ngưỡng an toàn 95–100</Text>
+              <Text style={styles.rangeBarText}>{t('Ngưỡng an toàn 95–100', 'Safe zone 95–100')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -339,7 +341,7 @@ export const DashboardScreen: React.FC = () => {
           {/* CỘT PHẢI: BIỂU ĐỒ SPEEDOMETER GAUGE - PHỐI MÀU PASTEL CHUẨN MỰC */}
           <View style={[styles.healthRightCol, { backgroundColor: healthStatus.bg }]}>
             <Text style={[styles.statusHeaderLabel, { color: healthStatus.textColor }]}>
-              THỂ TRẠNG
+              {t('THỂ TRẠNG', 'CONDITION')}
             </Text>
 
             {/* Biểu đồ Speedometer Gauge 6 phân đoạn (Chuyển tiếp màu mượt mà, dịu mắt) */}
@@ -423,14 +425,14 @@ export const DashboardScreen: React.FC = () => {
               activeOpacity={0.7}
             >
               <Text style={[styles.detailLinkText, { color: healthStatus.textColor }]}>
-                Xem chi tiết →
+                {t('Xem chi tiết →', 'View details →')}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* ================= COMPONENT 3: TRUY CẬP NHANH ================= */}
-        <Text style={styles.sectionTitle}>Truy cập nhanh</Text>
+        <Text style={styles.sectionTitle}>{t('Truy cập nhanh', 'Quick Actions')}</Text>
         <View style={styles.quickAccessRow}>
           {/* Đồng bộ Cloud */}
           <TouchableOpacity 
@@ -447,7 +449,7 @@ export const DashboardScreen: React.FC = () => {
               )}
             </View>
             <Text style={styles.quickBtnLabel}>
-              {isSyncing ? 'Đang đồng bộ' : 'Đồng bộ Cloud'}
+              {isSyncing ? t('Đang đồng bộ', 'Syncing...') : t('Đồng bộ Cloud', 'Cloud Sync')}
             </Text>
           </TouchableOpacity>
 
@@ -460,7 +462,7 @@ export const DashboardScreen: React.FC = () => {
             <View style={[styles.quickBtnIconBox, { backgroundColor: '#EFF6FF' }]}>
               <MaterialCommunityIcons name="chart-box-outline" size={20} color={Colors.primary} />
             </View>
-            <Text style={styles.quickBtnLabel}>Thống kê</Text>
+            <Text style={styles.quickBtnLabel}>{t('Thống kê', 'Statistics')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

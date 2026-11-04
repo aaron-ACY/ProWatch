@@ -52,6 +52,79 @@ export const supabaseService = {
   },
 
   /**
+   * Đồng bộ và cập nhật đầy đủ thông tin thiết bị vào bảng public.devices (đảm bảo không bị NULL các cột)
+   */
+  async syncDeviceStatus(device: {
+    deviceId?: string;
+    deviceName?: string;
+    macAddress?: string;
+    userId?: string | null;
+    model?: string;
+    firmwareVersion?: string;
+    batteryLevel?: number;
+    isCharging?: boolean;
+    connectionMode?: string;
+    ipAddress?: string;
+    isOnline?: boolean;
+  }) {
+    try {
+      let cleanUid = cleanUserId(device.userId);
+      if (!cleanUid) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user?.id) {
+            cleanUid = session.user.id;
+          }
+        } catch {}
+      }
+
+      const devId = device.deviceId || 'XIAO-ESP32S3-PROWATCH-01';
+      const nowIso = new Date().toISOString();
+      const validMac =
+        device.macAddress &&
+        device.macAddress !== 'Chưa kết nối' &&
+        device.macAddress !== 'Đã kết nối'
+          ? device.macAddress
+          : 'DC:54:75:E3:S3:01';
+
+      const payload: Record<string, any> = {
+        device_id: devId,
+        device_name: device.deviceName || 'ProWatch-S3 (XIAO ESP32-S3)',
+        mac_address: validMac,
+        model: device.model || 'Seeed XIAO ESP32-S3',
+        firmware_version: device.firmwareVersion || 'v1.5.3-max30102-no-offline',
+        battery_level:
+          device.batteryLevel !== undefined && device.batteryLevel > 0
+            ? device.batteryLevel
+            : 90,
+        is_charging: device.isCharging ?? false,
+        connection_mode: device.connectionMode || 'BLE',
+        ip_address: device.ipAddress || 'BLE-GATT-DIRECT',
+        is_online: device.isOnline ?? true,
+        last_heartbeat: nowIso,
+        updated_at: nowIso,
+      };
+
+      if (cleanUid) {
+        payload.user_id = cleanUid;
+      }
+
+      const { data, error } = await supabase
+        .from('devices')
+        .upsert([payload], { onConflict: 'device_id' });
+
+      if (error) {
+        console.warn('[SUPABASE SYNC] Lỗi cập nhật bảng devices:', error.message);
+        return { success: false, error };
+      }
+      return { success: true, data };
+    } catch (err: any) {
+      console.warn('[SUPABASE SYNC] Ngoại lệ khi cập nhật bảng devices:', err);
+      return { success: false, error: err };
+    }
+  },
+
+  /**
    * Lưu bản ghi sức khỏe hợp nhất vào bảng health_records (nhịp tim, SpO2)
    * và tự động chuyển tiếp hoạt động, số bước, calo sang bảng activities nếu có.
    */
@@ -68,12 +141,16 @@ export const supabaseService = {
       }
       const devId = record.deviceId || 'XIAO-ESP32S3-PROWATCH-01';
       const timeStr = record.recordedAt || new Date().toISOString();
+      const seqNum =
+        record.offlineSeq && record.offlineSeq > 0
+          ? record.offlineSeq
+          : Math.floor(new Date(timeStr).getTime() / 1000);
 
       const insertPayload: Record<string, any> = {
         user_id: cleanUid,
         device_id: devId,
         recorded_at: timeStr,
-        offline_seq: record.offlineSeq || null,
+        offline_seq: seqNum,
       };
 
       if (record.heartRate && record.heartRate > 0) insertPayload.heart_rate = record.heartRate;
@@ -101,23 +178,6 @@ export const supabaseService = {
         }
       }
 
-      // Đồng thời đồng bộ dữ liệu hoạt động/bước chân/calo sang bảng activities mới
-      if (
-        (record.steps !== undefined && record.steps !== null) ||
-        (record.calories !== undefined && record.calories !== null) ||
-        (record.activity && record.activity !== 'Đo chủ động')
-      ) {
-        await this.syncActivityRecord({
-          userId: cleanUid,
-          deviceId: devId,
-          steps: record.steps,
-          calories: record.calories,
-          activity: record.activity,
-          offlineSeq: record.offlineSeq,
-          recordedAt: timeStr,
-        });
-      }
-
       return healthRes;
     } catch (err: any) {
       console.warn('[SUPABASE SYNC] Ngoại lệ khi lưu health_records:', err);
@@ -139,13 +199,17 @@ export const supabaseService = {
       }
       const devId = record.deviceId || 'XIAO-ESP32S3-PROWATCH-01';
       const timeStr = record.recordedAt || new Date().toISOString();
+      const seqNum =
+        record.offlineSeq && record.offlineSeq > 0
+          ? record.offlineSeq
+          : Math.floor(new Date(timeStr).getTime() / 1000);
 
       const insertPayload: Record<string, any> = {
         user_id: cleanUid,
         device_id: devId,
         recorded_at: timeStr,
         activity: record.activity || 'Đứng yên',
-        offline_seq: record.offlineSeq || null,
+        offline_seq: seqNum,
       };
 
       if (record.steps !== undefined && record.steps !== null) insertPayload.steps = record.steps;
@@ -200,7 +264,7 @@ export const supabaseService = {
       calories: data.calories,
       offlineSeq: data.offlineSeq,
       recordedAt: data.recordedAt,
-      activity: data.activity || 'Đo chủ động',
+      activity: data.activity || undefined,
       riskScore: data.riskScore,
       riskLevel: data.riskLevel,
     });
@@ -211,7 +275,7 @@ export const supabaseService = {
    */
   async syncHeartRateRecord(
     bpm: number,
-    activity = 'Đo chủ động',
+    activity?: string,
     recordedAt?: string,
     userId?: string | null,
     offlineSeq?: number,
