@@ -1,7 +1,16 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
   servlet:
     context-path: /prowatch
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
 
 spring:
   application:
@@ -39,17 +48,21 @@ spring:
 # ==============================================================================
 # 2. PROFILE SUPABASE (Dùng khi đã có mật khẩu Database của Supabase)
 # Sử dụng Pooler IPv4 (aws-0-ap-southeast-1.pooler.supabase.com) cổng 6543/5432
-# Tránh lỗi UnknownHostException IPv6 trên mạng Việt Nam
+# Tránh lỗi UnknownHostException IPv6 và lỗi prepared statement trên PgBouncer
 # ==============================================================================
 spring:
   config:
     activate:
       on-profile: supabase
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${SUPABASE_POOLER_HOST:aws-0-ap-southeast-1.pooler.supabase.com}:6543/postgres?sslmode=require}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${SUPABASE_POOLER_HOST:aws-0-ap-southeast-1.pooler.supabase.com}:6543/postgres?sslmode=require&prepareThreshold=0}
     username: ${SPRING_DATASOURCE_USERNAME:postgres.hyyrkyuarclrpwlpssvc}
     password: ${SPRING_DATASOURCE_PASSWORD:your-supabase-db-password}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 20000
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
