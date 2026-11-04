@@ -208,7 +208,7 @@ class WatchService {
     spo2AlertLow: 95,
     notificationsEnabled: true,
     hapticFeedback: true,
-    apiServerUrl: 'http://172.16.0.12:8080/prowatch/api/v1',
+    apiServerUrl: 'https://prowatch-backend.onrender.com/prowatch/api/v1',
   };
 
   private currentBpm: number = 0;
