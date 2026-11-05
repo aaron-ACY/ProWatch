@@ -201,6 +201,12 @@ export const dictionary: Record<Language, Record<string, string>> = {
     'mobile.modHarDesc': 'Phân loại hành vi thời gian thực từ cảm biến gia tốc MPU6050.',
     'mobile.modSecurity': 'Bảo mật & Cài đặt:',
     'mobile.modSecurityDesc': 'Xác thực đa yếu tố (MFA), cài đặt ngưỡng cảnh báo nhịp tim bất thường.',
+    'mobile.downloadApk': 'Tải APK',
+    'mobile.downloadModalTitle': 'Tải Ứng Dụng ProWatch Health (APK)',
+    'mobile.scanQrDesc': 'Quét mã QR bằng camera hoặc trình duyệt điện thoại để tự động tải trực tiếp file APK phiên bản mới nhất từ GitHub Releases.',
+    'mobile.directDownload': 'Tải trực tiếp APK',
+    'mobile.viewReleases': 'Xem trên GitHub Releases',
+    'mobile.scanTip': 'Hỗ trợ Android 8.0+ (ARM64)',
 
     // ----------------- FOOTER -----------------
     'footer.copyright': '© 2026 ProWatch AI Studio. All rights reserved.',
@@ -395,6 +401,12 @@ export const dictionary: Record<Language, Record<string, string>> = {
     'mobile.modHarDesc': 'Real-time human activity classification from MPU6050 accelerometer.',
     'mobile.modSecurity': 'Security & Settings:',
     'mobile.modSecurityDesc': 'Multi-factor authentication (MFA) and customizable abnormal vital warning thresholds.',
+    'mobile.downloadApk': 'Download APK',
+    'mobile.downloadModalTitle': 'Download ProWatch Health App (APK)',
+    'mobile.scanQrDesc': 'Scan the QR code with your phone camera or browser to automatically download the latest APK release directly from GitHub Releases.',
+    'mobile.directDownload': 'Direct Download APK',
+    'mobile.viewReleases': 'View GitHub Releases',
+    'mobile.scanTip': 'Requires Android 8.0+ (ARM64)',
 
     // ----------------- FOOTER -----------------
     'footer.copyright': '© 2026 ProWatch AI Studio. All rights reserved.',

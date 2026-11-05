@@ -13,9 +13,16 @@ import {
   ZoomOut,
   Sparkles,
   AlignJustify,
-  AlignCenter
+  AlignCenter,
+  Download,
+  QrCode,
+  X
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useLanguage } from '@/context/LanguageContext';
+
+const APK_DOWNLOAD_URL = 'https://github.com/aaron-ACY/ProWatch/releases/latest/download/ProWatch-Health.apk';
+const REPO_RELEASES_URL = 'https://github.com/aaron-ACY/ProWatch/releases';
 
 export const MobileTab: React.FC = () => {
   const { t, language } = useLanguage();
@@ -31,6 +38,17 @@ export const MobileTab: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadTimeout, setLoadTimeout] = useState(false);
   const [scale, setScale] = useState<number>(0.82); // Tỷ lệ mặc định vừa vặn màn hình
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showDownloadModal) {
+        setShowDownloadModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showDownloadModal]);
 
   // Tự động nhận diện môi trường: Local (:8085) vs Cloud Hosted
   const [isLocalHost, setIsLocalHost] = useState(true);
@@ -436,6 +454,31 @@ export const MobileTab: React.FC = () => {
             </span>
           )}
 
+          {/* Download Latest APK with QR Modal */}
+          <button
+            type="button"
+            onClick={() => setShowDownloadModal(true)}
+            title={t('mobile.downloadApk')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              padding: '0.45rem 0.75rem',
+              borderRadius: '8px',
+              backgroundColor: '#10b981',
+              border: 'none',
+              color: 'white',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(16, 185, 129, 0.25)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Download size={14} />
+            <span>{t('mobile.downloadApk')}</span>
+          </button>
+
           {/* Open in separate tab */}
           <a
             href={activeMobileUrl}
@@ -769,6 +812,197 @@ export const MobileTab: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* APK Download & QR Code Modal */}
+      {showDownloadModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem'
+          }}
+          onClick={() => setShowDownloadModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '20px',
+              maxWidth: '430px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{
+              padding: '1.2rem 1.4rem',
+              borderBottom: '1px solid #f1f5f9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'linear-gradient(to right, #f8fafc, #ffffff)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  backgroundColor: '#ecfdf5',
+                  color: '#059669',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid #a7f3d0'
+                }}>
+                  <QrCode size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 700, color: '#0f172a' }}>
+                    {t('mobile.downloadModalTitle')}
+                  </h3>
+                  <p style={{ margin: '0.15rem 0 0', fontSize: '0.74rem', color: '#64748b' }}>
+                    {t('mobile.scanTip')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDownloadModal(false)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#f1f5f9',
+                  color: '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Đóng (Esc)"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+              {/* QR Code Container */}
+              <div style={{
+                padding: '16px',
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                border: '2px solid #e2e8f0',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.06)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <QRCodeSVG
+                  value={APK_DOWNLOAD_URL}
+                  size={190}
+                  level="H"
+                  includeMargin={false}
+                />
+              </div>
+
+              {/* Asset Badge */}
+              <div style={{
+                marginTop: '1rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.35rem 0.75rem',
+                backgroundColor: '#ecfdf5',
+                borderRadius: '20px',
+                border: '1px solid #a7f3d0',
+                color: '#065f46',
+                fontSize: '0.76rem',
+                fontWeight: 600
+              }}>
+                <Smartphone size={13} />
+                <span>ProWatch-Health.apk (Release v1.0.20+)</span>
+              </div>
+
+              <p style={{
+                margin: '0.75rem 0 1.25rem',
+                fontSize: '0.78rem',
+                lineHeight: '1.45',
+                color: '#475569',
+                maxWidth: '340px'
+              }}>
+                {t('mobile.scanQrDesc')}
+              </p>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', width: '100%' }}>
+                <a
+                  href={APK_DOWNLOAD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download="ProWatch-Health.apk"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.65rem 1rem',
+                    backgroundColor: '#059669',
+                    color: '#ffffff',
+                    borderRadius: '10px',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Download size={16} />
+                  <span>{t('mobile.directDownload')}</span>
+                </a>
+
+                <a
+                  href={REPO_RELEASES_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    padding: '0.55rem 1rem',
+                    backgroundColor: '#f8fafc',
+                    color: '#475569',
+                    borderRadius: '10px',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '0.8rem',
+                    fontWeight: 500,
+                    textDecoration: 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <ExternalLink size={14} />
+                  <span>{t('mobile.viewReleases')}</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         @keyframes spin {
