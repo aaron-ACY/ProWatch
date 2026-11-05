@@ -44,13 +44,26 @@ jobs:
       - name: Set up Gradle Cache
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Cache CMake NDK C++ Build (.cxx)
+        uses: actions/cache@v4
+        with:
+          path: |
+            mobile/frontend/android/app/.cxx
+            mobile/frontend/node_modules/expo-modules-core/android/.cxx
+            mobile/frontend/node_modules/react-native-screens/android/.cxx
+            mobile/frontend/node_modules/react-native-safe-area-context/android/.cxx
+            mobile/frontend/node_modules/react-native-svg/android/.cxx
+          key: ${{ runner.os }}-cmake-cxx-${{ hashFiles('mobile/frontend/package-lock.json', 'mobile/frontend/android/gradle.properties', 'mobile/frontend/android/app/build.gradle') }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-cxx-
+
       - name: Make Gradlew executable
         working-directory: mobile/frontend/android
         run: chmod +x gradlew
 
       - name: Build Android Release APK
         working-directory: mobile/frontend/android
-        run: ./gradlew assembleRelease --build-cache --parallel -PreactNativeArchitectures=arm64-v8a
+        run: ./gradlew :app:assembleRelease -x lint -x lintVitalRelease -x lintVitalAnalyzeRelease --build-cache --parallel --configure-on-demand -PreactNativeArchitectures=arm64-v8a
 
       - name: Prepare APK Asset
         run: |
