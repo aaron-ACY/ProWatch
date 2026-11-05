@@ -27,11 +27,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Newman & Validator Tools
-        run: npm install -g newman js-yaml
+      - name: Install Newman
+        run: npm install -g newman
 
       - name: Validate OpenAPI 3.0 YAML Spec
-        run: node -e "const yaml = require('js-yaml'); const fs = require('fs'); yaml.load(fs.readFileSync('postman/specs/prowatch_openapi.yaml', 'utf8')); console.log('✅ OpenAPI 3.0 YAML Spec is valid.');"
+        run: python3 -c "import yaml; yaml.safe_load(open('postman/specs/prowatch_openapi.yaml')); print('✅ OpenAPI 3.0 YAML Spec is valid.')"
 
       - name: Validate Postman Collections & Environments JSON
         run: |
