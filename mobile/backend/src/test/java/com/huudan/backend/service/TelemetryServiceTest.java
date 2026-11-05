@@ -57,6 +57,7 @@ class TelemetryServiceTest {
     @Test
     @DisplayName("Health Summary preserves latest biometric readings even when device is offline")
     void testGetHealthSummaryOfflinePreservesLatestValues() {
+        java.util.UUID userId = java.util.UUID.randomUUID();
         Device device = Device.builder()
                 .deviceId(deviceId)
                 .isOnline(false)
@@ -69,26 +70,28 @@ class TelemetryServiceTest {
         HealthRecord hrRec = HealthRecord.builder()
                 .id(1L)
                 .deviceId(deviceId)
+                .userId(userId)
                 .heartRate(72)
                 .spo2(98)
                 .riskScore(0.12)
                 .riskLevel("Low")
                 .recordedAt(Instant.now().minusSeconds(300))
                 .build();
-        when(healthRecordRepo.findByDeviceIdOrderByRecordedAtDesc(eq(deviceId), any(PageRequest.class)))
+        when(healthRecordRepo.findByUserIdOrderByRecordedAtDesc(eq(userId), any(PageRequest.class)))
                 .thenReturn(List.of(hrRec));
 
         Activity act = Activity.builder()
                 .deviceId(deviceId)
+                .userId(userId)
                 .activity("REST")
                 .steps(5400)
                 .calories(210.0)
                 .build();
-        when(activityRepo.findFirstByDeviceIdOrderByRecordedAtDesc(deviceId)).thenReturn(Optional.of(act));
-        when(healthRecordRepo.countByDeviceIdAndRecordedAtBetween(eq(deviceId), any(), any())).thenReturn(5L);
-        when(healthRecordRepo.countByDeviceId(deviceId)).thenReturn(24L);
+        when(activityRepo.findFirstByUserIdOrderByRecordedAtDesc(userId)).thenReturn(Optional.of(act));
+        when(healthRecordRepo.countByUserIdAndRecordedAtBetween(eq(userId), any(), any())).thenReturn(5L);
+        when(healthRecordRepo.countByUserId(userId)).thenReturn(24L);
 
-        HealthSummaryDto summary = telemetryService.getHealthSummary(deviceId);
+        HealthSummaryDto summary = telemetryService.getHealthSummary(deviceId, userId.toString());
 
         assertNotNull(summary);
         assertFalse(summary.getIsConnected());

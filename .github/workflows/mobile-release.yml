@@ -90,12 +90,19 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew :app:assembleRelease -x lint -x lintVitalRelease -x lintVitalAnalyzeRelease --build-cache --parallel --configure-on-demand -PreactNativeArchitectures=arm64-v8a
 
-      - name: Verify APK signature
+      - name: Verify APK signature and permissions
         run: |
           APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | sort -V | tail -n 1)
-          $APKSIGNER verify --print-certs mobile/frontend/android/app/build/outputs/apk/release/app-release.apk | tee signer.txt
+          AAPT=$(ls $ANDROID_HOME/build-tools/*/aapt | sort -V | tail -n 1)
+          APK_PATH="mobile/frontend/android/app/build/outputs/apk/release/app-release.apk"
+          $APKSIGNER verify --print-certs "$APK_PATH" | tee signer.txt
           if grep -q "CN=Android Debug" signer.txt; then
             echo "::error::APK dang ky bang debug keystore!"
+            exit 1
+          fi
+          $AAPT dump permissions "$APK_PATH" | tee perms.txt
+          if grep -E "READ_SMS|RECEIVE_SMS|BIND_NOTIFICATION_LISTENER_SERVICE|REQUEST_INSTALL_PACKAGES" perms.txt; then
+            echo "::error::APK van chua quyen nhay cam bi Google Play Protect chan!"
             exit 1
           fi
           rm -f "$ANDROID_KEYSTORE_PATH"

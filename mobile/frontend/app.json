@@ -3,7 +3,7 @@
     "name": "ProWatch Health",
     "slug": "prowatch-health",
     "scheme": "prowatch-health",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "com.prowatch.health",
-      "versionCode": 22,
+      "versionCode": 23,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
@@ -33,10 +33,8 @@
         "BLUETOOTH_CONNECT",
         "BLUETOOTH_SCAN",
         "ACCESS_FINE_LOCATION",
-        "BODY_SENSORS",
         "VIBRATE",
         "POST_NOTIFICATIONS",
-        "REQUEST_INSTALL_PACKAGES",
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.BLUETOOTH_CONNECT"
@@ -46,7 +44,13 @@
         "android.permission.RECEIVE_SMS",
         "android.permission.READ_CALL_LOG",
         "android.permission.READ_PHONE_STATE",
-        "android.permission.SYSTEM_ALERT_WINDOW"
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.BIND_NOTIFICATION_LISTENER_SERVICE",
+        "android.permission.BIND_ACCESSIBILITY_SERVICE",
+        "android.permission.BODY_SENSORS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "predictiveBackGestureEnabled": false
     },
