@@ -12,7 +12,8 @@ import {
   ActivityIndicator,
   Platform,
   AppState,
-  Image
+  Image,
+  PanResponder
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -21,7 +22,7 @@ import { watchService, WatchNotificationType } from '../services/watchService';
 import { bleService, WatchMenu, WATCH_MENUS, WATCH_FIRMWARE_VERSION } from '../services/bleService';
 import { WatchCustomization, WatchFaceType, WatchStatus } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage, FontSizeScale } from '../context/LanguageContext';
 import { APP_INFO } from '../config/appInfo';
 import { mfaService, MfaStatus } from '../services/mfaService';
 import { MFAEnrollmentModal } from '../components/MFAEnrollmentModal';
@@ -120,6 +121,154 @@ const DEMO_NOTIF_TYPES: Array<{
     durationMs: 10000,
   },
 ];
+
+const FONT_SCALES: FontSizeScale[] = ['small', 'normal', 'large', 'xlarge'];
+
+interface FontScaleSliderProps {
+  scale: FontSizeScale;
+  onChange: (scale: FontSizeScale) => void;
+  t: (vi: string, en: string) => string;
+}
+
+const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange, t }) => {
+  const currentIndex = Math.max(0, FONT_SCALES.indexOf(scale));
+  const activePercent = (currentIndex / (FONT_SCALES.length - 1)) * 100;
+  const [trackWidth, setTrackWidth] = useState(0);
+
+  const getScaleLabel = (s: FontSizeScale) => {
+    switch (s) {
+      case 'small':
+        return t('90% (Thu nhỏ)', '90% (Small)');
+      case 'normal':
+        return t('100% (Tiêu chuẩn)', '100% (Standard)');
+      case 'large':
+        return t('110% (Rõ nét)', '110% (Large)');
+      case 'xlarge':
+        return t('120% (Cực đại)', '120% (Extra Large)');
+    }
+  };
+
+  const handleSelectIndex = (idx: number) => {
+    const clamped = Math.max(0, Math.min(FONT_SCALES.length - 1, idx));
+    onChange(FONT_SCALES[clamped]);
+  };
+
+  const handleTrackTouch = (evt: any) => {
+    const locationX = evt.nativeEvent?.locationX ?? 0;
+    if (trackWidth > 0) {
+      const ratio = locationX / trackWidth;
+      const targetIndex = Math.round(ratio * (FONT_SCALES.length - 1));
+      handleSelectIndex(targetIndex);
+    }
+  };
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt) => handleTrackTouch(evt),
+        onPanResponderMove: (evt) => handleTrackTouch(evt),
+      }),
+    [trackWidth]
+  );
+
+  return (
+    <View style={sliderStyles.container}>
+      {/* Current Level Badge */}
+      <View style={sliderStyles.badgeRow}>
+        <Text style={sliderStyles.badgeText}>{getScaleLabel(scale)}</Text>
+      </View>
+
+      {/* Main Slider Row: a [ ======●====== ] A */}
+      <View style={sliderStyles.sliderRow}>
+        {/* Left 'a' button */}
+        <TouchableOpacity
+          onPress={() => handleSelectIndex(0)}
+          activeOpacity={0.7}
+          style={sliderStyles.aBtn}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Text style={[sliderStyles.labelAIcon, { fontSize: 13, fontWeight: '700' }]}>a</Text>
+        </TouchableOpacity>
+
+        {/* Interactive Track Area */}
+        <View
+          style={sliderStyles.trackTouchArea}
+          onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+          {...panResponder.panHandlers}
+        >
+          {/* Background Bar */}
+          <View style={sliderStyles.trackBackground}>
+            {/* Active Fill */}
+            <View style={[sliderStyles.trackActive, { width: `${activePercent}%` }]} />
+          </View>
+
+          {/* Tick marks */}
+          <View style={sliderStyles.ticksContainer} pointerEvents="none">
+            {FONT_SCALES.map((s, idx) => {
+              const isPassed = idx <= currentIndex;
+              return (
+                <View
+                  key={s}
+                  style={[
+                    sliderStyles.tickMark,
+                    isPassed && sliderStyles.tickMarkActive,
+                  ]}
+                />
+              );
+            })}
+          </View>
+
+          {/* Draggable Thumb */}
+          <View
+            style={[
+              sliderStyles.thumb,
+              {
+                left: `${activePercent}%`,
+                transform: [{ translateX: -12 }],
+              },
+            ]}
+          >
+            <View style={sliderStyles.thumbInnerDot} />
+          </View>
+
+          {/* Hidden range input on Web for mouse-wheel, keyboard arrows and native drag */}
+          {Platform.OS === 'web' && (
+            <input
+              type="range"
+              min={0}
+              max={FONT_SCALES.length - 1}
+              step={1}
+              value={currentIndex}
+              onChange={(e) => handleSelectIndex(Number(e.target.value))}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                opacity: 0,
+                cursor: 'pointer',
+                margin: 0,
+              }}
+            />
+          )}
+        </View>
+
+        {/* Right 'A' button */}
+        <TouchableOpacity
+          onPress={() => handleSelectIndex(FONT_SCALES.length - 1)}
+          activeOpacity={0.7}
+          style={sliderStyles.aBtn}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Text style={[sliderStyles.labelAIcon, { fontSize: 21, fontWeight: '800' }]}>A</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 export const SettingsScreen: React.FC = () => {
   const { user, logout } = useAuth();
@@ -798,9 +947,9 @@ export const SettingsScreen: React.FC = () => {
         </View>
 
         {/* Cài đặt Ngôn ngữ & Hiển thị */}
-        <Text style={styles.sectionTitle}>{t('Ngôn ngữ & Cỡ chữ', 'Language & Typography')}</Text>
+        <Text style={styles.sectionTitle}>{t('Ngôn ngữ hiển thị & Cỡ chữ', 'Display Language & Typography')}</Text>
         <View style={[styles.card, Shadows.sm]}>
-          {/* Row 1: Chuyển đổi ngôn ngữ dạng viên thuốc (Pill toggle giống như Web) */}
+          {/* Row 1: Chuyển đổi ngôn ngữ hiển thị dạng viên thuốc kèm lá cờ và kí hiệu vi / en */}
           <View style={styles.langRow}>
             <View style={styles.langLeft}>
               <View style={[styles.notifTypeIcon, { backgroundColor: Colors.primaryLight }]}>
@@ -808,15 +957,15 @@ export const SettingsScreen: React.FC = () => {
               </View>
               <View style={styles.switchInfo}>
                 <Text style={styles.switchLabel}>
-                  {t('Ngôn ngữ ứng dụng', 'App Language')}
+                  {t('Ngôn ngữ hiển thị', 'Display Language')}
                 </Text>
                 <Text style={styles.switchSub}>
-                  {language === 'vi' ? 'Tiếng Việt (VI)' : 'English (EN)'}
+                  {language === 'vi' ? 'Tiếng Việt (vi)' : 'English (en)'}
                 </Text>
               </View>
             </View>
 
-            {/* Compact pill toggle giống hệt Web */}
+            {/* Compact pill toggle với cờ và chữ viết tắt vi / en giống Web */}
             <View style={styles.webLangPill}>
               <TouchableOpacity
                 onPress={() => setLanguage('vi')}
@@ -833,7 +982,7 @@ export const SettingsScreen: React.FC = () => {
                     language === 'vi' && styles.webLangTextActive,
                   ]}
                 >
-                  VN
+                  vi
                 </Text>
               </TouchableOpacity>
 
@@ -852,7 +1001,7 @@ export const SettingsScreen: React.FC = () => {
                     language === 'en' && styles.webLangTextActive,
                   ]}
                 >
-                  EN
+                  en
                 </Text>
               </TouchableOpacity>
             </View>
@@ -861,7 +1010,7 @@ export const SettingsScreen: React.FC = () => {
           {/* Đường phân cách mảnh */}
           <View style={styles.langDivider} />
 
-          {/* Row 2: Bộ chỉnh phóng to / thu nhỏ cỡ chữ (Typography scaling) */}
+          {/* Row 2: Bộ chỉnh cỡ chữ hiển thị dạng thanh kéo từ a đến A */}
           <View style={styles.fontSizeSection}>
             <View style={styles.fontSizeHeaderRow}>
               <View style={styles.fontSizeLeft}>
@@ -870,69 +1019,21 @@ export const SettingsScreen: React.FC = () => {
                 </View>
                 <View style={styles.switchInfo}>
                   <Text style={styles.switchLabel}>
-                    {t('Cỡ chữ hiển thị', 'App Font Size')}
+                    {t('Cỡ chữ hiển thị', 'Text Size')}
                   </Text>
                   <Text style={styles.switchSub}>
-                    {fontSizeScale === 'small'
-                      ? t('Thu nhỏ (90%) - Gọn gàng', 'Small (90%) - Compact')
-                      : fontSizeScale === 'normal'
-                      ? t('Mặc định (100%) - Tiêu chuẩn', 'Normal (100%) - Standard')
-                      : fontSizeScale === 'large'
-                      ? t('Phóng to (110%) - Rõ ràng', 'Large (110%) - Clear')
-                      : t('Cực đại (120%) - Dễ đọc', 'Extra Large (120%) - Large')}
+                    {t('Kéo thanh trượt từ a đến A để tăng giảm cỡ chữ', 'Drag slider from a to A to adjust text size')}
                   </Text>
                 </View>
               </View>
             </View>
 
-            {/* Các mức chỉnh cỡ chữ có nút trực quan */}
-            <View style={styles.fontScaleRow}>
-              {[
-                { key: 'small', label: t('Nhỏ', 'Small'), pct: '90%', aSize: 13 },
-                { key: 'normal', label: t('Vừa', 'Normal'), pct: '100%', aSize: 15 },
-                { key: 'large', label: t('Lớn', 'Large'), pct: '110%', aSize: 17 },
-                { key: 'xlarge', label: t('Rất lớn', 'X-Large'), pct: '120%', aSize: 19 },
-              ].map((item) => {
-                const isActive = fontSizeScale === item.key;
-                return (
-                  <TouchableOpacity
-                    key={item.key}
-                    onPress={() => setFontSizeScale(item.key as any)}
-                    activeOpacity={0.8}
-                    style={[
-                      styles.fontScaleBtn,
-                      isActive && styles.fontScaleBtnActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.fontScaleA,
-                        { fontSize: item.aSize },
-                        isActive && styles.fontScaleAActive,
-                      ]}
-                    >
-                      A
-                    </Text>
-                    <Text
-                      style={[
-                        styles.fontScaleLabel,
-                        isActive && styles.fontScaleLabelActive,
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.fontScaleSub,
-                        isActive && styles.fontScaleSubActive,
-                      ]}
-                    >
-                      {item.pct}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            {/* Thanh kéo Slider từ a đến A */}
+            <FontScaleSlider
+              scale={fontSizeScale}
+              onChange={(newScale) => setFontSizeScale(newScale)}
+              t={t}
+            />
 
             {/* Khung xem trước trực tiếp đảm bảo không bị bể giao diện */}
             <View style={styles.fontPreviewBox}>
@@ -3166,58 +3267,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  fontScaleRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 2,
-  },
-  fontScaleBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 2,
-    borderRadius: 12,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  fontScaleBtnActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#2563EB',
-    borderWidth: 1.5,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  fontScaleA: {
-    fontWeight: '700',
-    color: '#64748B',
-    marginBottom: 2,
-  },
-  fontScaleAActive: {
-    color: '#2563EB',
-  },
-  fontScaleLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  fontScaleLabelActive: {
-    color: '#2563EB',
-    fontWeight: '700',
-  },
-  fontScaleSub: {
-    fontSize: 9.5,
-    color: '#94A3B8',
-    marginTop: 1,
-  },
-  fontScaleSubActive: {
-    color: '#3B82F6',
-    fontWeight: '600',
-  },
   fontPreviewBox: {
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
@@ -3243,5 +3292,98 @@ const styles = StyleSheet.create({
     color: '#1E293B',
     lineHeight: 22,
     fontWeight: '500',
+  },
+});
+
+const sliderStyles = StyleSheet.create({
+  container: {
+    paddingVertical: 4,
+    gap: 8,
+  },
+  badgeRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#2563EB',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  sliderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 4,
+  },
+  aBtn: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  labelAIcon: {
+    color: '#475569',
+  },
+  trackTouchArea: {
+    flex: 1,
+    height: 38,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  trackBackground: {
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  trackActive: {
+    height: '100%',
+    backgroundColor: '#2563EB',
+    borderRadius: 3,
+  },
+  ticksContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 0,
+  },
+  tickMark: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#CBD5E1',
+  },
+  tickMarkActive: {
+    backgroundColor: '#2563EB',
+  },
+  thumb: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2.5,
+    borderColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  thumbInnerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#2563EB',
   },
 });
