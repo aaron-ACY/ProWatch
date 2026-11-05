@@ -79,6 +79,8 @@ export interface User {
   height?: number;
   weight?: number;
   gender?: string;
+  notes?: string;
+  age?: number;
   isProfileComplete?: boolean;
   createdAt: string;
 }
@@ -91,4 +93,5 @@ export type AuthStackParamList = {
 export type MainStackParamList = {
   MainTabs: undefined;
   Logout: undefined;
+  BasicHealthInfo: undefined;
 };

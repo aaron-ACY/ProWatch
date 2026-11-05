@@ -9,6 +9,8 @@ export interface HealthProfileData {
   dateOfBirth: string;
   height: number;
   weight: number;
+  notes?: string;
+  age?: number;
 }
 
 interface AuthContextType {
@@ -350,6 +352,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               dateOfBirth: data.dateOfBirth,
               height: data.height,
               weight: data.weight,
+              notes: data.notes ?? prev.notes,
+              age: data.age ?? prev.age,
               isProfileComplete: true,
             }
           : null

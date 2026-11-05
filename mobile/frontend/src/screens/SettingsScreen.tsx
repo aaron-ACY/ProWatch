@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
 import Svg, { Rect, Polygon, Path } from 'react-native-svg';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Colors, Shadows } from '../theme/colors';
 import { watchService, WatchNotificationType } from '../services/watchService';
 import { bleService, WatchMenu, WATCH_MENUS, WATCH_FIRMWARE_VERSION } from '../services/bleService';
@@ -329,6 +329,7 @@ const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange }) =>
 };
 
 export const SettingsScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const { user, logout } = useAuth();
   const { language, setLanguage, fontSizeScale, setFontSizeScale, t } = useLanguage();
   const [settings, setSettings] = useState<WatchCustomization>(watchService.getCustomization());
@@ -988,7 +989,11 @@ export const SettingsScreen: React.FC = () => {
         </View>
 
         {/* User Profile Card */}
-        <View style={[styles.profileCard, Shadows.sm]}>
+        <TouchableOpacity 
+          style={[styles.profileCard, Shadows.sm]}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('BasicHealthInfo')}
+        >
           <View style={styles.profileAvatar}>
             <Text style={styles.profileAvatarText}>
               {(user?.name || 'U').charAt(0).toUpperCase()}
@@ -997,12 +1002,37 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{user?.name || t('Người dùng', 'User')}</Text>
             <Text style={styles.profileEmail}>{user?.email || 'user@prowatch.com'}</Text>
+            <Text style={styles.profileStatsSummary}>
+              {user?.height || 185.6} cm • {user?.weight || 75.6} kg
+            </Text>
           </View>
-          <View style={styles.profileBadge}>
-            <MaterialCommunityIcons name="shield-check" size={14} color={Colors.primary} />
-            <Text style={styles.profileBadgeText}>{t('Đã xác thực', 'Verified')}</Text>
+          <View style={styles.profileEditPill}>
+            <MaterialCommunityIcons name="pencil" size={14} color={Colors.primary} />
+            <Text style={styles.profileEditText}>{t('Sửa', 'Edit')}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
+
+        {/* Chỉnh sửa thông tin cơ bản Entry Card */}
+        <TouchableOpacity
+          style={[styles.basicInfoEntryCard, Shadows.sm]}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('BasicHealthInfo')}
+        >
+          <View style={styles.basicInfoEntryLeft}>
+            <View style={[styles.notifTypeIcon, { backgroundColor: '#FEE2E2', marginRight: 12 }]}>
+              <MaterialCommunityIcons name="scale-bathroom" size={20} color="#EF4444" />
+            </View>
+            <View style={styles.switchInfo}>
+              <Text style={styles.switchLabel}>
+                {t('Chỉnh sửa thông tin cơ bản', 'Edit Basic Health Info')}
+              </Text>
+              <Text style={styles.switchSub}>
+                {t('Chiều cao, cân nặng, BMI, giới tính, tuổi & ghi chú', 'Height, weight, BMI, gender, age & note')}
+              </Text>
+            </View>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color="#9CA3AF" />
+        </TouchableOpacity>
 
         {/* Cài đặt Ngôn ngữ & Hiển thị */}
         <Text style={styles.sectionTitle}>{t('Ngôn ngữ hiển thị & Cỡ chữ', 'Display Language & Typography')}</Text>
@@ -2525,6 +2555,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: Colors.primary,
+  },
+  profileStatsSummary: {
+    fontSize: 11,
+    color: Colors.primary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  profileEditPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    gap: 4,
+  },
+  profileEditText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  basicInfoEntryCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 18,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  basicInfoEntryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
 
   // Notification Categories & Test Chips Styles

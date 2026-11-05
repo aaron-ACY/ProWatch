@@ -464,6 +464,18 @@ export const DashboardScreen: React.FC = () => {
             </View>
             <Text style={styles.quickBtnLabel}>{t('Thống kê', 'Statistics')}</Text>
           </TouchableOpacity>
+
+          {/* Chỉ số cơ bản: Chiều cao, cân nặng, BMI */}
+          <TouchableOpacity 
+            style={[styles.quickBtn, Shadows.sm]}
+            onPress={() => (navigation as any).navigate('BasicHealthInfo')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.quickBtnIconBox, { backgroundColor: '#FEE2E2' }]}>
+              <MaterialCommunityIcons name="scale-bathroom" size={20} color="#EF4444" />
+            </View>
+            <Text style={styles.quickBtnLabel}>{t('Chỉ số cơ bản', 'Basic Info')}</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
