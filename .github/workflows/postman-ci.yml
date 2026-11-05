@@ -28,10 +28,10 @@ jobs:
           node-version: '20'
 
       - name: Install Newman & Validator Tools
-        run: npm install -g newman yaml-lint
+        run: npm install -g newman js-yaml
 
       - name: Validate OpenAPI 3.0 YAML Spec
-        run: yaml-lint postman/specs/prowatch_openapi.yaml
+        run: node -e "const yaml = require('js-yaml'); const fs = require('fs'); yaml.load(fs.readFileSync('postman/specs/prowatch_openapi.yaml', 'utf8')); console.log('✅ OpenAPI 3.0 YAML Spec is valid.');"
 
       - name: Validate Postman Collections & Environments JSON
         run: |
@@ -51,3 +51,4 @@ jobs:
             -e postman/environments/render.json \
             --folder "3. Spring Boot Backend (:8080 / Render Cloud)" \
             -r cli
+
