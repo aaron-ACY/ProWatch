@@ -3,7 +3,7 @@
     "name": "ProWatch Health",
     "slug": "prowatch-health",
     "scheme": "prowatch-health",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "com.prowatch.health",
-      "versionCode": 21,
+      "versionCode": 22,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
@@ -36,14 +36,17 @@
         "BODY_SENSORS",
         "VIBRATE",
         "POST_NOTIFICATIONS",
-        "READ_PHONE_STATE",
-        "READ_CALL_LOG",
-        "RECEIVE_SMS",
-        "READ_SMS",
         "REQUEST_INSTALL_PACKAGES",
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.BLUETOOTH_CONNECT"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_SMS",
+        "android.permission.RECEIVE_SMS",
+        "android.permission.READ_CALL_LOG",
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ],
       "predictiveBackGestureEnabled": false
     },
