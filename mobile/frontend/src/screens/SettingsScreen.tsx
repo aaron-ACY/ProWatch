@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -16,6 +16,7 @@ import {
   PanResponder
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
+import Svg, { Rect, Polygon, Path } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Shadows } from '../theme/colors';
 import { watchService, WatchNotificationType } from '../services/watchService';
@@ -122,6 +123,30 @@ const DEMO_NOTIF_TYPES: Array<{
   },
 ];
 
+const FlagVN: React.FC<{ width?: number; height?: number }> = ({ width = 16, height = 11 }) => (
+  <View style={{ width, height, borderRadius: 2, overflow: 'hidden', marginRight: 5 }}>
+    <Svg width={width} height={height} viewBox="0 0 24 16">
+      <Rect width="24" height="16" fill="#DA251D" />
+      <Polygon
+        points="12,3.2 13.01,6.32 16.29,6.32 13.64,8.25 14.65,11.37 12,9.44 9.35,11.37 10.36,8.25 7.71,6.32 10.99,6.32"
+        fill="#FFFF00"
+      />
+    </Svg>
+  </View>
+);
+
+const FlagEN: React.FC<{ width?: number; height?: number }> = ({ width = 16, height = 11 }) => (
+  <View style={{ width, height, borderRadius: 2, overflow: 'hidden', marginRight: 5 }}>
+    <Svg width={width} height={height} viewBox="0 0 24 16">
+      <Rect width="24" height="16" fill="#012169" />
+      <Path d="M0 0L24 16M24 0L0 16" stroke="#FFFFFF" strokeWidth="3" />
+      <Path d="M0 0L24 16M24 0L0 16" stroke="#C8102E" strokeWidth="1.2" />
+      <Path d="M12 0V16M0 8H24" stroke="#FFFFFF" strokeWidth="5" />
+      <Path d="M12 0V16M0 8H24" stroke="#C8102E" strokeWidth="3" />
+    </Svg>
+  </View>
+);
+
 const FONT_SCALES: FontSizeScale[] = ['small', 'normal', 'large', 'xlarge'];
 
 interface FontScaleSliderProps {
@@ -130,35 +155,62 @@ interface FontScaleSliderProps {
   t: (vi: string, en: string) => string;
 }
 
-const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange, t }) => {
-  const currentIndex = Math.max(0, FONT_SCALES.indexOf(scale));
-  const activePercent = (currentIndex / (FONT_SCALES.length - 1)) * 100;
-  const [trackWidth, setTrackWidth] = useState(0);
+const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange }) => {
+  const targetIndex = Math.max(0, FONT_SCALES.indexOf(scale));
+  const [val, setVal] = useState<number>(targetIndex >= 0 ? targetIndex : 1);
+  const [isDragging, setIsDragging] = useState(false);
+  const trackRef = useRef<View>(null);
+  const trackWidthRef = useRef<number>(240);
 
-  const getScaleLabel = (s: FontSizeScale) => {
-    switch (s) {
-      case 'small':
-        return t('90% (Thu nhỏ)', '90% (Small)');
-      case 'normal':
-        return t('100% (Tiêu chuẩn)', '100% (Standard)');
-      case 'large':
-        return t('110% (Rõ nét)', '110% (Large)');
-      case 'xlarge':
-        return t('120% (Cực đại)', '120% (Extra Large)');
+  useEffect(() => {
+    if (!isDragging) {
+      setVal(targetIndex >= 0 ? targetIndex : 1);
+    }
+  }, [scale, isDragging, targetIndex]);
+
+  const updateFromRatio = (ratio: number, commit = false) => {
+    const clampedRatio = Math.max(0, Math.min(1, ratio));
+    const continuousVal = clampedRatio * (FONT_SCALES.length - 1);
+    setVal(continuousVal);
+
+    const closestIndex = Math.round(continuousVal);
+    const newScale = FONT_SCALES[closestIndex];
+    if (newScale && newScale !== scale) {
+      onChange(newScale);
+    }
+    if (commit) {
+      setVal(closestIndex);
     }
   };
 
-  const handleSelectIndex = (idx: number) => {
-    const clamped = Math.max(0, Math.min(FONT_SCALES.length - 1, idx));
-    onChange(FONT_SCALES[clamped]);
-  };
+  const handlePointerDown = (e: any) => {
+    setIsDragging(true);
+    if (Platform.OS === 'web' && e.currentTarget) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const ratio = (e.clientX - rect.left) / rect.width;
+      updateFromRatio(ratio, false);
 
-  const handleTrackTouch = (evt: any) => {
-    const locationX = evt.nativeEvent?.locationX ?? 0;
-    if (trackWidth > 0) {
-      const ratio = locationX / trackWidth;
-      const targetIndex = Math.round(ratio * (FONT_SCALES.length - 1));
-      handleSelectIndex(targetIndex);
+      const onPointerMove = (moveEvt: MouseEvent | TouchEvent) => {
+        const clientX = 'touches' in moveEvt && (moveEvt as TouchEvent).touches.length > 0 ? (moveEvt as TouchEvent).touches[0].clientX : (moveEvt as MouseEvent).clientX;
+        const currentRatio = (clientX - rect.left) / rect.width;
+        updateFromRatio(currentRatio, false);
+      };
+
+      const onPointerUp = (upEvt: MouseEvent | TouchEvent) => {
+        setIsDragging(false);
+        const clientX = 'changedTouches' in upEvt && (upEvt as TouchEvent).changedTouches.length > 0 ? (upEvt as TouchEvent).changedTouches[0].clientX : (upEvt as MouseEvent).clientX;
+        const finalRatio = (clientX - rect.left) / rect.width;
+        updateFromRatio(finalRatio, true);
+        window.removeEventListener('mousemove', onPointerMove);
+        window.removeEventListener('mouseup', onPointerUp);
+        window.removeEventListener('touchmove', onPointerMove);
+        window.removeEventListener('touchend', onPointerUp);
+      };
+
+      window.addEventListener('mousemove', onPointerMove);
+      window.addEventListener('mouseup', onPointerUp);
+      window.addEventListener('touchmove', onPointerMove, { passive: false });
+      window.addEventListener('touchend', onPointerUp);
     }
   };
 
@@ -167,47 +219,71 @@ const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange, t })
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (evt) => handleTrackTouch(evt),
-        onPanResponderMove: (evt) => handleTrackTouch(evt),
+        onPanResponderGrant: (evt) => {
+          setIsDragging(true);
+          const { locationX } = evt.nativeEvent;
+          if (trackWidthRef.current > 0) {
+            updateFromRatio(locationX / trackWidthRef.current, false);
+          }
+        },
+        onPanResponderMove: (evt) => {
+          const { locationX } = evt.nativeEvent;
+          if (trackWidthRef.current > 0) {
+            updateFromRatio(locationX / trackWidthRef.current, false);
+          }
+        },
+        onPanResponderRelease: (evt) => {
+          setIsDragging(false);
+          const { locationX } = evt.nativeEvent;
+          if (trackWidthRef.current > 0) {
+            updateFromRatio(locationX / trackWidthRef.current, true);
+          }
+        },
       }),
-    [trackWidth]
+    [scale]
   );
+
+  const percent = Math.max(0, Math.min(100, (val / (FONT_SCALES.length - 1)) * 100));
 
   return (
     <View style={sliderStyles.container}>
-      {/* Current Level Badge */}
-      <View style={sliderStyles.badgeRow}>
-        <Text style={sliderStyles.badgeText}>{getScaleLabel(scale)}</Text>
-      </View>
-
       {/* Main Slider Row: a [ ======●====== ] A */}
       <View style={sliderStyles.sliderRow}>
         {/* Left 'a' button */}
         <TouchableOpacity
-          onPress={() => handleSelectIndex(0)}
+          onPress={() => {
+            setVal(0);
+            onChange(FONT_SCALES[0]);
+          }}
           activeOpacity={0.7}
           style={sliderStyles.aBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={[sliderStyles.labelAIcon, { fontSize: 13, fontWeight: '700' }]}>a</Text>
+          <Text style={sliderStyles.labelSmallA}>a</Text>
         </TouchableOpacity>
 
         {/* Interactive Track Area */}
         <View
+          ref={trackRef}
           style={sliderStyles.trackTouchArea}
-          onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
-          {...panResponder.panHandlers}
+          onLayout={(e) => {
+            trackWidthRef.current = e.nativeEvent.layout.width;
+          }}
+          {...(Platform.OS === 'web'
+            ? { onMouseDown: handlePointerDown, onTouchStart: handlePointerDown }
+            : panResponder.panHandlers)}
         >
           {/* Background Bar */}
           <View style={sliderStyles.trackBackground}>
-            {/* Active Fill */}
-            <View style={[sliderStyles.trackActive, { width: `${activePercent}%` }]} />
+            {/* Active Fill Bar */}
+            <View style={[sliderStyles.trackActive, { width: `${percent}%` }]} />
           </View>
 
           {/* Tick marks */}
           <View style={sliderStyles.ticksContainer} pointerEvents="none">
             {FONT_SCALES.map((s, idx) => {
-              const isPassed = idx <= currentIndex;
+              const tickPercent = (idx / (FONT_SCALES.length - 1)) * 100;
+              const isPassed = percent >= tickPercent - 2;
               return (
                 <View
                   key={s}
@@ -225,45 +301,27 @@ const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange, t })
             style={[
               sliderStyles.thumb,
               {
-                left: `${activePercent}%`,
-                transform: [{ translateX: -12 }],
+                left: `${percent}%`,
+                transform: [{ translateX: -11 }],
               },
+              isDragging && sliderStyles.thumbDragging,
             ]}
           >
             <View style={sliderStyles.thumbInnerDot} />
           </View>
-
-          {/* Hidden range input on Web for mouse-wheel, keyboard arrows and native drag */}
-          {Platform.OS === 'web' && (
-            <input
-              type="range"
-              min={0}
-              max={FONT_SCALES.length - 1}
-              step={1}
-              value={currentIndex}
-              onChange={(e) => handleSelectIndex(Number(e.target.value))}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                opacity: 0,
-                cursor: 'pointer',
-                margin: 0,
-              }}
-            />
-          )}
         </View>
 
         {/* Right 'A' button */}
         <TouchableOpacity
-          onPress={() => handleSelectIndex(FONT_SCALES.length - 1)}
+          onPress={() => {
+            setVal(FONT_SCALES.length - 1);
+            onChange(FONT_SCALES[FONT_SCALES.length - 1]);
+          }}
           activeOpacity={0.7}
           style={sliderStyles.aBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={[sliderStyles.labelAIcon, { fontSize: 21, fontWeight: '800' }]}>A</Text>
+          <Text style={sliderStyles.labelBigA}>A</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -965,7 +1023,7 @@ export const SettingsScreen: React.FC = () => {
               </View>
             </View>
 
-            {/* Compact pill toggle với cờ và chữ viết tắt vi / en giống Web */}
+            {/* Compact pill toggle với cờ SVG và chữ viết tắt vi / en giống Web */}
             <View style={styles.webLangPill}>
               <TouchableOpacity
                 onPress={() => setLanguage('vi')}
@@ -975,7 +1033,7 @@ export const SettingsScreen: React.FC = () => {
                   language === 'vi' && styles.webLangSegmentActive,
                 ]}
               >
-                <Text style={styles.webLangFlag}>🇻🇳</Text>
+                <FlagVN width={16} height={11} />
                 <Text
                   style={[
                     styles.webLangText,
@@ -994,7 +1052,7 @@ export const SettingsScreen: React.FC = () => {
                   language === 'en' && styles.webLangSegmentActive,
                 ]}
               >
-                <Text style={styles.webLangFlag}>🇬🇧</Text>
+                <FlagEN width={16} height={11} />
                 <Text
                   style={[
                     styles.webLangText,
@@ -3297,43 +3355,37 @@ const styles = StyleSheet.create({
 
 const sliderStyles = StyleSheet.create({
   container: {
-    paddingVertical: 4,
-    gap: 8,
-  },
-  badgeRow: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#2563EB',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
+    paddingVertical: 6,
   },
   sliderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
     paddingHorizontal: 4,
   },
   aBtn: {
-    width: 28,
+    width: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  labelAIcon: {
-    color: '#475569',
+  labelSmallA: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+    lineHeight: 18,
+  },
+  labelBigA: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#1E293B',
+    lineHeight: 24,
   },
   trackTouchArea: {
     flex: 1,
-    height: 38,
+    height: 36,
     justifyContent: 'center',
     position: 'relative',
+    cursor: 'pointer' as any,
   },
   trackBackground: {
     height: 6,
@@ -3366,9 +3418,9 @@ const sliderStyles = StyleSheet.create({
   },
   thumb: {
     position: 'absolute',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#FFFFFF',
     borderWidth: 2.5,
     borderColor: '#2563EB',
@@ -3376,9 +3428,14 @@ const sliderStyles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#2563EB',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowOpacity: 0.28,
+    shadowRadius: 5,
     elevation: 4,
+  },
+  thumbDragging: {
+    transform: [{ translateX: -11 }, { scale: 1.15 }],
+    borderColor: '#1D4ED8',
+    shadowOpacity: 0.4,
   },
   thumbInnerDot: {
     width: 6,
