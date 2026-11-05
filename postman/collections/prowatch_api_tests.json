@@ -1120,7 +1120,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"heartRate\": 75,\n  \"spo2\": 98,\n  \"battery\": 92,\n  \"steps\": 2450,\n  \"activity\": \"REST\",\n  \"riskScore\": 0.05,\n  \"riskLevel\": \"Low\",\n  \"offlineSeq\": 1,\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+                  "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"heartRate\": 75,\n  \"spo2\": 98,\n  \"battery\": 92,\n  \"steps\": 2450,\n  \"activity\": \"REST\",\n  \"riskScore\": 0.05,\n  \"riskLevel\": \"Low\",\n  \"offlineSeq\": 1,\n  \"timestamp\": {{$timestamp}}\n}"
                 },
                 "url": {
                   "raw": "{{backend_url}}/api/v1/devices/telemetry",
