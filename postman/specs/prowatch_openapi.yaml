@@ -61,6 +61,12 @@ paths:
           schema:
             type: string
             default: XIAO-ESP32S3-PROWATCH-01
+        - name: userId
+          in: query
+          required: false
+          description: Optional User UUID to scope summary to specific user. If newly registered with no data, returns empty metrics.
+          schema:
+            type: string
       responses:
         '200':
           description: Health summary data.
@@ -82,6 +88,12 @@ paths:
           schema:
             type: string
             default: XIAO-ESP32S3-PROWATCH-01
+        - name: userId
+          in: query
+          required: false
+          description: Optional User UUID to scope summary to specific user. If newly registered with no data, returns empty metrics.
+          schema:
+            type: string
         - name: limit
           in: query
           required: false
@@ -111,6 +123,12 @@ paths:
           schema:
             type: string
             default: XIAO-ESP32S3-PROWATCH-01
+        - name: userId
+          in: query
+          required: false
+          description: Optional User UUID to scope summary to specific user. If newly registered with no data, returns empty metrics.
+          schema:
+            type: string
         - name: timeframe
           in: query
           required: false
@@ -125,6 +143,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthStatistics'
+
+  /api/v1/users/profile:
+    get:
+      tags:
+        - User Profile
+      summary: Get User Profile
+      description: Retrieves basic health info and personal profile by user UUID.
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User profile found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '404':
+          description: User profile not found.
+    put:
+      tags:
+        - User Profile
+      summary: Update User Profile
+      description: Updates basic health info (height, weight, age, gender, notes, BMI) for a user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+      responses:
+        '200':
+          description: User profile updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
 
   /api/v1/devices/telemetry:
     post:
@@ -361,6 +420,12 @@ paths:
           schema:
             type: string
             default: XIAO-ESP32S3-PROWATCH-01
+        - name: userId
+          in: query
+          required: false
+          description: Optional User UUID to scope summary to specific user. If newly registered with no data, returns empty metrics.
+          schema:
+            type: string
         - name: limit
           in: query
           required: false
@@ -463,6 +528,42 @@ paths:
 
 components:
   schemas:
+    UserProfile:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+        fullName:
+          type: string
+        avatarUrl:
+          type: string
+        gender:
+          type: string
+          enum: [male, female, other]
+        dateOfBirth:
+          type: string
+          format: date
+        height:
+          type: number
+          example: 173.0
+        weight:
+          type: number
+          example: 68.5
+        age:
+          type: integer
+          example: 28
+        notes:
+          type: string
+          example: Tiền sử dị ứng thuốc kháng sinh
+        bmi:
+          type: number
+          example: 22.9
+
     HealthSummary:
       type: object
       properties:

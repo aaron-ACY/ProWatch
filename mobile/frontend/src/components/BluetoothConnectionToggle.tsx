@@ -72,7 +72,9 @@ export const BluetoothConnectionToggle: React.FC<BluetoothConnectionToggleProps>
             {isConnected && (
               <View style={styles.connectedBadge}>
                 <View style={styles.greenDot} />
-                <Text style={styles.connectedBadgeText}>Đã kết nối</Text>
+                <Text style={styles.connectedBadgeText}>
+                  Đã kết nối{watchStatus.bleAddress ? ` • ${watchStatus.bleAddress}` : ''}
+                </Text>
               </View>
             )}
           </View>
@@ -89,8 +91,10 @@ export const BluetoothConnectionToggle: React.FC<BluetoothConnectionToggleProps>
           <Switch
             value={isConnected}
             onValueChange={handleToggle}
-            trackColor={{ false: Colors.border, true: Colors.primary }}
-            thumbColor={Colors.white}
+            trackColor={{ false: '#E2E8F0', true: '#22C55E' }}
+            thumbColor="#FFFFFF"
+            ios_backgroundColor="#E2E8F0"
+            {...({ activeThumbColor: '#FFFFFF' } as any)}
           />
         )}
       </View>
@@ -211,7 +215,8 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   titleText: {
     fontSize: 15,

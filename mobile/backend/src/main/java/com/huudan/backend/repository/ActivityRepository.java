@@ -19,9 +19,11 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
     Optional<Activity> findFirstByDeviceIdOrderByRecordedAtDesc(String deviceId);
 
+    Optional<Activity> findFirstByUserIdOrderByRecordedAtDesc(UUID userId);
+
     boolean existsByDeviceIdAndOfflineSeq(String deviceId, Long offlineSeq);
 
     List<Activity> findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtDesc(String deviceId, Instant start, Instant end);
+
+    List<Activity> findByUserIdAndRecordedAtBetweenOrderByRecordedAtDesc(UUID userId, Instant start, Instant end);
 }
-
-

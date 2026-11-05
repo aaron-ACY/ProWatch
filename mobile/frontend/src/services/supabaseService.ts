@@ -311,36 +311,66 @@ export const supabaseService = {
   },
 
   /**
-   * Lấy lịch sử đo sức khỏe từ bảng health_records
+   * Lấy lịch sử đo sức khỏe từ bảng health_records theo đúng tài khoản người dùng
    */
-  async getHealthHistory(limit = 20) {
+  async getHealthHistory(limit = 20, userId?: string | null) {
     try {
-      const { data, error } = await supabase
+      let uid = cleanUserId(userId);
+      if (!uid) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user?.id) uid = session.user.id;
+        } catch {}
+      }
+
+      let query = supabase
         .from('health_records')
-        .select('*')
+        .select('*');
+
+      // BẢO VỆ DỮ LIỆU: Nếu đã đăng nhập, chỉ trả về dữ liệu của chính người dùng đó
+      if (uid) {
+        query = query.eq('user_id', uid);
+      }
+
+      const { data, error } = await query
         .order('recorded_at', { ascending: false })
         .limit(limit);
 
-      return { success: !error, data, error };
+      return { success: !error, data: data || [], error };
     } catch (err: any) {
-      return { success: false, error: err };
+      return { success: false, data: [], error: err };
     }
   },
 
   /**
-   * Lấy lịch sử vận động & cảm biến MPU6050 từ bảng activities
+   * Lấy lịch sử vận động & cảm biến MPU6050 từ bảng activities theo đúng tài khoản người dùng
    */
-  async getActivityHistory(limit = 20) {
+  async getActivityHistory(limit = 20, userId?: string | null) {
     try {
-      const { data, error } = await supabase
+      let uid = cleanUserId(userId);
+      if (!uid) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user?.id) uid = session.user.id;
+        } catch {}
+      }
+
+      let query = supabase
         .from('activities')
-        .select('*')
+        .select('*');
+
+      // BẢO VỆ DỮ LIỆU: Chỉ lấy dữ liệu vận động của chính tài khoản đang đăng nhập
+      if (uid) {
+        query = query.eq('user_id', uid);
+      }
+
+      const { data, error } = await query
         .order('recorded_at', { ascending: false })
         .limit(limit);
 
-      return { success: !error, data, error };
+      return { success: !error, data: data || [], error };
     } catch (err: any) {
-      return { success: false, error: err };
+      return { success: false, data: [], error: err };
     }
   },
 };

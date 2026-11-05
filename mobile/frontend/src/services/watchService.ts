@@ -216,8 +216,8 @@ class WatchService {
   private currentSteps: number = 0;
   private currentCalories: number = 0;
   private currentActivity: string = 'REST';
-  private currentRiskScore: number = 0.05;
-  private currentRiskLevel: string = 'Low';
+  private currentRiskScore: number | undefined = undefined;
+  private currentRiskLevel: string | undefined = undefined;
   private lastActivitySyncMs: number = 0;
   private activitySyncTimer: any = null;
   private minHrToday: number = 0;
@@ -233,6 +233,36 @@ class WatchService {
     this.offlineSeqCounter += 1;
     AsyncStorage.setItem(STORAGE_KEYS.OFFLINE_SEQ_COUNTER, String(this.offlineSeqCounter)).catch(() => {});
     return this.offlineSeqCounter;
+  }
+
+  // Quản lý ID người dùng đăng nhập hiện tại
+  private currentUserId: string | null = null;
+
+  public setCurrentUserId(userId: string | null): void {
+    if (this.currentUserId !== userId) {
+      this.currentUserId = userId;
+      this.resetUserData();
+      if (userId) {
+        this.loadLocalCacheFromStorage();
+        this.fetchSupabaseData();
+      }
+    }
+  }
+
+  public resetUserData(): void {
+    this.hrHistory = [];
+    this.spo2History = [];
+    this.currentBpm = 0;
+    this.currentSpO2 = 0;
+    this.currentSteps = 0;
+    this.currentCalories = 0;
+    this.currentActivity = 'Chưa có dữ liệu';
+    this.currentRiskScore = undefined;
+    this.currentRiskLevel = undefined;
+    this.minHrToday = 0;
+    this.maxHrToday = 0;
+    this.avgSpO2Today = 0;
+    this.notifyStatusChange();
   }
 
   // Lịch sử đo thực tế
@@ -904,11 +934,21 @@ class WatchService {
     return () => {};
   }
 
-  // Tải trực tiếp dữ liệu lịch sử từ Supabase Cloud (hoạt động độc lập, không phụ thuộc đồng hồ hay Backend cục bộ)
-  public async fetchSupabaseData(): Promise<boolean> {
+  // Tải trực tiếp dữ liệu lịch sử từ Supabase Cloud theo đúng tài khoản người dùng
+  public async fetchSupabaseData(userId?: string): Promise<boolean> {
+    const targetUid = userId || this.currentUserId;
+    if (!targetUid) {
+      this.resetUserData();
+      return true;
+    }
     try {
-      const { success, data: records } = await supabaseService.getHealthHistory(50);
+      const { success, data: records } = await supabaseService.getHealthHistory(50, targetUid);
       if (success && Array.isArray(records)) {
+        if (records.length === 0) {
+          // BẢO VỆ TÀI KHOẢN MỚI: Người dùng mới chưa có bản ghi nào, giữ trắng toàn bộ
+          this.resetUserData();
+          return true;
+        }
         // Lọc bản ghi nhịp tim
         const validHr = records.filter((r: any) => r.heart_rate && r.heart_rate > 0);
         this.hrHistory = validHr.map((item: any) => {
@@ -1015,26 +1055,30 @@ class WatchService {
     // 3. Thử truy vấn Spring Boot Backend nếu khả dụng
     const backendPromise = (async () => {
       try {
-        const response = await fetchWithTimeout(`${this.customization.apiServerUrl}/health/summary?deviceId=XIAO-ESP32S3-PROWATCH-01`, {}, 2000);
+        const userParam = this.currentUserId ? `&userId=${encodeURIComponent(this.currentUserId)}` : '';
+        const response = await fetchWithTimeout(`${this.customization.apiServerUrl}/health/summary?deviceId=XIAO-ESP32S3-PROWATCH-01${userParam}`, {}, 2000);
         if (response.ok) {
           const data = await response.json();
-          if ((!bleService.isConnected() || this.currentBpm <= 0) && data.currentBpm && data.currentBpm > 0) {
+          if (data.currentBpm && data.currentBpm > 0) {
             this.currentBpm = data.currentBpm;
+          } else if (!bleService.isConnected()) {
+            this.currentBpm = 0;
           }
-          if ((!bleService.isConnected() || this.currentSpO2 <= 0) && data.currentSpO2 && data.currentSpO2 > 0) {
+          if (data.currentSpO2 && data.currentSpO2 > 0) {
             this.currentSpO2 = data.currentSpO2;
+          } else if (!bleService.isConnected()) {
+            this.currentSpO2 = 0;
           }
           if (data.steps !== undefined) this.currentSteps = data.steps;
           if (data.calories !== undefined) this.currentCalories = data.calories;
           if (data.battery !== undefined) this.watchStatus.battery = data.battery;
           if (data.isCharging !== undefined) this.watchStatus.isCharging = data.isCharging;
-          if (data.minHrToday) this.minHrToday = data.minHrToday;
-          if (data.maxHrToday) this.maxHrToday = data.maxHrToday;
-          if (data.avgSpO2Today) this.avgSpO2Today = data.avgSpO2Today;
-          if (data.restingHr) this.minHrToday = data.restingHr;
-          if (data.riskScore !== undefined && data.riskScore !== null) this.currentRiskScore = data.riskScore;
-          if (data.riskLevel) this.currentRiskLevel = data.riskLevel;
-          if (data.currentActivity) this.currentActivity = data.currentActivity;
+          if (data.minHrToday !== undefined) this.minHrToday = data.minHrToday;
+          if (data.maxHrToday !== undefined) this.maxHrToday = data.maxHrToday;
+          if (data.avgSpO2Today !== undefined) this.avgSpO2Today = data.avgSpO2Today;
+          if (data.riskScore !== undefined) this.currentRiskScore = data.riskScore;
+          if (data.riskLevel !== undefined) this.currentRiskLevel = data.riskLevel;
+          if (data.currentActivity !== undefined) this.currentActivity = data.currentActivity;
 
           if (data.isConnected !== undefined) {
             if (!data.isConnected && !bleService.isConnected()) {
@@ -1187,21 +1231,30 @@ class WatchService {
     }
   }
 
-  // 3. Lưu và nạp cache lịch sử đo vào AsyncStorage để đảm bảo hiển thị tức thì khi mở app (kể cả khi offline)
+  // 3. Lưu và nạp cache lịch sử đo vào AsyncStorage theo từng User ID riêng biệt
   private async saveLocalCacheToStorage(): Promise<void> {
+    if (!this.currentUserId) return;
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.LOCAL_HR_HISTORY, JSON.stringify(this.hrHistory.slice(0, 50)));
-      await AsyncStorage.setItem(STORAGE_KEYS.LOCAL_SPO2_HISTORY, JSON.stringify(this.spo2History.slice(0, 50)));
+      const hrKey = `${STORAGE_KEYS.LOCAL_HR_HISTORY}_${this.currentUserId}`;
+      const spo2Key = `${STORAGE_KEYS.LOCAL_SPO2_HISTORY}_${this.currentUserId}`;
+      await AsyncStorage.setItem(hrKey, JSON.stringify(this.hrHistory.slice(0, 50)));
+      await AsyncStorage.setItem(spo2Key, JSON.stringify(this.spo2History.slice(0, 50)));
     } catch (e) {
       console.warn('[WatchService] Lỗi lưu cache lịch sử đo:', e);
     }
   }
 
   private async loadLocalCacheFromStorage(): Promise<void> {
+    if (!this.currentUserId) {
+      this.resetUserData();
+      return;
+    }
     try {
+      const hrKey = `${STORAGE_KEYS.LOCAL_HR_HISTORY}_${this.currentUserId}`;
+      const spo2Key = `${STORAGE_KEYS.LOCAL_SPO2_HISTORY}_${this.currentUserId}`;
       const [hrRaw, spo2Raw, seqRaw] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.LOCAL_HR_HISTORY),
-        AsyncStorage.getItem(STORAGE_KEYS.LOCAL_SPO2_HISTORY),
+        AsyncStorage.getItem(hrKey),
+        AsyncStorage.getItem(spo2Key),
         AsyncStorage.getItem(STORAGE_KEYS.OFFLINE_SEQ_COUNTER),
       ]);
       if (seqRaw) {

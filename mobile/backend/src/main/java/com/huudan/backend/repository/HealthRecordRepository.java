@@ -19,14 +19,23 @@ public interface HealthRecordRepository extends JpaRepository<HealthRecord, Long
 
     Optional<HealthRecord> findTopByDeviceIdOrderByRecordedAtDesc(String deviceId);
 
+    Optional<HealthRecord> findTopByUserIdOrderByRecordedAtDesc(UUID userId);
+
     boolean existsByDeviceIdAndOfflineSeq(String deviceId, Long offlineSeq);
 
     List<HealthRecord> findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtAsc(String deviceId, Instant start, Instant end);
 
     List<HealthRecord> findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtDesc(String deviceId, Instant start, Instant end);
 
+    List<HealthRecord> findByUserIdAndRecordedAtBetweenOrderByRecordedAtAsc(UUID userId, Instant start, Instant end);
+
+    List<HealthRecord> findByUserIdAndRecordedAtBetweenOrderByRecordedAtDesc(UUID userId, Instant start, Instant end);
+
     long countByDeviceIdAndRecordedAtBetween(String deviceId, Instant start, Instant end);
 
-    long countByDeviceId(String deviceId);
-}
+    long countByUserIdAndRecordedAtBetween(UUID userId, Instant start, Instant end);
 
+    long countByDeviceId(String deviceId);
+
+    long countByUserId(UUID userId);
+}

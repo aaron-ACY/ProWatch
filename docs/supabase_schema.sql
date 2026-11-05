@@ -54,6 +54,9 @@ CREATE TABLE public.profiles (
     date_of_birth DATE,
     height NUMERIC(5,2) CHECK (height IS NULL OR (height >= 30 AND height <= 250)),
     weight NUMERIC(5,2) CHECK (weight IS NULL OR (weight >= 10 AND weight <= 300)),
+    age INTEGER CHECK (age IS NULL OR (age >= 1 AND age <= 130)),
+    notes TEXT,
+    bmi NUMERIC(4,1) CHECK (bmi IS NULL OR (bmi >= 5.0 AND bmi <= 80.0)),
     created_at TIMESTAMPTZ DEFAULT timezone('utc', now()) NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT timezone('utc', now()) NOT NULL
 );

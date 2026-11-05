@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '../types';
 import { supabase } from '../utils/supabase';
 import { mfaService } from '../services/mfaService';
 import { supabaseService } from '../services/supabaseService';
+import { watchService } from '../services/watchService';
 
 export interface HealthProfileData {
   gender: string;
@@ -50,7 +52,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userGender = profile?.gender || sbUser.user_metadata?.gender;
     const userHeight = profile?.height || sbUser.user_metadata?.height;
     const userWeight = profile?.weight || sbUser.user_metadata?.weight;
+    const userAge = profile?.age ?? sbUser.user_metadata?.age;
+    const userNotes = profile?.notes ?? sbUser.user_metadata?.notes;
     const isComplete = Boolean(dob && userGender && (userHeight || sbUser.user_metadata?.isProfileComplete));
+
+    // Thiết lập tài khoản hiện tại cho watchService để tải đúng dữ liệu của user này
+    watchService.setCurrentUserId(sbUser.id);
 
     // Tự động liên kết user_id và cập nhật đầy đủ thông tin cho bảng devices trên Supabase
     supabaseService.syncDeviceStatus({ userId: sbUser.id }).catch(() => {});
@@ -63,6 +70,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       gender: userGender,
       height: userHeight,
       weight: userWeight,
+      age: userAge,
+      notes: userNotes,
       isProfileComplete: isComplete,
       createdAt: sbUser.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
     };
@@ -292,6 +301,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('Không thể tự tạo row profiles:', dbErr);
         }
 
+        // BẢO VỆ TÀI KHOẢN MỚI ĐĂNG KÝ: Xóa sạch dữ liệu bộ nhớ đệm cũ và gán ID mới
+        watchService.resetUserData();
+        watchService.setCurrentUserId(data.user.id);
+
         setUser({
           id: data.user.id,
           name: trimmedName,
@@ -322,26 +335,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      const hMeters = (data.height || 170) / 100;
+      const computedBmi = data.weight ? Math.round((data.weight / (hMeters * hMeters)) * 10) / 10 : null;
+
+      // 1. Cập nhật user_metadata trên Supabase Auth
       await supabase.auth.updateUser({
         data: {
           gender: data.gender,
           date_of_birth: data.dateOfBirth,
           height: data.height,
           weight: data.weight,
+          age: data.age,
+          notes: data.notes,
+          bmi: computedBmi,
           isProfileComplete: true,
         },
       });
 
+      // 2. Cập nhật bảng profiles trên Supabase
       try {
-        await supabase.from('profiles').update({
-          gender: data.gender,
-          date_of_birth: data.dateOfBirth,
-          height: data.height,
-          weight: data.weight,
-          updated_at: new Date().toISOString(),
-        }).eq('id', user.id);
+        await supabase.from('profiles').upsert([
+          {
+            id: user.id,
+            email: user.email,
+            gender: data.gender,
+            date_of_birth: data.dateOfBirth,
+            height: data.height,
+            weight: data.weight,
+            age: data.age,
+            notes: data.notes,
+            bmi: computedBmi,
+            updated_at: new Date().toISOString(),
+          }
+        ], { onConflict: 'id' });
       } catch (e) {
-        console.warn('Lỗi update profiles:', e);
+        console.warn('Lỗi update profiles Supabase:', e);
+      }
+
+      // 3. Đồng bộ thông tin hồ sơ sang Spring Boot Backend
+      try {
+        const apiUrl = watchService.getCustomization().apiServerUrl;
+        fetch(`${apiUrl}/users/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            email: user.email,
+            fullName: user.name,
+            gender: data.gender,
+            dateOfBirth: data.dateOfBirth,
+            height: data.height,
+            weight: data.weight,
+            age: data.age,
+            notes: data.notes,
+            bmi: computedBmi,
+          }),
+        }).catch(() => {});
+      } catch (beErr) {
+        console.warn('Lỗi đồng bộ hồ sơ sang Spring Boot:', beErr);
       }
 
       setUser((prev) =>
@@ -374,6 +425,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.warn('Lỗi khi đăng xuất Supabase:', err);
     }
+    // Xóa sạch bộ nhớ tạm và dữ liệu cũ của user khi đăng xuất
+    watchService.resetUserData();
+    watchService.setCurrentUserId(null);
+    AsyncStorage.removeItem('@prowatch_basic_health_notes').catch(() => {});
+    AsyncStorage.removeItem('@prowatch_basic_health_age').catch(() => {});
     setUser(null);
     setIsMfaPending(false);
     setMfaFactorId(null);

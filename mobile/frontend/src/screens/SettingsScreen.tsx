@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  Switch, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Switch,
   TextInput,
   Alert,
   Modal,
@@ -16,8 +16,9 @@ import {
   PanResponder
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
-import Svg, { Rect, Polygon, Path } from 'react-native-svg';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import Svg, { Rect, Polygon, Path, Circle, G, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Shadows } from '../theme/colors';
 import { watchService, WatchNotificationType } from '../services/watchService';
 import { bleService, WatchMenu, WATCH_MENUS, WATCH_FIRMWARE_VERSION } from '../services/bleService';
@@ -67,61 +68,61 @@ const DEMO_NOTIF_TYPES: Array<{
   defaultBody: string;
   durationMs: number;
 }> = [
-  {
-    type: 'CALL',
-    label: 'Cuộc gọi (5s)',
-    icon: 'phone-incoming',
-    defaultColorId: 'green',
-    defaultTitle: 'Nguyen Van A',
-    defaultBody: '0912 345 678 dang goi den...',
-    durationMs: 5000,
-  },
-  {
-    type: 'SMS',
-    label: 'Tin nhắn SMS (5s)',
-    icon: 'message-text',
-    defaultColorId: 'cyan',
-    defaultTitle: 'Tin nhan SMS',
-    defaultBody: 'Ma OTP xac thuc ProWatch: 849201',
-    durationMs: 5000,
-  },
-  {
-    type: 'WATER',
-    label: 'Uống nước (5s)',
-    icon: 'cup-water',
-    defaultColorId: 'yellow',
-    defaultTitle: 'Nhac uong nuoc',
-    defaultBody: 'Da den gio uong 1 ly nuoc (250ml)!',
-    durationMs: 5000,
-  },
-  {
-    type: 'HEALTH_OK',
-    label: 'Bình thường (10s)',
-    icon: 'check-circle-outline',
-    defaultColorId: 'green',
-    defaultTitle: 'CHI SO BINH THUONG',
-    defaultBody: 'HR: 75 BPM (Binh thuong) O2: 98% (Binh thuong)',
-    durationMs: 10000,
-  },
-  {
-    type: 'HR_LOW',
-    label: 'Quá thấp (10s)',
-    icon: 'arrow-down-bold-circle-outline',
-    defaultColorId: 'yellow',
-    defaultTitle: 'HR & SPO2 QUA THAP',
-    defaultBody: 'HR: 48 BPM (QUA THAP!) O2: 91% (QUA THAP!)',
-    durationMs: 10000,
-  },
-  {
-    type: 'HR_HIGH',
-    label: 'Quá cao (10s)',
-    icon: 'alert-circle-outline',
-    defaultColorId: 'red',
-    defaultTitle: 'NHIP TIM QUA CAO!',
-    defaultBody: 'HR: 124 BPM (QUA CAO!) O2: 97% (Binh thuong)',
-    durationMs: 10000,
-  },
-];
+    {
+      type: 'CALL',
+      label: 'Cuộc gọi (5s)',
+      icon: 'phone-incoming',
+      defaultColorId: 'green',
+      defaultTitle: 'Nguyen Van A',
+      defaultBody: '0912 345 678 dang goi den...',
+      durationMs: 5000,
+    },
+    {
+      type: 'SMS',
+      label: 'Tin nhắn SMS (5s)',
+      icon: 'message-text',
+      defaultColorId: 'cyan',
+      defaultTitle: 'Tin nhan SMS',
+      defaultBody: 'Ma OTP xac thuc ProWatch: 849201',
+      durationMs: 5000,
+    },
+    {
+      type: 'WATER',
+      label: 'Uống nước (5s)',
+      icon: 'cup-water',
+      defaultColorId: 'yellow',
+      defaultTitle: 'Nhac uong nuoc',
+      defaultBody: 'Da den gio uong 1 ly nuoc (250ml)!',
+      durationMs: 5000,
+    },
+    {
+      type: 'HEALTH_OK',
+      label: 'Bình thường (10s)',
+      icon: 'check-circle-outline',
+      defaultColorId: 'green',
+      defaultTitle: 'CHI SO BINH THUONG',
+      defaultBody: 'HR: 75 BPM (Binh thuong) O2: 98% (Binh thuong)',
+      durationMs: 10000,
+    },
+    {
+      type: 'HR_LOW',
+      label: 'Quá thấp (10s)',
+      icon: 'arrow-down-bold-circle-outline',
+      defaultColorId: 'yellow',
+      defaultTitle: 'HR & SPO2 QUA THAP',
+      defaultBody: 'HR: 48 BPM (QUA THAP!) O2: 91% (QUA THAP!)',
+      durationMs: 10000,
+    },
+    {
+      type: 'HR_HIGH',
+      label: 'Quá cao (10s)',
+      icon: 'alert-circle-outline',
+      defaultColorId: 'red',
+      defaultTitle: 'NHIP TIM QUA CAO!',
+      defaultBody: 'HR: 124 BPM (QUA CAO!) O2: 97% (Binh thuong)',
+      durationMs: 10000,
+    },
+  ];
 
 const FlagVN: React.FC<{ width?: number; height?: number }> = ({ width = 16, height = 11 }) => (
   <View style={{ width, height, borderRadius: 2, overflow: 'hidden', marginRight: 5 }}>
@@ -328,9 +329,263 @@ const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange }) =>
   );
 };
 
-export const SettingsScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const { user, logout } = useAuth();
+// =============================================================================
+// BASIC HEALTH INFO SPEC & RULER COMPONENT (Matching Reference Screen)
+// =============================================================================
+interface BmiCategoryItem {
+  id: string;
+  nameVi: string;
+  nameEn: string;
+  rangeVi: string;
+  rangeEn: string;
+  color: string;
+  min: number;
+  max: number;
+}
+
+const BASIC_INFO_BMI_CATEGORIES: BmiCategoryItem[] = [
+  { id: 'very_severely_underweight', nameVi: 'Gầy độ III (Rất nghiêm trọng)', nameEn: 'Very severely underweight', rangeVi: 'BMI < 16.0', rangeEn: 'BMI < 16.0', color: '#0284C7', min: 0, max: 15.99 },
+  { id: 'severely_underweight', nameVi: 'Gầy độ II (Nghiêm trọng)', nameEn: 'Severely underweight', rangeVi: 'BMI 16.0 – 16.9', rangeEn: 'BMI 16.0 – 16.9', color: '#38BDF8', min: 16.0, max: 16.99 },
+  { id: 'underweight', nameVi: 'Thiếu cân (Hơi gầy)', nameEn: 'Underweight', rangeVi: 'BMI 17.0 – 18.4', rangeEn: 'BMI 17.0 – 18.4', color: '#06B6D4', min: 17.0, max: 18.49 },
+  { id: 'normal', nameVi: 'Bình thường (Lý tưởng)', nameEn: 'Normal', rangeVi: 'BMI 18.5 – 24.9', rangeEn: 'BMI 18.5 – 24.9', color: '#22C55E', min: 18.5, max: 24.99 },
+  { id: 'overweight', nameVi: 'Thừa cân (Tiền béo phì)', nameEn: 'Overweight', rangeVi: 'BMI 25.0 – 29.9', rangeEn: 'BMI 25.0 – 29.9', color: '#F59E0B', min: 25.0, max: 29.99 },
+  { id: 'obese', nameVi: 'Béo phì độ I', nameEn: 'Obese', rangeVi: 'BMI 30.0 – 34.9', rangeEn: 'BMI 30.0 – 34.9', color: '#F97316', min: 30.0, max: 34.99 },
+  { id: 'severely_obese', nameVi: 'Béo phì độ II & III', nameEn: 'Severely obese', rangeVi: 'BMI ≥ 35.0', rangeEn: 'BMI ≥ 35.0', color: '#EF4444', min: 35.0, max: 99.0 },
+];
+
+interface BasicInfoRulerProps {
+  label: string;
+  value: number;
+  unit: string;
+  min: number;
+  max: number;
+  stepWidth?: number;
+  onChange: (val: number) => void;
+  onEditDirect: () => void;
+}
+
+const BasicInfoRuler: React.FC<BasicInfoRulerProps> = ({
+  label,
+  value,
+  unit,
+  min,
+  max,
+  stepWidth = 10,
+  onChange,
+  onEditDirect,
+}) => {
+  const scrollRef = useRef<ScrollView>(null);
+  const [cardWidth, setCardWidth] = useState(340);
+  const isScrolling = useRef(false);
+
+  const halfWidth = cardWidth / 2;
+
+  useEffect(() => {
+    if (!isScrolling.current && cardWidth > 0) {
+      const targetX = (value - min) * stepWidth;
+      scrollRef.current?.scrollTo({ x: targetX, animated: false });
+    }
+  }, [cardWidth]);
+
+  const handleScroll = (e: any) => {
+    if (!isScrolling.current) return;
+    const x = e.nativeEvent.contentOffset.x;
+    let computed = min + x / stepWidth;
+    computed = Math.max(min, Math.min(max, computed));
+    const rounded = Math.round(computed * 10) / 10;
+    if (rounded !== value) {
+      onChange(rounded);
+    }
+  };
+
+  const adjust = (delta: number) => {
+    const next = Math.max(min, Math.min(max, Math.round((value + delta) * 10) / 10));
+    onChange(next);
+    isScrolling.current = false;
+    scrollRef.current?.scrollTo({ x: (next - min) * stepWidth, animated: true });
+  };
+
+  const ticks = useMemo(() => {
+    const list: Array<{ val: number; isMajor: boolean; isMedium: boolean }> = [];
+    for (let u = min; u <= max; u++) {
+      list.push({
+        val: u,
+        isMajor: u % 10 === 0,
+        isMedium: u % 5 === 0 && u % 10 !== 0,
+      });
+    }
+    return list;
+  }, [min, max]);
+
+  return (
+    <View style={biStyles.rulerCard} onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}>
+      <View style={biStyles.rulerHeader}>
+        <Text style={biStyles.rulerLabel}>{label}</Text>
+        <TouchableOpacity style={biStyles.rulerValueRow} onPress={onEditDirect} activeOpacity={0.7}>
+          <Text style={biStyles.rulerValue}>{value.toFixed(1)}</Text>
+          <Text style={biStyles.rulerUnit}>{unit}</Text>
+          <MaterialCommunityIcons name="pencil-outline" size={14} color="#9CA3AF" style={{ marginLeft: 4 }} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={biStyles.rulerTrack}>
+        <TouchableOpacity style={biStyles.stepBtnLeft} onPress={() => adjust(-0.5)} activeOpacity={0.6}>
+          <Feather name="minus" size={16} color="#6B7280" />
+        </TouchableOpacity>
+
+        <View style={biStyles.redNeedle} pointerEvents="none" />
+
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScrollBeginDrag={() => { isScrolling.current = true; }}
+          onScroll={handleScroll}
+          onScrollEndDrag={() => { isScrolling.current = false; }}
+          onMomentumScrollBegin={() => { isScrolling.current = true; }}
+          onMomentumScrollEnd={() => { isScrolling.current = false; }}
+          contentContainerStyle={{ paddingHorizontal: Math.max(0, halfWidth), paddingTop: 6 }}
+        >
+          {ticks.map((t) => (
+            <View key={t.val} style={{ width: stepWidth, alignItems: 'center' }}>
+              <View
+                style={[
+                  biStyles.tickLine,
+                  t.isMajor ? biStyles.majorTick : t.isMedium ? biStyles.mediumTick : biStyles.minorTick,
+                ]}
+              />
+              {t.isMajor ? (
+                <Text style={biStyles.tickNum}>{t.val}</Text>
+              ) : (
+                <View style={{ height: 16 }} />
+              )}
+            </View>
+          ))}
+        </ScrollView>
+
+        <TouchableOpacity style={biStyles.stepBtnRight} onPress={() => adjust(+0.5)} activeOpacity={0.6}>
+          <Feather name="plus" size={16} color="#6B7280" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+// =============================================================================
+// VECTOR 3D-STYLE ILLUSTRATIONS (Matching Reference Screen Header)
+// =============================================================================
+const HeartIllustration: React.FC = () => (
+  <Svg width={76} height={76} viewBox="0 0 72 72">
+    <Defs>
+      <LinearGradient id="heartGrad" x1="0" y1="0" x2="1" y2="1">
+        <Stop offset="0%" stopColor="#FB7185" />
+        <Stop offset="50%" stopColor="#F43F5E" />
+        <Stop offset="100%" stopColor="#E11D48" />
+      </LinearGradient>
+      <LinearGradient id="pipeBlue" x1="0" y1="0" x2="0" y2="1">
+        <Stop offset="0%" stopColor="#38BDF8" />
+        <Stop offset="100%" stopColor="#0284C7" />
+      </LinearGradient>
+    </Defs>
+    {/* Blue vessels */}
+    <Path d="M 28 6 C 28 3, 34 3, 34 6 L 34 22 L 28 22 Z" fill="url(#pipeBlue)" />
+    <Path d="M 38 8 C 38 4, 46 4, 46 8 L 46 22 L 38 22 Z" fill="url(#pipeBlue)" />
+    <Circle cx="31" cy="5" r="3" fill="#38BDF8" />
+    <Circle cx="42" cy="6" r="3.5" fill="#38BDF8" />
+    {/* Main Heart body */}
+    <Path
+      d="M 36 24 C 20 12, 10 26, 16 40 C 22 52, 36 64, 36 64 C 36 64, 50 52, 56 40 C 62 26, 52 12, 36 24 Z"
+      fill="url(#heartGrad)"
+    />
+    {/* 3D Highlight reflection */}
+    <Path
+      d="M 22 26 C 18 32, 20 40, 24 46 C 22 40, 20 32, 25 24 Z"
+      fill="#FFFFFF"
+      opacity={0.35}
+    />
+  </Svg>
+);
+
+const SpO2Illustration: React.FC = () => (
+  <Svg width={76} height={76} viewBox="0 0 72 72">
+    <Defs>
+      <LinearGradient id="spo2Grad" x1="0" y1="0" x2="1" y2="1">
+        <Stop offset="0%" stopColor="#38BDF8" />
+        <Stop offset="100%" stopColor="#0284C7" />
+      </LinearGradient>
+    </Defs>
+    <Circle cx="36" cy="36" r="28" fill="#E0F2FE" />
+    <Path
+      d="M 36 16 C 36 16, 22 34, 22 44 C 22 52, 28 58, 36 58 C 44 58, 50 52, 50 44 C 50 34, 36 16, 36 16 Z"
+      fill="url(#spo2Grad)"
+    />
+    <Circle cx="31" cy="40" r="3.5" fill="#FFFFFF" opacity={0.5} />
+  </Svg>
+);
+
+const WatchIllustration: React.FC = () => (
+  <Svg width={76} height={76} viewBox="0 0 72 72">
+    <Defs>
+      <LinearGradient id="watchGrad" x1="0" y1="0" x2="1" y2="1">
+        <Stop offset="0%" stopColor="#3B82F6" />
+        <Stop offset="100%" stopColor="#1D4ED8" />
+      </LinearGradient>
+    </Defs>
+    <Rect x="28" y="6" width="16" height="14" rx="4" fill="#64748B" />
+    <Rect x="28" y="52" width="16" height="14" rx="4" fill="#64748B" />
+    <Rect x="16" y="16" width="40" height="40" rx="12" fill="#0F172A" />
+    <Rect x="20" y="20" width="32" height="32" rx="8" fill="url(#watchGrad)" />
+    <Circle cx="36" cy="36" r="4" fill="#38BDF8" />
+  </Svg>
+);
+
+const ShieldIllustration: React.FC = () => (
+  <Svg width={76} height={76} viewBox="0 0 72 72">
+    <Defs>
+      <LinearGradient id="shieldGrad" x1="0" y1="0" x2="1" y2="1">
+        <Stop offset="0%" stopColor="#60A5FA" />
+        <Stop offset="100%" stopColor="#2563EB" />
+      </LinearGradient>
+    </Defs>
+    <Path
+      d="M 36 12 L 54 18 C 54 36, 46 52, 36 60 C 26 52, 18 36, 18 18 Z"
+      fill="url(#shieldGrad)"
+    />
+    <Path
+      d="M 30 36 L 34 40 L 44 28"
+      stroke="#FFFFFF"
+      strokeWidth="3.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+    />
+  </Svg>
+);
+
+const SWITCH_TRACK_COLORS = { false: '#E2E8F0', true: '#22C55E' };
+const SWITCH_THUMB_COLOR = '#FFFFFF';
+
+interface StyledSwitchProps {
+  value: boolean;
+  onValueChange: (val: boolean) => void;
+  disabled?: boolean;
+}
+
+const StyledSwitch: React.FC<StyledSwitchProps> = ({ value, onValueChange, disabled }) => (
+  <Switch
+    value={value}
+    onValueChange={onValueChange}
+    disabled={disabled}
+    trackColor={SWITCH_TRACK_COLORS}
+    thumbColor={SWITCH_THUMB_COLOR}
+    ios_backgroundColor="#E2E8F0"
+    {...({ activeThumbColor: SWITCH_THUMB_COLOR } as any)}
+  />
+);
+
+export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ route, navigation }) => {
+  const { user, logout, completeProfile } = useAuth();
   const { language, setLanguage, fontSizeScale, setFontSizeScale, t } = useLanguage();
   const [settings, setSettings] = useState<WatchCustomization>(watchService.getCustomization());
   const [watchStatus, setWatchStatus] = useState<WatchStatus>(watchService.getWatchStatus());
@@ -341,11 +596,145 @@ export const SettingsScreen: React.FC = () => {
   const [isLoadingMfa, setIsLoadingMfa] = useState(false);
   const [isEnrollModalVisible, setIsEnrollModalVisible] = useState(false);
 
+  // Basic Health Info Modal State (Target Screen)
+  const [isBasicInfoModalVisible, setIsBasicInfoModalVisible] = useState(false);
+  const [basicWeight, setBasicWeight] = useState<number>(user?.weight || 60.0);
+  const [basicHeight, setBasicHeight] = useState<number>(user?.height || 170.0);
+  const [basicGender, setBasicGender] = useState<'Male' | 'Female' | 'Other'>(
+    user?.gender?.toLowerCase() === 'female' || user?.gender?.toLowerCase() === 'nữ' ? 'Female' : 'Male'
+  );
+  const [basicAge, setBasicAge] = useState<number>(user?.age || 25);
+  const [basicNote, setBasicNote] = useState<string>(user?.notes || '');
+  const [isSavingBasicInfo, setIsSavingBasicInfo] = useState(false);
+  const [basicInfoNotice, setBasicInfoNotice] = useState<string | null>(null);
+
+  // Sub-modals for editing
+  const [isGenderPickerOpen, setIsGenderPickerOpen] = useState(false);
+  const [isAgePickerOpen, setIsAgePickerOpen] = useState(false);
+  const [directEditTarget, setDirectEditTarget] = useState<'weight' | 'height' | null>(null);
+  const [directEditVal, setDirectEditVal] = useState('');
+
+  // Support & Policy Document Modal State
+  const [activeDoc, setActiveDoc] = useState<'about' | 'knowledge' | 'privacy' | null>(null);
+
+  // Auto-open requested document modal from navigation params (e.g. from Dashboard quick action)
+  useEffect(() => {
+    if (route?.params?.openDoc) {
+      setActiveDoc(route.params.openDoc);
+      navigation?.setParams({ openDoc: undefined });
+    }
+  }, [route?.params?.openDoc]);
+  const [knowledgeTab, setKnowledgeTab] = useState<'heart' | 'spo2' | 'bmi'>('heart');
+
+  const handleShareDoc = () => {
+    Alert.alert(
+      t('Chia sẻ tài liệu', 'Share Document'),
+      t('Đã sao chép liên kết tài liệu vào bộ nhớ tạm.', 'Document article link copied to clipboard.')
+    );
+  };
+
+  // Sync state with user data
+  useEffect(() => {
+    if (user) {
+      if (user.weight) setBasicWeight(user.weight);
+      if (user.height) setBasicHeight(user.height);
+      if (user.gender) {
+        setBasicGender(user.gender.toLowerCase() === 'female' || user.gender.toLowerCase() === 'nữ' ? 'Female' : 'Male');
+      }
+      if (user.age) setBasicAge(user.age);
+      if (user.notes) setBasicNote(user.notes);
+    }
+  }, [user, isBasicInfoModalVisible]);
+
+  // Load cached note/age per user ID
+  useEffect(() => {
+    const loadCached = async () => {
+      if (!user?.id) return;
+      try {
+        const [savedNote, savedAge] = await Promise.all([
+          AsyncStorage.getItem(`@prowatch_basic_health_notes_${user.id}`),
+          AsyncStorage.getItem(`@prowatch_basic_health_age_${user.id}`),
+        ]);
+        if (savedNote && !user?.notes) setBasicNote(savedNote);
+        if (savedAge && !user?.age) setBasicAge(parseInt(savedAge, 10) || 25);
+      } catch (e) { }
+    };
+    loadCached();
+  }, [user?.id]);
+
+  // Compute BMI dynamically
+  const basicBmi = useMemo(() => {
+    if (!basicHeight || !basicWeight || basicHeight <= 0) return 21.9;
+    const h = basicHeight / 100;
+    return parseFloat((basicWeight / (h * h)).toFixed(1));
+  }, [basicWeight, basicHeight]);
+
+  const activeBmiCategory = useMemo(() => {
+    const found = BASIC_INFO_BMI_CATEGORIES.find((cat) => basicBmi >= cat.min && basicBmi <= cat.max);
+    return found || BASIC_INFO_BMI_CATEGORIES[3];
+  }, [basicBmi]);
+
+  const activeCategoryIndex = useMemo(() => {
+    const idx = BASIC_INFO_BMI_CATEGORIES.findIndex((cat) => cat.id === activeBmiCategory.id);
+    return idx >= 0 ? idx : 3;
+  }, [activeBmiCategory]);
+
+  const handleSaveBasicInfo = async () => {
+    setIsSavingBasicInfo(true);
+    try {
+      const dob = user?.dateOfBirth || `01/01/${new Date().getFullYear() - basicAge}`;
+      await completeProfile({
+        gender: basicGender === 'Male' ? 'male' : basicGender === 'Female' ? 'female' : 'other',
+        dateOfBirth: dob,
+        height: Math.round(basicHeight),
+        weight: Math.round(basicWeight * 10) / 10,
+        notes: basicNote,
+        age: basicAge,
+      });
+
+      watchService.sendUserProfileToWatch(basicHeight, basicWeight).catch(() => { });
+
+      if (user?.id) {
+        await Promise.all([
+          AsyncStorage.setItem(`@prowatch_basic_health_notes_${user.id}`, basicNote),
+          AsyncStorage.setItem(`@prowatch_basic_health_age_${user.id}`, String(basicAge)),
+        ]);
+      }
+
+      setBasicInfoNotice(t('Đã lưu thông tin sức khỏe thành công!', 'Health info saved successfully!'));
+      setTimeout(() => {
+        setBasicInfoNotice(null);
+        setIsBasicInfoModalVisible(false);
+      }, 1200);
+    } catch (e: any) {
+      Alert.alert(t('Lỗi', 'Error'), e?.message || t('Không thể lưu thông tin', 'Failed to save info'));
+    } finally {
+      setIsSavingBasicInfo(false);
+    }
+  };
+
+  const openDirectEditModal = (target: 'weight' | 'height') => {
+    setDirectEditTarget(target);
+    setDirectEditVal(target === 'weight' ? String(basicWeight) : String(basicHeight));
+  };
+
+  const submitDirectEditVal = () => {
+    const num = parseFloat(directEditVal.replace(',', '.'));
+    if (!isNaN(num) && num > 0) {
+      if (directEditTarget === 'weight') {
+        setBasicWeight(Math.min(250, Math.max(30, Math.round(num * 10) / 10)));
+      } else if (directEditTarget === 'height') {
+        setBasicHeight(Math.min(250, Math.max(50, Math.round(num * 10) / 10)));
+      }
+    }
+    setDirectEditTarget(null);
+  };
+
   const refreshMfaStatus = async () => {
     try {
       const status = await mfaService.getMfaStatus();
       setMfaStatus(status);
-    } catch (e) {}
+    } catch (e) { }
   };
 
   useFocusEffect(
@@ -897,17 +1286,17 @@ export const SettingsScreen: React.FC = () => {
         animationType="fade"
         onRequestClose={dismissCurrentNotification}
       >
-        <TouchableOpacity 
-          style={styles.basicPopupOverlay} 
-          activeOpacity={1} 
+        <TouchableOpacity
+          style={styles.basicPopupOverlay}
+          activeOpacity={1}
           onPress={dismissCurrentNotification}
         >
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.basicPopupCard,
               Shadows.lg,
               notification?.customColor ? { borderColor: notification.customColor, borderWidth: 2 } : null,
-            ]} 
+            ]}
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
           >
@@ -923,15 +1312,15 @@ export const SettingsScreen: React.FC = () => {
                 name={
                   (notification?.customIcon as any) ||
                   (notification?.type === 'success' ? 'check-circle' :
-                   notification?.type === 'warning' ? 'alert-circle' :
-                   notification?.type === 'error' ? 'close-circle' : 'information')
+                    notification?.type === 'warning' ? 'alert-circle' :
+                      notification?.type === 'error' ? 'close-circle' : 'information')
                 }
                 size={38}
                 color={
                   notification?.customColor ||
                   (notification?.type === 'success' ? Colors.success :
-                   notification?.type === 'warning' ? Colors.warning :
-                   notification?.type === 'error' ? Colors.danger : Colors.primary)
+                    notification?.type === 'warning' ? Colors.warning :
+                      notification?.type === 'error' ? Colors.danger : Colors.primary)
                 }
               />
             </View>
@@ -979,20 +1368,20 @@ export const SettingsScreen: React.FC = () => {
         </TouchableOpacity>
       </Modal>
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>{t('Cài đặt hệ thống', 'System Settings')}</Text>
+          <Text style={styles.title}>{t('Cài đặt hệ thống', 'System settings')}</Text>
         </View>
 
-        {/* User Profile Card */}
-        <TouchableOpacity 
+        {/* User Profile Card - Tap avatar / card to view & edit basic health info */}
+        <TouchableOpacity
           style={[styles.profileCard, Shadows.sm]}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('BasicHealthInfo')}
+          activeOpacity={0.8}
+          onPress={() => setIsBasicInfoModalVisible(true)}
         >
           <View style={styles.profileAvatar}>
             <Text style={styles.profileAvatarText}>
@@ -1002,9 +1391,6 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{user?.name || t('Người dùng', 'User')}</Text>
             <Text style={styles.profileEmail}>{user?.email || 'user@prowatch.com'}</Text>
-            <Text style={styles.profileStatsSummary}>
-              {user?.height || 185.6} cm • {user?.weight || 75.6} kg
-            </Text>
           </View>
           <View style={styles.profileEditPill}>
             <MaterialCommunityIcons name="pencil" size={14} color={Colors.primary} />
@@ -1012,27 +1398,407 @@ export const SettingsScreen: React.FC = () => {
           </View>
         </TouchableOpacity>
 
-        {/* Chỉnh sửa thông tin cơ bản Entry Card */}
-        <TouchableOpacity
-          style={[styles.basicInfoEntryCard, Shadows.sm]}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('BasicHealthInfo')}
-        >
-          <View style={styles.basicInfoEntryLeft}>
-            <View style={[styles.notifTypeIcon, { backgroundColor: '#FEE2E2', marginRight: 12 }]}>
-              <MaterialCommunityIcons name="scale-bathroom" size={20} color="#EF4444" />
+        {/* Demo product (Gộp Điều khiển từ xa & Các nút test thông báo/cảnh báo) */}
+        <Text style={styles.sectionTitle}>{t('Demo product', 'Demo Product')}</Text>
+        <View style={[styles.card, Shadows.sm]}>
+          <Text style={styles.controlSubTitle}>
+            {t('Chuyển nhanh màn hình (Firmware v1.5.1)', 'Quick Screen Switch (Firmware v1.5.1)')}
+          </Text>
+          <View style={styles.menuGrid}>
+            {WATCH_MENUS.map((m) => (
+              <TouchableOpacity
+                key={m.id}
+                style={[
+                  styles.menuBtn,
+                  !watchStatus.connected && styles.btnDisabled
+                ]}
+                onPress={() => handleSetWatchMenu(m.id, m.label)}
+                disabled={!watchStatus.connected}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons
+                  name={
+                    m.id === 0
+                      ? "clock-outline"
+                      : m.id === 1
+                        ? "heart-pulse"
+                        : m.id === 2
+                          ? "cog-outline"
+                          : "bell-ring-outline"
+                  }
+                  size={18}
+                  color={watchStatus.connected ? Colors.primary : Colors.textMuted}
+                />
+                <Text style={[
+                  styles.menuBtnText,
+                  !watchStatus.connected && styles.textDisabled
+                ]}>
+                  {m.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.navRow}>
+            <TouchableOpacity
+              style={[styles.navStepBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={() => handleStepWatchMenu('back')}
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <Feather name="chevron-left" size={16} color={watchStatus.connected ? Colors.textPrimary : Colors.textMuted} />
+              <Text style={[styles.navStepText, !watchStatus.connected && styles.textDisabled]}>
+                {t('Trang trước', 'Prev page')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.navStepBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={() => handleStepWatchMenu('next')}
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.navStepText, !watchStatus.connected && styles.textDisabled]}>
+                {t('Trang sau', 'Next page')}
+              </Text>
+              <Feather name="chevron-right" size={16} color={watchStatus.connected ? Colors.textPrimary : Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.controlSubTitle}>{t('Tiện ích nguồn & Thời gian', 'Power & Time Utilities')}</Text>
+          <View style={styles.quickActionRow}>
+            <TouchableOpacity
+              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={() => handleSetWatchScreen(true)}
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color={watchStatus.connected ? "#D97706" : Colors.textMuted} />
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Bật màn', 'Screen On')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={() => handleSetWatchScreen(false)}
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="power-sleep" size={16} color={watchStatus.connected ? Colors.textSecondary : Colors.textMuted} />
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Tắt màn', 'Screen Off')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={handleSyncTime}
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="sync" size={16} color={watchStatus.connected ? Colors.primary : Colors.textMuted} />
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Đồng bộ giờ', 'Sync Time')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={handleClearOffline}
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="delete-sweep-outline" size={16} color={watchStatus.connected ? Colors.danger : Colors.textMuted} />
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Xóa offline', 'Clear Offline')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* Gửi thử thông báo Cuộc gọi, SMS & Nhắc uống nước */}
+          <Text style={styles.controlSubTitle}>
+            {t('Gửi thử thông báo Cuộc gọi, SMS & Nhắc uống nước', 'Sample Calls, SMS & Hydration Notifications')}
+          </Text>
+          <View style={styles.quickActionRow}>
+            <TouchableOpacity
+              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={() =>
+                handleSendSampleWatchNotification('CALL', 'Nguyen Van A', '0912 345 678 dang goi den...')
+              }
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="phone-ring"
+                size={15}
+                color={watchStatus.connected ? '#16A34A' : Colors.textMuted}
+              />
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
+                {t('Cuộc gọi', 'Call')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={() =>
+                handleSendSampleWatchNotification('SMS', 'Tin nhan SMS', 'Ma OTP xac thuc ProWatch: 849201')
+              }
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="message-processing-outline"
+                size={15}
+                color={watchStatus.connected ? '#0284C7' : Colors.textMuted}
+              />
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
+                {t('Tin nhắn SMS', 'SMS')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={() =>
+                handleSendSampleWatchNotification(
+                  'WATER',
+                  'Nhac uong nuoc',
+                  'Da den gio uong 1 ly nuoc (250ml)!'
+                )
+              }
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="cup-water"
+                size={15}
+                color={watchStatus.connected ? '#D97706' : Colors.textMuted}
+              />
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
+                {t('Uống nước', 'Hydration')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* Thử Cảnh báo Nhịp tim / SpO2 (Quá thấp / Bình thường / Quá cao) */}
+          <Text style={styles.controlSubTitle}>
+            {t('Thử Cảnh báo Nhịp tim / SpO2 (Quá thấp / Bình thường / Quá cao)', 'Test Heart Rate & SpO2 Alerts (Low / Normal / High)')}
+          </Text>
+          <View style={styles.quickActionRow}>
+            <TouchableOpacity
+              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={() =>
+                handleSendSampleWatchNotification(
+                  'HR_LOW',
+                  'HR & SPO2 QUA THAP',
+                  'HR: 48 BPM (QUA THAP!) O2: 91% (QUA THAP!)'
+                )
+              }
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="arrow-down-bold-circle-outline"
+                size={15}
+                color={watchStatus.connected ? Colors.warning : Colors.textMuted}
+              />
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
+                {t('Quá thấp', 'Too Low')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={() =>
+                handleSendSampleWatchNotification(
+                  'HEALTH_OK',
+                  'CHI SO BINH THUONG',
+                  'HR: 75 BPM (Binh thuong) O2: 98% (Binh thuong)'
+                )
+              }
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="check-circle-outline"
+                size={15}
+                color={watchStatus.connected ? Colors.success : Colors.textMuted}
+              />
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
+                {t('Bình thường', 'Normal')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
+              onPress={() =>
+                handleSendSampleWatchNotification(
+                  'HR_HIGH',
+                  'NHIP TIM QUA CAO!',
+                  'HR: 124 BPM (QUA CAO!) O2: 97% (Binh thuong)'
+                )
+              }
+              disabled={!watchStatus.connected}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="alert-circle-outline"
+                size={15}
+                color={watchStatus.connected ? Colors.danger : Colors.textMuted}
+              />
+              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
+                {t('Quá cao', 'Too High')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Kết nối thiết bị & Bluetooth (Dạng Toggle Component riêng biệt) */}
+        <Text style={styles.sectionTitle}>{t('Kết nối thiết bị', 'Device Connection')}</Text>
+        <BluetoothConnectionToggle
+          watchStatus={watchStatus}
+          isConnecting={isConnecting}
+          isTestingDevice={isTestingDevice}
+          onOpenScan={handleOpenBluetoothScan}
+          onReconnect={handleReconnectDevice}
+          onDisconnect={handleOpenDisconnectModal}
+          onSyncSettings={handleManualSyncSettings}
+          onTestData={handleTestDeviceData}
+          onSyncOffline={handleSyncOfflineRecords}
+        />
+
+        {/* Notification Settings Section (Sử dụng toggle, tinh gọn các loại thông báo) */}
+        <Text style={styles.sectionTitle}>{t('Cài đặt các loại thông báo', 'Notification Categories')}</Text>
+        <View style={[styles.card, Shadows.sm]}>
+          {/* Master toggle */}
+          <View style={styles.switchRow}>
+            <View style={[styles.notifTypeIcon, { backgroundColor: Colors.primaryLight }]}>
+              <MaterialCommunityIcons name="bell-ring" size={20} color={Colors.primary} />
             </View>
             <View style={styles.switchInfo}>
-              <Text style={styles.switchLabel}>
-                {t('Chỉnh sửa thông tin cơ bản', 'Edit Basic Health Info')}
-              </Text>
+              <Text style={styles.switchLabel}>{t('Đồng bộ thông báo đồng hồ', 'Sync Watch Notifications')}</Text>
               <Text style={styles.switchSub}>
-                {t('Chiều cao, cân nặng, BMI, giới tính, tuổi & ghi chú', 'Height, weight, BMI, gender, age & note')}
+                {t('Bật/tắt toàn bộ nhận tin & cảnh báo trên đồng hồ', 'Enable/disable all alerts & messages on watch')}
               </Text>
             </View>
+            <StyledSwitch
+              value={settings.notificationsEnabled}
+              onValueChange={(val) => {
+                updateSettingAndSend('notificationsEnabled', val);
+              }}
+            />
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={22} color="#9CA3AF" />
-        </TouchableOpacity>
+
+          {settings.notificationsEnabled && (
+            <>
+              <View style={styles.divider} />
+
+              {/* 1. Cuộc gọi đến */}
+              <View style={styles.switchRow}>
+                <View style={[styles.notifTypeIcon, { backgroundColor: '#DCFCE7' }]}>
+                  <MaterialCommunityIcons name="phone-incoming" size={18} color="#16A34A" />
+                </View>
+                <View style={styles.switchInfo}>
+                  <Text style={styles.switchLabel}>{t('Cuộc gọi đến', 'Incoming Calls')}</Text>
+                  <Text style={styles.switchSub}>
+                    {t('Bật sáng màn hình và hiển thị người gọi trên XIAO ESP32-S3', 'Wake screen and display caller on XIAO ESP32-S3')}
+                  </Text>
+                </View>
+                <StyledSwitch
+                  value={notifCategories.calls}
+                  onValueChange={(val) => toggleNotifCategory('calls', val)}
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* 2. Tin nhắn SMS */}
+              <View style={styles.switchRow}>
+                <View style={[styles.notifTypeIcon, { backgroundColor: '#E0F2FE' }]}>
+                  <MaterialCommunityIcons name="message-text" size={18} color="#0284C7" />
+                </View>
+                <View style={styles.switchInfo}>
+                  <Text style={styles.switchLabel}>{t('Tin nhắn SMS', 'SMS Messages')}</Text>
+                  <Text style={styles.switchSub}>
+                    {t('Xem trước người gửi và nội dung tin nhắn SMS trên đồng hồ', 'Preview sender and SMS text on watch')}
+                  </Text>
+                </View>
+                <StyledSwitch
+                  value={notifCategories.sms}
+                  onValueChange={(val) => toggleNotifCategory('sms', val)}
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* 3. Nhắc nhở uống nước */}
+              <View style={styles.switchRow}>
+                <View style={[styles.notifTypeIcon, { backgroundColor: '#FEF3C7' }]}>
+                  <MaterialCommunityIcons name="cup-water" size={18} color="#D97706" />
+                </View>
+                <View style={styles.switchInfo}>
+                  <Text style={styles.switchLabel}>{t('Nhắc nhở uống nước', 'Hydration Reminder')}</Text>
+                  <Text style={styles.switchSub}>
+                    {t('Nhắc bổ sung nước định kỳ trên màn hình đồng hồ', 'Periodic hydration reminder on watch screen')}
+                  </Text>
+                </View>
+                <StyledSwitch
+                  value={notifCategories.water}
+                  onValueChange={(val) => toggleNotifCategory('water', val)}
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* 4. Thông báo / Cảnh báo Nhịp tim & SpO2 */}
+              <View style={styles.switchRow}>
+                <View style={[styles.notifTypeIcon, { backgroundColor: Colors.heartRateLight }]}>
+                  <MaterialCommunityIcons name="heart-pulse" size={18} color={Colors.heartRate} />
+                </View>
+                <View style={styles.switchInfo}>
+                  <Text style={styles.switchLabel}>{t('Cảnh báo Nhịp tim & SpO2', 'Heart Rate & SpO2 Alerts')}</Text>
+                  <Text style={styles.switchSub}>
+                    {t('Thông báo khi chỉ số Quá thấp / Bình thường / Quá cao sau khi đo', 'Alert when reading is Too Low / Normal / Too High after measurement')}
+                  </Text>
+                </View>
+                <StyledSwitch
+                  value={notifCategories.health}
+                  onValueChange={(val) => toggleNotifCategory('health', val)}
+                />
+              </View>
+            </>
+          )}
+        </View>
+
+        {/* Display & Sensor Toggles */}
+        <Text style={styles.sectionTitle}>{t('Màn hình & Cảm biến', 'Display & Sensors')}</Text>
+        <View style={[styles.card, Shadows.sm]}>
+          <View style={styles.switchRow}>
+            <View style={[styles.notifTypeIcon, { backgroundColor: '#FEF3C7' }]}>
+              <MaterialCommunityIcons name="brightness-6" size={18} color="#D97706" />
+            </View>
+            <View style={styles.switchInfo}>
+              <Text style={styles.switchLabel}>{t('Màn hình luôn bật (AOD)', 'Always On Display (AOD)')}</Text>
+            </View>
+            <StyledSwitch
+              value={settings.alwaysOnDisplay}
+              onValueChange={(val) => updateSettingAndSend('alwaysOnDisplay', val)}
+            />
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.switchRow}>
+            <View style={[styles.notifTypeIcon, { backgroundColor: '#E0F2FE' }]}>
+              <MaterialCommunityIcons name="gesture-tap-hold" size={18} color="#0284C7" />
+            </View>
+            <View style={styles.switchInfo}>
+              <Text style={styles.switchLabel}>{t('Nhấc tay sáng màn hình', 'Raise to Wake')}</Text>
+            </View>
+            <StyledSwitch
+              value={settings.raiseToWake}
+              onValueChange={(val) => updateSettingAndSend('raiseToWake', val)}
+            />
+          </View>
+        </View>
 
         {/* Cài đặt Ngôn ngữ & Hiển thị */}
         <Text style={styles.sectionTitle}>{t('Ngôn ngữ hiển thị & Cỡ chữ', 'Display Language & Typography')}</Text>
@@ -1134,12 +1900,11 @@ export const SettingsScreen: React.FC = () => {
               <Text
                 style={[
                   styles.fontPreviewSample,
-                  fontSizeScale === 'small' && { fontSize: 13 },
-                  fontSizeScale === 'normal' && { fontSize: 14.5 },
-                  fontSizeScale === 'large' && { fontSize: 16 },
-                  fontSizeScale === 'xlarge' && { fontSize: 17.5 },
+                  fontSizeScale === 'small' && { fontSize: 13, lineHeight: 19 },
+                  fontSizeScale === 'normal' && { fontSize: 14.5, lineHeight: 22 },
+                  fontSizeScale === 'large' && { fontSize: 16, lineHeight: 24 },
+                  fontSizeScale === 'xlarge' && { fontSize: 17.5, lineHeight: 26 },
                 ]}
-                numberOfLines={2}
               >
                 {t(
                   'ProWatch Health: Nhịp tim 75 BPM, Oxy trong máu SpO2 98%. Bố cục cân đối, hiển thị sắc nét.',
@@ -1150,677 +1915,15 @@ export const SettingsScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Kết nối thiết bị & Bluetooth (Dạng Toggle Component riêng biệt) */}
-        <Text style={styles.sectionTitle}>{t('Kết nối thiết bị & Bluetooth', 'Device & Bluetooth Connection')}</Text>
-        <BluetoothConnectionToggle
-          watchStatus={watchStatus}
-          isConnecting={isConnecting}
-          isTestingDevice={isTestingDevice}
-          onOpenScan={handleOpenBluetoothScan}
-          onReconnect={handleReconnectDevice}
-          onDisconnect={handleOpenDisconnectModal}
-          onSyncSettings={handleManualSyncSettings}
-          onTestData={handleTestDeviceData}
-          onSyncOffline={handleSyncOfflineRecords}
-        />
-
-        {/* Điều khiển đồng hồ từ xa (XIAO ESP32-S3) */}
-        <Text style={styles.sectionTitle}>{t('Điều khiển đồng hồ từ xa', 'Remote Watch Control')}</Text>
-        <View style={[styles.card, Shadows.sm]}>
-          <Text style={styles.controlSubTitle}>
-            {t('Chuyển nhanh màn hình (Firmware v1.5.1)', 'Quick Screen Switch (Firmware v1.5.1)')}
-          </Text>
-          <View style={styles.menuGrid}>
-            {WATCH_MENUS.map((m) => (
-              <TouchableOpacity
-                key={m.id}
-                style={[
-                  styles.menuBtn,
-                  !watchStatus.connected && styles.btnDisabled
-                ]}
-                onPress={() => handleSetWatchMenu(m.id, m.label)}
-                disabled={!watchStatus.connected}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons
-                  name={
-                    m.id === 0
-                      ? "clock-outline"
-                      : m.id === 1
-                        ? "heart-pulse"
-                        : m.id === 2
-                          ? "cog-outline"
-                          : "bell-ring-outline"
-                  }
-                  size={18}
-                  color={watchStatus.connected ? Colors.primary : Colors.textMuted}
-                />
-                <Text style={[
-                  styles.menuBtnText,
-                  !watchStatus.connected && styles.textDisabled
-                ]}>
-                  {m.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <View style={styles.navRow}>
-            <TouchableOpacity
-              style={[styles.navStepBtn, !watchStatus.connected && styles.btnDisabled]}
-              onPress={() => handleStepWatchMenu('back')}
-              disabled={!watchStatus.connected}
-              activeOpacity={0.8}
-            >
-              <Feather name="chevron-left" size={16} color={watchStatus.connected ? Colors.textPrimary : Colors.textMuted} />
-              <Text style={[styles.navStepText, !watchStatus.connected && styles.textDisabled]}>
-                {t('Trang trước (D2)', 'Prev Page (D2)')}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.navStepBtn, !watchStatus.connected && styles.btnDisabled]}
-              onPress={() => handleStepWatchMenu('next')}
-              disabled={!watchStatus.connected}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.navStepText, !watchStatus.connected && styles.textDisabled]}>
-                {t('Trang sau (D0)', 'Next Page (D0)')}
-              </Text>
-              <Feather name="chevron-right" size={16} color={watchStatus.connected ? Colors.textPrimary : Colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.controlSubTitle}>{t('Tiện ích nguồn & Thời gian', 'Power & Time Utilities')}</Text>
-          <View style={styles.quickActionRow}>
-            <TouchableOpacity
-              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
-              onPress={() => handleSetWatchScreen(true)}
-              disabled={!watchStatus.connected}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color={watchStatus.connected ? "#D97706" : Colors.textMuted} />
-              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Bật màn', 'Screen On')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
-              onPress={() => handleSetWatchScreen(false)}
-              disabled={!watchStatus.connected}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="power-sleep" size={16} color={watchStatus.connected ? Colors.textSecondary : Colors.textMuted} />
-              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Tắt màn', 'Screen Off')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
-              onPress={handleSyncTime}
-              disabled={!watchStatus.connected}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="sync" size={16} color={watchStatus.connected ? Colors.primary : Colors.textMuted} />
-              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Đồng bộ giờ', 'Sync Time')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
-              onPress={handleClearOffline}
-              disabled={!watchStatus.connected}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="delete-sweep-outline" size={16} color={watchStatus.connected ? Colors.danger : Colors.textMuted} />
-              <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>{t('Xóa offline', 'Clear Offline')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Notification Settings Section (Sử dụng toggle, tinh gọn các loại thông báo) */}
-        <Text style={styles.sectionTitle}>{t('Cài đặt các loại thông báo', 'Notification Categories')}</Text>
-        <View style={[styles.card, Shadows.sm]}>
-          {/* Master toggle */}
-          <View style={styles.switchRow}>
-            <View style={[styles.notifTypeIcon, { backgroundColor: Colors.primaryLight }]}>
-              <MaterialCommunityIcons name="bell-ring" size={20} color={Colors.primary} />
-            </View>
-            <View style={styles.switchInfo}>
-              <Text style={styles.switchLabel}>{t('Đồng bộ thông báo đồng hồ', 'Sync Watch Notifications')}</Text>
-              <Text style={styles.switchSub}>
-                {t('Bật/tắt toàn bộ nhận tin & cảnh báo trên đồng hồ', 'Enable/disable all alerts & messages on watch')}
-              </Text>
-            </View>
-            <Switch
-              value={settings.notificationsEnabled}
-              onValueChange={(val) => {
-                updateSettingAndSend('notificationsEnabled', val);
-              }}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
-            />
-          </View>
-
-          {settings.notificationsEnabled && (
-            <>
-              <View style={styles.divider} />
-
-              {/* 1. Cuộc gọi đến */}
-              <View style={styles.switchRow}>
-                <View style={[styles.notifTypeIcon, { backgroundColor: '#DCFCE7' }]}>
-                  <MaterialCommunityIcons name="phone-incoming" size={18} color="#16A34A" />
-                </View>
-                <View style={styles.switchInfo}>
-                  <Text style={styles.switchLabel}>{t('Cuộc gọi đến', 'Incoming Calls')}</Text>
-                  <Text style={styles.switchSub}>
-                    {t('Bật sáng màn hình và hiển thị người gọi trên XIAO ESP32-S3', 'Wake screen and display caller on XIAO ESP32-S3')}
-                  </Text>
-                </View>
-                <Switch
-                  value={notifCategories.calls}
-                  onValueChange={(val) => toggleNotifCategory('calls', val)}
-                  trackColor={{ false: Colors.border, true: Colors.primary }}
-                  thumbColor={Colors.white}
-                />
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* 2. Tin nhắn SMS */}
-              <View style={styles.switchRow}>
-                <View style={[styles.notifTypeIcon, { backgroundColor: '#E0F2FE' }]}>
-                  <MaterialCommunityIcons name="message-text" size={18} color="#0284C7" />
-                </View>
-                <View style={styles.switchInfo}>
-                  <Text style={styles.switchLabel}>{t('Tin nhắn SMS', 'SMS Messages')}</Text>
-                  <Text style={styles.switchSub}>
-                    {t('Xem trước người gửi và nội dung tin nhắn SMS trên đồng hồ', 'Preview sender and SMS text on watch')}
-                  </Text>
-                </View>
-                <Switch
-                  value={notifCategories.sms}
-                  onValueChange={(val) => toggleNotifCategory('sms', val)}
-                  trackColor={{ false: Colors.border, true: Colors.primary }}
-                  thumbColor={Colors.white}
-                />
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* 3. Nhắc nhở uống nước */}
-              <View style={styles.switchRow}>
-                <View style={[styles.notifTypeIcon, { backgroundColor: '#FEF3C7' }]}>
-                  <MaterialCommunityIcons name="cup-water" size={18} color="#D97706" />
-                </View>
-                <View style={styles.switchInfo}>
-                  <Text style={styles.switchLabel}>{t('Nhắc nhở uống nước', 'Hydration Reminder')}</Text>
-                  <Text style={styles.switchSub}>
-                    {t('Nhắc bổ sung nước định kỳ trên màn hình đồng hồ', 'Periodic hydration reminder on watch screen')}
-                  </Text>
-                </View>
-                <Switch
-                  value={notifCategories.water}
-                  onValueChange={(val) => toggleNotifCategory('water', val)}
-                  trackColor={{ false: Colors.border, true: Colors.primary }}
-                  thumbColor={Colors.white}
-                />
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* 4. Thông báo / Cảnh báo Nhịp tim & SpO2 */}
-              <View style={styles.switchRow}>
-                <View style={[styles.notifTypeIcon, { backgroundColor: Colors.heartRateLight }]}>
-                  <MaterialCommunityIcons name="heart-pulse" size={18} color={Colors.heartRate} />
-                </View>
-                <View style={styles.switchInfo}>
-                  <Text style={styles.switchLabel}>{t('Cảnh báo Nhịp tim & SpO2', 'Heart Rate & SpO2 Alerts')}</Text>
-                  <Text style={styles.switchSub}>
-                    {t('Thông báo khi chỉ số Quá thấp / Bình thường / Quá cao sau khi đo', 'Alert when reading is Too Low / Normal / Too High after measurement')}
-                  </Text>
-                </View>
-                <Switch
-                  value={notifCategories.health}
-                  onValueChange={(val) => toggleNotifCategory('health', val)}
-                  trackColor={{ false: Colors.border, true: Colors.primary }}
-                  thumbColor={Colors.white}
-                />
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* Bộ nút gửi thử thông báo trực tiếp lên màn hình đồng hồ */}
-              <View style={{ marginTop: 4 }}>
-                <Text style={[styles.switchSub, { marginBottom: 8, fontWeight: '600', color: Colors.textSecondary }]}>
-                  Gửi thử thông báo Cuộc gọi, SMS & Nhắc uống nước:
-                </Text>
-                <View style={styles.quickActionRow}>
-                  <TouchableOpacity
-                    style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
-                    onPress={() =>
-                      handleSendSampleWatchNotification('CALL', 'Nguyen Van A', '0912 345 678 dang goi den...')
-                    }
-                    disabled={!watchStatus.connected}
-                    activeOpacity={0.8}
-                  >
-                    <MaterialCommunityIcons
-                      name="phone-ring"
-                      size={15}
-                      color={watchStatus.connected ? '#16A34A' : Colors.textMuted}
-                    />
-                    <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
-                      Cuộc gọi
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
-                    onPress={() =>
-                      handleSendSampleWatchNotification('SMS', 'Tin nhan SMS', 'Ma OTP xac thuc ProWatch: 849201')
-                    }
-                    disabled={!watchStatus.connected}
-                    activeOpacity={0.8}
-                  >
-                    <MaterialCommunityIcons
-                      name="message-processing-outline"
-                      size={15}
-                      color={watchStatus.connected ? '#0284C7' : Colors.textMuted}
-                    />
-                    <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
-                      Tin nhắn SMS
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
-                    onPress={() =>
-                      handleSendSampleWatchNotification(
-                        'WATER',
-                        'Nhac uong nuoc',
-                        'Da den gio uong 1 ly nuoc (250ml)!'
-                      )
-                    }
-                    disabled={!watchStatus.connected}
-                    activeOpacity={0.8}
-                  >
-                    <MaterialCommunityIcons
-                      name="cup-water"
-                      size={15}
-                      color={watchStatus.connected ? '#D97706' : Colors.textMuted}
-                    />
-                    <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
-                      Uống nước
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <Text
-                  style={[
-                    styles.switchSub,
-                    { marginTop: 12, marginBottom: 8, fontWeight: '600', color: Colors.textSecondary },
-                  ]}
-                >
-                  Thử Cảnh báo Nhịp tim / SpO2 (Quá thấp / Bình thường / Quá cao):
-                </Text>
-                <View style={styles.quickActionRow}>
-                  <TouchableOpacity
-                    style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
-                    onPress={() =>
-                      handleSendSampleWatchNotification(
-                        'HR_LOW',
-                        'HR & SPO2 QUA THAP',
-                        'HR: 48 BPM (QUA THAP!) O2: 91% (QUA THAP!)'
-                      )
-                    }
-                    disabled={!watchStatus.connected}
-                    activeOpacity={0.8}
-                  >
-                    <MaterialCommunityIcons
-                      name="arrow-down-bold-circle-outline"
-                      size={15}
-                      color={watchStatus.connected ? Colors.warning : Colors.textMuted}
-                    />
-                    <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
-                      Quá thấp
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
-                    onPress={() =>
-                      handleSendSampleWatchNotification(
-                        'HEALTH_OK',
-                        'CHI SO BINH THUONG',
-                        'HR: 75 BPM (Binh thuong) O2: 98% (Binh thuong)'
-                      )
-                    }
-                    disabled={!watchStatus.connected}
-                    activeOpacity={0.8}
-                  >
-                    <MaterialCommunityIcons
-                      name="check-circle-outline"
-                      size={15}
-                      color={watchStatus.connected ? Colors.success : Colors.textMuted}
-                    />
-                    <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
-                      Bình thường
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
-                    onPress={() =>
-                      handleSendSampleWatchNotification(
-                        'HR_HIGH',
-                        'NHIP TIM QUA CAO!',
-                        'HR: 124 BPM (QUA CAO!) O2: 97% (Binh thuong)'
-                      )
-                    }
-                    disabled={!watchStatus.connected}
-                    activeOpacity={0.8}
-                  >
-                    <MaterialCommunityIcons
-                      name="alert-circle-outline"
-                      size={15}
-                      color={watchStatus.connected ? Colors.danger : Colors.textMuted}
-                    />
-                    <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
-                      Quá cao
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.divider} />
-
-                {/* MỤC DEMO THÔNG BÁO TÙY CHỈNH TRÊN MÀN HÌNH ĐỒNG HỒ */}
-                <View style={styles.demoSectionBox}>
-                  <View style={styles.demoHeaderRow}>
-                    <MaterialCommunityIcons name="watch-vibrate" size={18} color={selectedDemoColor.hex} />
-                    <Text style={styles.demoSectionTitle}>
-                      Demo Thông báo tùy chỉnh trên Màn hình Đồng hồ
-                    </Text>
-                  </View>
-                  <Text style={styles.demoSectionSub}>
-                    Điền loại thông báo, màu sắc, tiêu đề và nội dung để gửi trực tiếp lên màn hình đồng hồ XIAO ESP32-S3 (tự tắt sau 5s hoặc 10s và quay lại màn hình chính).
-                  </Text>
-
-                  {/* 1. Chọn loại thông báo */}
-                  <Text style={styles.demoFieldLabel}>1. Loại thông báo:</Text>
-                  <View style={styles.demoChipWrap}>
-                    {DEMO_NOTIF_TYPES.map((item) => {
-                      const active = demoType === item.type;
-                      return (
-                        <TouchableOpacity
-                          key={item.type}
-                          style={[
-                            styles.demoTypeChip,
-                            active && {
-                              backgroundColor: selectedDemoColor.bgHex,
-                              borderColor: selectedDemoColor.hex,
-                            },
-                          ]}
-                          onPress={() => handleSelectDemoType(item)}
-                          activeOpacity={0.8}
-                        >
-                          <MaterialCommunityIcons
-                            name={item.icon as any}
-                            size={14}
-                            color={active ? selectedDemoColor.hex : Colors.textSecondary}
-                          />
-                          <Text
-                            style={[
-                              styles.demoTypeChipText,
-                              active && { color: selectedDemoColor.hex, fontWeight: '700' },
-                            ]}
-                          >
-                            {item.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-
-                  {/* 2. Chọn màu thông báo */}
-                  <Text style={styles.demoFieldLabel}>2. Màu thông báo trên màn hình đồng hồ:</Text>
-                  <View style={styles.demoColorRow}>
-                    {DEMO_NOTIF_COLORS.map((col) => {
-                      const active = demoColorId === col.id;
-                      return (
-                        <TouchableOpacity
-                          key={col.id}
-                          style={[
-                            styles.demoColorChip,
-                            { borderColor: active ? col.hex : Colors.border },
-                            active && { backgroundColor: col.bgHex, borderWidth: 2 },
-                          ]}
-                          onPress={() => setDemoColorId(col.id)}
-                          activeOpacity={0.8}
-                        >
-                          <View style={[styles.demoColorDot, { backgroundColor: col.hex }]} />
-                          <Text
-                            style={[
-                              styles.demoColorLabel,
-                              active && { color: col.hex, fontWeight: '700' },
-                            ]}
-                          >
-                            {col.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-
-                  {/* 3. Điền tiêu đề thông báo */}
-                  <Text style={styles.demoFieldLabel}>3. Tiêu đề thông báo:</Text>
-                  <TextInput
-                    style={styles.demoTextInput}
-                    value={demoTitle}
-                    onChangeText={setDemoTitle}
-                    placeholder="Nhập tiêu đề (VD: Nguyen Van A)"
-                    placeholderTextColor={Colors.textMuted}
-                    maxLength={24}
-                  />
-
-                  {/* 4. Điền nội dung thông báo (căn trái) */}
-                  <Text style={styles.demoFieldLabel}>4. Nội dung thông báo (căn trái):</Text>
-                  <TextInput
-                    style={[styles.demoTextInput, styles.demoTextArea]}
-                    value={demoBody}
-                    onChangeText={setDemoBody}
-                    placeholder="Nhập nội dung thông báo..."
-                    placeholderTextColor={Colors.textMuted}
-                    multiline
-                    maxLength={88}
-                  />
-
-                  {/* Nút gửi Demo lên màn hình đồng hồ */}
-                  <TouchableOpacity
-                    style={[
-                      styles.demoSubmitBtn,
-                      { backgroundColor: selectedDemoColor.hex },
-                      !watchStatus.connected && styles.btnDisabled,
-                    ]}
-                    onPress={handleRunCustomDemoNotification}
-                    disabled={!watchStatus.connected}
-                    activeOpacity={0.85}
-                  >
-                    <MaterialCommunityIcons
-                      name="watch-vibrate"
-                      size={18}
-                      color={watchStatus.connected ? Colors.white : Colors.textMuted}
-                    />
-                    <Text
-                      style={[
-                        styles.demoSubmitBtnText,
-                        !watchStatus.connected && styles.textDisabled,
-                      ]}
-                    >
-                      Gửi thông báo
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </>
-          )}
-        </View>
-
-        {/* Display & Sensor Toggles */}
-        <Text style={styles.sectionTitle}>{t('Màn hình & Cảm biến', 'Display & Sensors')}</Text>
-        <View style={[styles.card, Shadows.sm]}>
-          <View style={styles.switchRow}>
-            <View style={[styles.notifTypeIcon, { backgroundColor: '#FEF3C7' }]}>
-              <MaterialCommunityIcons name="brightness-6" size={18} color="#D97706" />
-            </View>
-            <View style={styles.switchInfo}>
-              <Text style={styles.switchLabel}>{t('Màn hình luôn bật (AOD)', 'Always On Display (AOD)')}</Text>
-              <Text style={styles.switchSub}>
-                {settings.alwaysOnDisplay
-                  ? t('Đang bật: Giữ mặt đồng hồ luôn sáng mờ (~15%) khi nghỉ', 'Enabled: Keep watch face dimly lit (~15%) when idle')
-                  : t('Đang tắt: Tự động tắt hẳn màn hình sau 10 giây không chạm', 'Disabled: Turn screen off completely after 10s of inactivity')}
-              </Text>
-            </View>
-            <Switch
-              value={settings.alwaysOnDisplay}
-              onValueChange={(val) => updateSettingAndSend('alwaysOnDisplay', val)}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
-            />
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.switchRow}>
-            <View style={[styles.notifTypeIcon, { backgroundColor: '#E0F2FE' }]}>
-              <MaterialCommunityIcons name="gesture-tap-hold" size={18} color="#0284C7" />
-            </View>
-            <View style={styles.switchInfo}>
-              <Text style={styles.switchLabel}>{t('Nhấc tay sáng màn hình', 'Raise to Wake')}</Text>
-              <Text style={styles.switchSub}>
-                {settings.raiseToWake
-                  ? t('Đang bật: Tự động bật sáng màn hình khi xoay/nhấc cổ tay', 'Enabled: Automatically wake screen when raising wrist')
-                  : t('Đang tắt: Chỉ bật màn hình khi chạm nút cảm ứng D0/D1/D2', 'Disabled: Only wake screen on D0/D1/D2 touch buttons')}
-              </Text>
-            </View>
-            <Switch
-              value={settings.raiseToWake}
-              onValueChange={(val) => updateSettingAndSend('raiseToWake', val)}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
-            />
-          </View>
-
-          {settings.raiseToWake && (
-            <View style={{ marginTop: 10 }}>
-              <TouchableOpacity
-                style={[styles.quickActionBtn, !watchStatus.connected && styles.btnDisabled]}
-                onPress={handleTriggerRaiseToWake}
-                disabled={!watchStatus.connected}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons
-                  name="watch-vibrate"
-                  size={16}
-                  color={watchStatus.connected ? Colors.primary : Colors.textMuted}
-                />
-                <Text style={[styles.quickActionText, !watchStatus.connected && styles.textDisabled]}>
-                  {t('Mô phỏng cử chỉ nhấc tay sáng màn hình', 'Simulate Raise to Wake gesture')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* Health Warning Thresholds */}
-        <Text style={styles.sectionTitle}>{t('Ngưỡng cảnh báo y tế', 'Medical Alert Thresholds')}</Text>
-        <View style={[styles.card, Shadows.sm]}>
-          <View style={styles.thresholdRow}>
-            <View style={styles.thresholdLeft}>
-              <View style={[styles.miniIcon, { backgroundColor: Colors.heartRateLight }]}>
-                <MaterialCommunityIcons name="heart-flash" size={16} color={Colors.heartRate} />
-              </View>
-              <Text style={styles.thresholdLabel}>{t('Cảnh báo nhịp tim cao', 'High Heart Rate Alert')}</Text>
-            </View>
-            <View style={styles.thresholdValueBox}>
-              <Text style={styles.thresholdValueText}>&gt; {settings.hrAlertHigh} BPM</Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.thresholdRow}>
-            <View style={styles.thresholdLeft}>
-              <View style={[styles.miniIcon, { backgroundColor: Colors.spo2Light }]}>
-                <MaterialCommunityIcons name="water-alert" size={16} color={Colors.spo2} />
-              </View>
-              <Text style={styles.thresholdLabel}>{t('Cảnh báo SpO2 thấp', 'Low SpO2 Alert')}</Text>
-            </View>
-            <View style={styles.thresholdValueBox}>
-              <Text style={styles.thresholdValueText}>&lt; {settings.spo2AlertLow}%</Text>
-            </View>
-          </View>
-        </View>
-
-
-        {/* Device Hardware Info */}
-        <Text style={styles.sectionTitle}>{t('Thông tin phần cứng', 'Hardware Information')}</Text>
-        <View style={[styles.card, Shadows.sm]}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>{t('Bộ xử lý chính', 'Main Processor')}</Text>
-            <Text style={[styles.infoVal, { color: Colors.primary, fontWeight: '700' }]}>
-              Seeed Studio XIAO ESP32-S3
-            </Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>{t('Trạng thái kết nối', 'Connection Status')}</Text>
-            <Text style={[styles.infoVal, { color: watchStatus.connected ? Colors.success : Colors.danger, fontWeight: '700' }]}>
-              {watchStatus.connected ? t('Đang hoạt động (BLE/Wi-Fi)', 'Connected (BLE/Wi-Fi)') : t('Chưa kết nối', 'Disconnected')}
-            </Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>{t('Phiên bản Firmware', 'Firmware Version')}</Text>
-            <Text style={styles.infoVal}>{watchStatus.firmwareVersion || WATCH_FIRMWARE_VERSION}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>{t('Địa chỉ Bluetooth MAC', 'Bluetooth MAC Address')}</Text>
-            <Text style={styles.infoVal}>{watchStatus.bleAddress}</Text>
-          </View>
-        </View>
-
-        {/* App Info & Version */}
-        <Text style={styles.sectionTitle}>{t('Thông tin ứng dụng', 'Application Information')}</Text>
-        <View style={[styles.card, Shadows.sm]}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>{t('Ứng dụng', 'Application')}</Text>
-            <Text style={styles.infoVal}>{APP_INFO.name}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>{t('Phiên bản (Version)', 'Version')}</Text>
-            <Text style={[styles.infoVal, { color: Colors.primary, fontWeight: '700' }]}>
-              v{APP_INFO.version} (Build {APP_INFO.buildNumber})
-            </Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.infoRow}>
-            <Text style={styles.infoKey}>{t('Gói cài đặt (APK)', 'APK Package')}</Text>
-            <Text style={[styles.infoVal, { color: Colors.textSecondary, fontWeight: '600' }]}>
-              {APP_INFO.apkFileName || 'ProWatch-Health.apk'}
-            </Text>
-          </View>
-        </View>
-
         {/* Supabase 2FA Security Section (Dạng Toggle) */}
         <Text style={styles.sectionTitle}>{t('Bảo mật tài khoản & Xác thực 2 bước', 'Account Security & Two-Factor Auth')}</Text>
         <View style={[styles.card, Shadows.sm]}>
           <View style={styles.mfaToggleRow}>
             <View style={[styles.mfaIconCircle, mfaStatus?.isEnabled ? styles.mfaIconActive : styles.mfaIconInactive]}>
-              <MaterialCommunityIcons 
-                name={mfaStatus?.isEnabled ? "shield-check" : "shield-alert-outline"} 
-                size={22} 
-                color={mfaStatus?.isEnabled ? Colors.success : Colors.warning} 
+              <MaterialCommunityIcons
+                name={mfaStatus?.isEnabled ? "shield-check" : "shield-alert-outline"}
+                size={22}
+                color={mfaStatus?.isEnabled ? Colors.success : Colors.warning}
               />
             </View>
 
@@ -1832,18 +1935,62 @@ export const SettingsScreen: React.FC = () => {
             {isLoadingMfa ? (
               <ActivityIndicator size="small" color={Colors.primary} style={{ marginLeft: 6 }} />
             ) : (
-              <Switch
+              <StyledSwitch
                 value={Boolean(mfaStatus?.isEnabled)}
                 onValueChange={handleToggleMfa}
-                trackColor={{ false: Colors.border, true: Colors.primary }}
-                thumbColor={Colors.white}
               />
             )}
           </View>
         </View>
 
+        {/* ========================================================================= */}
+        {/* HỖ TRỢ (Support Section - Styled after Reference Image)                  */}
+        {/* ========================================================================= */}
+        <Text style={styles.listSectionTitle}>{t('Hỗ Trợ', 'Support')}</Text>
+        <View style={[styles.listMenuCard, Shadows.sm]}>
+          <TouchableOpacity
+            style={styles.listMenuItem}
+            activeOpacity={0.7}
+            onPress={() => setActiveDoc('about')}
+          >
+            <Text style={styles.listMenuItemText}>{t('Về chúng tôi', 'About Us')}</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <View style={styles.listMenuDivider} />
+
+          <TouchableOpacity
+            style={styles.listMenuItem}
+            activeOpacity={0.7}
+            onPress={() => setActiveDoc('knowledge')}
+          >
+            <Text style={styles.listMenuItemText}>{t('Kiến thức cần biết', 'Essential Knowledge')}</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+        </View>
+
+        {/* ========================================================================= */}
+        {/* CHÍNH SÁCH (Policy Section - Styled after Reference Image)                */}
+        {/* ========================================================================= */}
+        <Text style={styles.listSectionTitle}>{t('Chính Sách', 'Policy')}</Text>
+        <View style={[styles.listMenuCard, Shadows.sm]}>
+          <TouchableOpacity
+            style={styles.listMenuItem}
+            activeOpacity={0.7}
+            onPress={() => setActiveDoc('privacy')}
+          >
+            <Text style={styles.listMenuItemText}>{t('Chính sách bảo mật', 'Privacy Policy')}</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Version Footnote */}
+        <Text style={styles.versionFootnote}>
+          version: {APP_INFO.version}
+        </Text>
+
         {/* Logout Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.logoutBtn}
           onPress={logout}
           activeOpacity={0.8}
@@ -1875,7 +2022,7 @@ export const SettingsScreen: React.FC = () => {
                   <Text style={styles.modalSub}>Chọn đồng hồ của bạn trong danh sách để kết nối</Text>
                 </View>
               </View>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalCloseBtn}
                 onPress={() => setIsScanModalVisible(false)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -1922,10 +2069,10 @@ export const SettingsScreen: React.FC = () => {
                     activeOpacity={0.7}
                   >
                     <View style={[styles.deviceIconCircle, isRec && styles.deviceIconCircleRecommended]}>
-                      <MaterialCommunityIcons 
-                        name={isRec ? "watch-variant" : "bluetooth"} 
-                        size={24} 
-                        color={isRec ? Colors.primary : Colors.textSecondary} 
+                      <MaterialCommunityIcons
+                        name={isRec ? "watch-variant" : "bluetooth"}
+                        size={24}
+                        color={isRec ? Colors.primary : Colors.textSecondary}
                       />
                     </View>
 
@@ -1992,7 +2139,7 @@ export const SettingsScreen: React.FC = () => {
             </ScrollView>
 
             {/* Re-scan button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.rescanBtn, isScanning && styles.rescanBtnDisabled]}
               onPress={handleOpenBluetoothScan}
               disabled={isScanning || isConnecting}
@@ -2061,6 +2208,867 @@ export const SettingsScreen: React.FC = () => {
         }}
         onClose={() => setIsEnrollModalVisible(false)}
       />
+
+      {/* ========================================================================= */}
+      {/* 4. BASIC HEALTH INFO EDIT MODAL (Target Screen from Reference Image)       */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={isBasicInfoModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setIsBasicInfoModalVisible(false)}
+      >
+        <View style={biStyles.screenContainer}>
+          {/* Top Header */}
+          <View style={biStyles.topHeader}>
+            <TouchableOpacity
+              style={biStyles.backButton}
+              onPress={() => setIsBasicInfoModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={24} color="#1F2937" />
+            </TouchableOpacity>
+
+            {/* Header Title */}
+            <Text style={biStyles.topHeaderTitle}>{t('Thông tin cơ bản', 'Basic Info')}</Text>
+
+            {/* Save Button */}
+            <TouchableOpacity
+              style={[biStyles.saveButton, isSavingBasicInfo && { opacity: 0.7 }]}
+              onPress={handleSaveBasicInfo}
+              disabled={isSavingBasicInfo}
+              activeOpacity={0.8}
+            >
+              {isSavingBasicInfo ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-sharp" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={biStyles.saveButtonText}>{t('Lưu', 'Save')}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Banner notification if saved */}
+          {basicInfoNotice && (
+            <View style={biStyles.noticeBanner}>
+              <MaterialCommunityIcons name="check-circle" size={18} color="#15803D" style={{ marginRight: 6 }} />
+              <Text style={biStyles.noticeBannerText}>{basicInfoNotice}</Text>
+            </View>
+          )}
+
+          {/* Scrollable Cards */}
+          <ScrollView
+            style={biStyles.mainScroll}
+            contentContainerStyle={biStyles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Hướng dẫn cho người dùng mới đăng ký */}
+            {!user?.isProfileComplete && !user?.weight && (
+              <View style={[biStyles.noticeBanner, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE', marginHorizontal: 16, marginTop: 12, marginBottom: 4 }]}>
+                <MaterialCommunityIcons name="information-outline" size={18} color="#1D4ED8" style={{ marginRight: 6 }} />
+                <Text style={[biStyles.noticeBannerText, { color: '#1E40AF', flex: 1 }]}>
+                  {t('Hồ sơ mới: Vui lòng kéo chọn chiều cao, cân nặng và bấm Lưu để tính chỉ số BMI.', 'New profile: Please set height & weight and tap Save to calculate BMI.')}
+                </Text>
+              </View>
+            )}
+
+            {/* Weight Card */}
+            <BasicInfoRuler
+              label={t('Cân nặng', 'Weight')}
+              value={basicWeight}
+              unit="kg"
+              min={40}
+              max={160}
+              stepWidth={10}
+              onChange={setBasicWeight}
+              onEditDirect={() => openDirectEditModal('weight')}
+            />
+
+            {/* Height Card */}
+            <BasicInfoRuler
+              label={t('Chiều cao', 'Height')}
+              value={basicHeight}
+              unit="cm"
+              min={120}
+              max={230}
+              stepWidth={10}
+              onChange={setBasicHeight}
+              onEditDirect={() => openDirectEditModal('height')}
+            />
+
+            {/* Gender & Age Row */}
+            <View style={biStyles.dualRow}>
+              {/* Gender Card */}
+              <TouchableOpacity
+                style={biStyles.halfCard}
+                activeOpacity={0.7}
+                onPress={() => setIsGenderPickerOpen(true)}
+              >
+                <View style={biStyles.cardHeaderSmall}>
+                  <MaterialCommunityIcons name="human-male-female" size={18} color="#EF4444" />
+                  <Text style={biStyles.cardLabelSmall}>{t('Giới tính', 'Gender')}</Text>
+                </View>
+                <View style={biStyles.cardBottomRow}>
+                  <Text style={biStyles.cardValueLarge}>
+                    {basicGender === 'Male'
+                      ? t('Nam', 'Male')
+                      : basicGender === 'Female'
+                        ? t('Nữ', 'Female')
+                        : t('Khác', 'Other')}
+                  </Text>
+                  <MaterialCommunityIcons name="pencil-outline" size={16} color="#9CA3AF" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Age Card */}
+              <TouchableOpacity
+                style={biStyles.halfCard}
+                activeOpacity={0.7}
+                onPress={() => setIsAgePickerOpen(true)}
+              >
+                <View style={biStyles.cardHeaderSmall}>
+                  <MaterialCommunityIcons name="account-outline" size={18} color="#EF4444" />
+                  <Text style={biStyles.cardLabelSmall}>{t('Tuổi', 'Age')}</Text>
+                </View>
+                <View style={biStyles.cardBottomRow}>
+                  <Text style={biStyles.cardValueLarge}>{basicAge}</Text>
+                  <MaterialCommunityIcons name="pencil-outline" size={16} color="#9CA3AF" />
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Note Card */}
+            <View style={biStyles.noteCard}>
+              <View style={biStyles.cardHeaderSmall}>
+                <MaterialCommunityIcons name="file-document-edit-outline" size={18} color="#EF4444" />
+                <Text style={biStyles.cardLabelSmall}>{t('Ghi chú', 'Note')}</Text>
+              </View>
+              <TextInput
+                style={biStyles.noteInput}
+                value={basicNote}
+                onChangeText={setBasicNote}
+                placeholder={t('Nhập ghi chú sức khỏe tại đây...', 'Add your note here...')}
+                placeholderTextColor="#9CA3AF"
+                multiline
+                numberOfLines={2}
+              />
+            </View>
+
+            {/* BMI & Health Status Card */}
+            <View style={biStyles.bmiCard}>
+              <Text style={biStyles.bmiTitle}>
+                {language === 'vi' ? activeBmiCategory.nameVi : activeBmiCategory.nameEn} ({basicBmi})
+              </Text>
+
+              {/* Spectrum segmented bar */}
+              <View style={biStyles.spectrumWrapper}>
+                <View style={biStyles.spectrumBar}>
+                  {BASIC_INFO_BMI_CATEGORIES.map((cat, idx) => (
+                    <View
+                      key={cat.id}
+                      style={[
+                        biStyles.spectrumSegment,
+                        { backgroundColor: cat.color },
+                        idx === 0 && { borderTopLeftRadius: 6, borderBottomLeftRadius: 6 },
+                        idx === BASIC_INFO_BMI_CATEGORIES.length - 1 && { borderTopRightRadius: 6, borderBottomRightRadius: 6 },
+                      ]}
+                    />
+                  ))}
+                </View>
+
+                {/* Arrow indicator */}
+                <View style={biStyles.triangleTrack}>
+                  {BASIC_INFO_BMI_CATEGORIES.map((cat, idx) => (
+                    <View key={cat.id} style={biStyles.triangleSlot}>
+                      {idx === activeCategoryIndex && (
+                        <View style={[biStyles.triangle, { borderBottomColor: cat.color }]} />
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              {/* Breakdown Legend Table */}
+              <View style={biStyles.legendTable}>
+                {BASIC_INFO_BMI_CATEGORIES.map((cat) => {
+                  const isActive = cat.id === activeBmiCategory.id;
+                  return (
+                    <View key={cat.id} style={[biStyles.legendRow, isActive && biStyles.legendRowActive]}>
+                      <View style={biStyles.legendLeft}>
+                        <View style={[biStyles.legendDot, { backgroundColor: cat.color }]} />
+                        <Text style={[biStyles.legendText, isActive && biStyles.legendTextActive]}>
+                          {language === 'vi' ? cat.nameVi : cat.nameEn}
+                        </Text>
+                      </View>
+                      <Text style={[biStyles.legendRange, isActive && biStyles.legendTextActive]}>
+                        {language === 'vi' ? cat.rangeVi : cat.rangeEn}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={{ height: 40 }} />
+          </ScrollView>
+
+          {/* Sub-modal: Gender Selector */}
+          <Modal
+            visible={isGenderPickerOpen}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setIsGenderPickerOpen(false)}
+          >
+            <TouchableOpacity
+              style={biStyles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setIsGenderPickerOpen(false)}
+            >
+              <View style={biStyles.subModalBox}>
+                <Text style={biStyles.subModalTitle}>{t('Chọn Giới tính', 'Select Gender')}</Text>
+                {(['Male', 'Female', 'Other'] as const).map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[biStyles.optionRow, basicGender === g && biStyles.optionSelected]}
+                    onPress={() => {
+                      setBasicGender(g);
+                      setIsGenderPickerOpen(false);
+                    }}
+                  >
+                    <Text style={[biStyles.optionText, basicGender === g && biStyles.optionTextSelected]}>
+                      {g === 'Male' ? t('Nam (Male)', 'Male') : g === 'Female' ? t('Nữ (Female)', 'Female') : t('Khác (Other)', 'Other')}
+                    </Text>
+                    {basicGender === g && <Ionicons name="checkmark" size={20} color={Colors.primary} />}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </Modal>
+
+          {/* Sub-modal: Age Stepper */}
+          <Modal
+            visible={isAgePickerOpen}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setIsAgePickerOpen(false)}
+          >
+            <TouchableOpacity
+              style={biStyles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setIsAgePickerOpen(false)}
+            >
+              <View style={biStyles.subModalBox}>
+                <Text style={biStyles.subModalTitle}>{t('Chọn Độ tuổi', 'Select Age')}</Text>
+                <View style={biStyles.stepperRow}>
+                  <TouchableOpacity
+                    style={biStyles.stepCircle}
+                    onPress={() => setBasicAge((prev) => Math.max(10, prev - 1))}
+                  >
+                    <Feather name="minus" size={22} color="#1F2937" />
+                  </TouchableOpacity>
+                  <Text style={biStyles.ageDisplay}>{basicAge}</Text>
+                  <TouchableOpacity
+                    style={biStyles.stepCircle}
+                    onPress={() => setBasicAge((prev) => Math.min(110, prev + 1))}
+                  >
+                    <Feather name="plus" size={22} color="#1F2937" />
+                  </TouchableOpacity>
+                </View>
+                <View style={{ marginTop: 10, flexDirection: 'row' }}>
+                  <TouchableOpacity
+                    style={biStyles.confirmBtn}
+                    onPress={() => setIsAgePickerOpen(false)}
+                  >
+                    <Text style={biStyles.confirmBtnText}>{t('Xác nhận', 'Confirm')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+
+          {/* Sub-modal: Direct Number Keyboard Edit */}
+          <Modal
+            visible={directEditTarget !== null}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setDirectEditTarget(null)}
+          >
+            <TouchableOpacity
+              style={biStyles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setDirectEditTarget(null)}
+            >
+              <View style={biStyles.subModalBox}>
+                <Text style={biStyles.subModalTitle}>
+                  {directEditTarget === 'weight'
+                    ? t('Nhập cân nặng (kg)', 'Enter Weight (kg)')
+                    : t('Nhập chiều cao (cm)', 'Enter Height (cm)')}
+                </Text>
+                <TextInput
+                  style={biStyles.directInput}
+                  value={directEditVal}
+                  onChangeText={setDirectEditVal}
+                  keyboardType="numeric"
+                  autoFocus
+                  selectTextOnFocus
+                />
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                  <TouchableOpacity
+                    style={biStyles.cancelBtn}
+                    onPress={() => setDirectEditTarget(null)}
+                  >
+                    <Text style={biStyles.cancelBtnText}>{t('Hủy', 'Cancel')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={biStyles.confirmBtn}
+                    onPress={submitDirectEditVal}
+                  >
+                    <Text style={biStyles.confirmBtnText}>{t('Xác nhận', 'Confirm')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        </View>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* 5. SUPPORT & POLICY DOCUMENT MODAL                                         */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={activeDoc !== null}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setActiveDoc(null)}
+      >
+        <View style={docStyles.screenContainer}>
+          {/* Top Header with Back button and Share button */}
+          <View style={docStyles.topHeader}>
+            <TouchableOpacity
+              style={docStyles.backButton}
+              onPress={() => setActiveDoc(null)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={24} color="#111827" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={docStyles.shareButton}
+              onPress={handleShareDoc}
+              activeOpacity={0.7}
+            >
+              <Feather name="share" size={20} color="#111827" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Category Tabs for "Kiến thức cần biết" */}
+          {activeDoc === 'knowledge' && (
+            <View style={docStyles.categoryPillsContainer}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={docStyles.categoryPillsScroll}
+              >
+                <TouchableOpacity
+                  style={[docStyles.pillBtn, knowledgeTab === 'heart' && docStyles.pillBtnActive]}
+                  onPress={() => setKnowledgeTab('heart')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[docStyles.pillText, knowledgeTab === 'heart' && docStyles.pillTextActive]}>
+                    ❤️ {t('Nhịp tim (BPM)', 'Heart Rate')}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[docStyles.pillBtn, knowledgeTab === 'spo2' && docStyles.pillBtnActive]}
+                  onPress={() => setKnowledgeTab('spo2')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[docStyles.pillText, knowledgeTab === 'spo2' && docStyles.pillTextActive]}>
+                    🫁 {t('Oxy máu (SpO2)', 'Oxygen (SpO2)')}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[docStyles.pillBtn, knowledgeTab === 'bmi' && docStyles.pillBtnActive]}
+                  onPress={() => setKnowledgeTab('bmi')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[docStyles.pillText, knowledgeTab === 'bmi' && docStyles.pillTextActive]}>
+                    ⚖️ {t('Chỉ số BMI', 'BMI Index')}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Scrollable Article Body */}
+          <ScrollView
+            style={docStyles.mainScroll}
+            contentContainerStyle={docStyles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* ============================================================= */}
+            {/* 1. KIẾN THỨC CẦN BIẾT - TAB NHỊP TIM (HEART RATE)            */}
+            {/* ============================================================= */}
+            {activeDoc === 'knowledge' && knowledgeTab === 'heart' && (
+              <View>
+                <View style={docStyles.heroRow}>
+                  <View style={docStyles.heroLeft}>
+                    <Text style={docStyles.heroTitle}>
+                      {t('Hiểu về nhịp tim của bạn', 'Understanding Your Heart Rate')}
+                    </Text>
+                    <Text style={docStyles.heroDate}>
+                      {t('Xuất bản: 12 Th12, 2024 • Chuẩn y khoa AHA & WHO', 'Published on Dec 12, 2024 • AHA & WHO Standards')}
+                    </Text>
+                  </View>
+                  <View style={docStyles.heroRight}>
+                    <HeartIllustration />
+                  </View>
+                </View>
+
+                <View style={docStyles.dividerLine} />
+
+                <View style={docStyles.articleBody}>
+                  <Text style={docStyles.leadParagraph}>
+                    {t(
+                      'Nhịp tim của bạn (còn được gọi là mạch đập) là chỉ số thiết yếu phản ánh sức khỏe của trái tim. Nó cho biết số lần tim co bóp tống máu trong một phút (BPM) và cung cấp thông tin y khoa giá trị về tình trạng hệ tim mạch tổng thể.',
+                      'Your heart rate, also known as your pulse, is an essential indicator of your heart health. It tells you how many times your heart beats per minute (BPM) and can provide valuable insights into your overall cardiovascular health.'
+                    )}
+                  </Text>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('Thế nào là nhịp tim bình thường?', 'What Is a Normal Heart Rate?')}
+                  </Text>
+                  <Text style={docStyles.bodyParagraph}>
+                    {t(
+                      'Theo Hiệp hội Tim mạch Hoa Kỳ (AHA) và Bộ Y Tế, đối với đa số người trưởng thành khi nghỉ ngơi, nhịp tim bình thường dao động từ 60 đến 100 nhịp/phút (BPM). Tuy nhiên, chỉ số này có thể thay đổi dựa trên các yếu tố như độ tuổi, mức độ rèn luyện thể lực và tình trạng sức khỏe tổng thể.',
+                      'For most adults, a normal resting heart rate ranges from 60 to 100 beats per minute. However, it can vary based on factors such as age, fitness level, and overall health.'
+                    )}
+                  </Text>
+                  <Text style={docStyles.bodyParagraph}>
+                    {t(
+                      'Các vận động viên hoặc người thường xuyên rèn luyện sức bền thường có nhịp tim nghỉ ngơi thấp hơn, dao động từ 40 đến 60 bpm, bởi vì cơ tim của họ hoạt động hiệu quả hơn trong việc tống máu, cần ít nhát bóp hơn trên mỗi phút.',
+                      'Athletes often have lower resting heart rates because their hearts are more efficient at pumping blood, requiring fewer beats per minute.'
+                    )}
+                  </Text>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('Vì sao theo dõi nhịp tim lại quan trọng?', 'Why Is Heart Rate Important?')}
+                  </Text>
+                  <Text style={docStyles.bodyParagraph}>
+                    {t(
+                      'Theo dõi nhịp tim thường xuyên đóng vai trò then chốt vì các lý do y khoa sau:',
+                      'Monitoring your heart rate is crucial for several reasons:'
+                    )}
+                  </Text>
+
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>1. </Text>
+                      <Text style={{ fontWeight: '700', color: '#111827' }}>
+                        {t('Sức khỏe tim mạch (Cardiovascular Health): ', 'Cardiovascular Health: ')}
+                      </Text>
+                      {t(
+                        'Nhịp tim lúc nghỉ ngơi liên tục ở mức cao (> 100 bpm) có thể cảnh báo các vấn đề tiềm ẩn như bệnh cơ tim, xơ vữa mạch vành hoặc rối loạn nhịp tim (như rung nhĩ). Ngược lại, nhịp tim quá chậm (< 50 bpm) kèm triệu chứng chóng mặt, choáng váng có thể do suy nút xoang hoặc block nhĩ thất.',
+                        'A consistently high resting heart rate may indicate underlying health issues such as heart disease or arrhythmia. Conversely, an unusually low heart rate accompanied by dizziness can signal heart block.'
+                      )}
+                    </Text>
+                  </View>
+
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>2. </Text>
+                      <Text style={{ fontWeight: '700', color: '#111827' }}>
+                        {t('Theo dõi thể lực (Fitness Tracking): ', 'Fitness Tracking: ')}
+                      </Text>
+                      {t(
+                        'Khi thể trạng và thể lực của bạn cải thiện nhờ tập luyện đều đặn, nhịp tim lúc nghỉ ngơi có xu hướng giảm dần, phản ánh cơ tim khỏe hơn và tiêu hao ít năng lượng hơn.',
+                        'As your physical conditioning improves, your resting heart rate typically decreases, reflecting greater cardiac efficiency.'
+                      )}
+                    </Text>
+                  </View>
+
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>3. </Text>
+                      <Text style={{ fontWeight: '700', color: '#111827' }}>
+                        {t('Căng thẳng và khả năng phục hồi (Stress and Recovery): ', 'Stress and Recovery: ')}
+                      </Text>
+                      {t(
+                        'Nhịp tim tăng cao đột ngột trong giai đoạn nghỉ ngơi có thể phát tín hiệu cơ thể đang chịu áp lực tâm lý quá mức, mệt mỏi suy nhược, mất nước, thiếu ngủ hoặc giai đoạn ủ bệnh nhiễm trùng/sốt.',
+                        'Elevated heart rates during periods of rest can signal excessive mental stress, fatigue, dehydration, lack of sleep, or early illness/fever.'
+                      )}
+                    </Text>
+                  </View>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('Công thức nhịp tim tối đa theo độ tuổi', 'Maximum Heart Rate Formula')}
+                  </Text>
+                  <View style={docStyles.medicalBadge}>
+                    <Text style={docStyles.medicalBadgeText}>
+                      {t(
+                        'Công thức chuẩn y tế: Nhịp tim tối đa (Max HR) = 220 - Tuổi của bạn. Khi tập luyện cardio cường độ vừa phải, hãy duy trì ở mức 50% - 70% Max HR; tập luyện sức bền duy trì ở mức 70% - 85% Max HR.',
+                        'Medical standard formula: Max Heart Rate = 220 - Your Age. For moderate exercise, maintain 50% - 70% of Max HR; for endurance training, aim for 70% - 85% of Max HR.'
+                      )}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* ============================================================= */}
+            {/* 2. KIẾN THỨC CẦN BIẾT - TAB OXY MÁU (SPO2)                   */}
+            {/* ============================================================= */}
+            {activeDoc === 'knowledge' && knowledgeTab === 'spo2' && (
+              <View>
+                <View style={docStyles.heroRow}>
+                  <View style={docStyles.heroLeft}>
+                    <Text style={docStyles.heroTitle}>
+                      {t('Hiểu về nồng độ Oxy máu (SpO2)', 'Understanding Blood Oxygen')}
+                    </Text>
+                    <Text style={docStyles.heroDate}>
+                      {t('Xuất bản: 12 Th12, 2024 • Chuẩn y tế WHO & CDC', 'Published on Dec 12, 2024 • WHO & CDC Standards')}
+                    </Text>
+                  </View>
+                  <View style={docStyles.heroRight}>
+                    <SpO2Illustration />
+                  </View>
+                </View>
+
+                <View style={docStyles.dividerLine} />
+
+                <View style={docStyles.articleBody}>
+                  <Text style={docStyles.leadParagraph}>
+                    {t(
+                      'Độ bão hòa oxy trong máu mao mạch (SpO2) là tỷ lệ phần trăm phân tử hemoglobin trong hồng cầu đang vận chuyển oxy so với tổng lượng hemoglobin. Đây là một trong 5 dấu hiệu sinh tồn cốt lõi của cơ thể.',
+                      'Peripheral capillary oxygen saturation (SpO2) is the percentage of oxygenated hemoglobin relative to total hemoglobin in the bloodstream. It is one of the five primary vital signs of human health.'
+                    )}
+                  </Text>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('Bảng phân loại mức SpO2 chuẩn y tế (WHO)', 'WHO Medical Classification of SpO2')}
+                  </Text>
+
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>1. </Text>
+                      <Text style={{ fontWeight: '700', color: Colors.success }}>
+                        95% – 100% ({t('Bình thường / Tối ưu', 'Normal & Optimal')}):{' '}
+                      </Text>
+                      {t(
+                        'Phổi và hệ tuần hoàn hoạt động khỏe mạnh, cung cấp đầy đủ oxy nuôi dưỡng não bộ, tim và toàn bộ các mô cơ quan.',
+                        'Lungs and circulatory system are functioning well, supplying sufficient oxygen to vital organs and brain tissue.'
+                      )}
+                    </Text>
+                  </View>
+
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>2. </Text>
+                      <Text style={{ fontWeight: '700', color: Colors.warning }}>
+                        90% – 94% ({t('Thiếu oxy máu nhẹ', 'Mild Hypoxia')}):{' '}
+                      </Text>
+                      {t(
+                        'Cần chú ý nghỉ ngơi ở nơi thoáng mát, hít thở sâu và đo lại sau vài phút. Nếu tình trạng SpO2 dưới 94% kéo dài kèm tức ngực, mệt mỏi, nên tham khảo ý kiến nhân viên y tế.',
+                        'Indicates reduced oxygenation. Rest in a well-ventilated area, take deep breaths, and re-measure. Consult a doctor if prolonged.'
+                      )}
+                    </Text>
+                  </View>
+
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>3. </Text>
+                      <Text style={{ fontWeight: '700', color: Colors.danger }}>
+                        {'<'} 90% ({t('Thiếu oxy máu nặng - Cấp cứu y khoa', 'Severe Hypoxemia - Medical Emergency')}):{' '}
+                      </Text>
+                      {t(
+                        'Dấu hiệu cảnh báo suy hô hấp cấp tính hoặc tổn thương phổi nặng. Người bệnh cần được thở oxy y tế hoặc can thiệp cấp cứu tại cơ sở y tế gần nhất.',
+                        'A critical sign of acute respiratory distress or severe lung impairment requiring immediate emergency medical intervention and oxygen support.'
+                      )}
+                    </Text>
+                  </View>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('Nguyên lý đo quang học trên ProWatch', 'Optical Measurement Principle')}
+                  </Text>
+                  <Text style={docStyles.bodyParagraph}>
+                    {t(
+                      'Cảm biến quang học MAX30102 trên ProWatch phát ra 2 chùm bước sóng: ánh sáng đỏ (660nm) và ánh sáng hồng ngoại (940nm). Hemoglobin ngậm oxy hấp thụ nhiều ánh sáng hồng ngoại hơn, trong khi hemoglobin khử hấp thụ nhiều ánh sáng đỏ hơn. Đồng hồ tính toán tỷ lệ chênh lệch này để đưa ra chỉ số SpO2 theo thời gian thực.',
+                      'The MAX30102 sensor emits two light wavelengths: red (660nm) and infrared (940nm). Oxygenated hemoglobin absorbs more infrared light while deoxygenated absorbs more red light, allowing photometric computation of SpO2.'
+                    )}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* ============================================================= */}
+            {/* 3. KIẾN THỨC CẦN BIẾT - TAB BMI (BODY MASS INDEX)             */}
+            {/* ============================================================= */}
+            {activeDoc === 'knowledge' && knowledgeTab === 'bmi' && (
+              <View>
+                <View style={docStyles.heroRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={docStyles.heroTitle}>
+                      {t('Chỉ số khối cơ thể (BMI)', 'Body Mass Index (BMI)')}
+                    </Text>
+                    <Text style={docStyles.heroDate}>
+                      {t('Xuất bản: 12 Th12, 2024 • Chuẩn WHO WPRO cho người châu Á', 'Published on Dec 12, 2024 • WHO WPRO Asian Guidelines')}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={docStyles.dividerLine} />
+
+                <View style={docStyles.articleBody}>
+                  <Text style={docStyles.leadParagraph}>
+                    {t(
+                      'Chỉ số khối cơ thể (BMI - Body Mass Index) do nhà toán học Adolphe Quetelet phát triển và được Tổ chức Y tế Thế giới (WHO) công nhận là công cụ sàng lọc lâm sàng hàng đầu để đánh giá nguy cơ sức khỏe liên quan đến thể trọng.',
+                      'Body Mass Index (BMI) is a clinical screening metric developed by Adolphe Quetelet and endorsed by WHO to evaluate health risks associated with body weight and height.'
+                    )}
+                  </Text>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('Công thức tính chỉ số BMI', 'BMI Formula')}
+                  </Text>
+                  <View style={docStyles.medicalBadge}>
+                    <Text style={docStyles.medicalBadgeText}>
+                      <Text style={{ fontWeight: '700' }}>BMI = Cân nặng (kg) / [Chiều cao (m)]²</Text>{'\n'}
+                      {t('Ví dụ: Cân nặng 75.6 kg, chiều cao 1.856 m ➔ BMI = 75.6 / (1.856)² = 21.9 (Thể trạng lý tưởng).', 'Example: Weight 75.6 kg, height 1.856 m ➔ BMI = 75.6 / (1.856)² = 21.9 (Normal weight).')}
+                    </Text>
+                  </View>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('Bảng phân loại chuẩn người châu Á (WHO WPRO & Bộ Y Tế)', 'Asian Adult BMI Classifications')}
+                  </Text>
+
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>1. </Text>
+                      <Text style={{ fontWeight: '700', color: '#0284C7' }}>
+                        BMI {'<'} 18.5 ({t('Thiếu cân / Gầy', 'Underweight')}):{' '}
+                      </Text>
+                      {t('Gia tăng nguy cơ suy dinh dưỡng, loãng xương, thiếu máu và suy giảm khả năng miễn dịch.', 'Increased risk of malnutrition, osteoporosis, anemia, and weakened immunity.')}
+                    </Text>
+                  </View>
+
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>2. </Text>
+                      <Text style={{ fontWeight: '700', color: Colors.success }}>
+                        BMI 18.5 – 22.9 ({t('Cân đối / Thể trạng lý tưởng', 'Normal weight')}):{' '}
+                      </Text>
+                      {t('Mức thể trạng có nguy cơ mắc bệnh tim mạch và rối loạn chuyển hóa thấp nhất.', 'Optimal body composition associated with the lowest overall cardiovascular and metabolic disease risk.')}
+                    </Text>
+                  </View>
+
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>3. </Text>
+                      <Text style={{ fontWeight: '700', color: '#F59E0B' }}>
+                        BMI 23.0 – 24.9 ({t('Tiền béo phì / Thừa cân', 'Overweight')}):{' '}
+                      </Text>
+                      {t('Báo hiệu cơ thể bắt đầu tích mỡ dư thừa. Nên điều chỉnh chế độ dinh dưỡng và duy trì đi bộ 8.000 – 10.000 bước mỗi ngày.', 'Signals excessive fat accumulation. Recommended to optimize diet and maintain 8,000 – 10,000 steps daily.')}
+                    </Text>
+                  </View>
+
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>4. </Text>
+                      <Text style={{ fontWeight: '700', color: Colors.danger }}>
+                        BMI ≥ 25.0 ({t('Béo phì độ I & II', 'Obese')}):{' '}
+                      </Text>
+                      {t('Nguy cơ cao mắc các bệnh mạn tính nguy hiểm: tăng huyết áp, đái tháo đường tuýp 2, xơ vữa động mạch và đột quỵ tim.', 'Substantially elevated risk of type 2 diabetes, chronic hypertension, atherosclerosis, and cardiovascular disease.')}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* ============================================================= */}
+            {/* 4. VỀ CHÚNG TÔI (ABOUT US)                                    */}
+            {/* ============================================================= */}
+            {activeDoc === 'about' && (
+              <View>
+                <View style={docStyles.heroRow}>
+                  <View style={docStyles.heroLeft}>
+                    <Text style={docStyles.heroTitle}>
+                      {t('Về ProWatch Health', 'About ProWatch Health')}
+                    </Text>
+                    <Text style={docStyles.heroDate}>
+                      {t('Phiên bản v1.0.3 • Nền tảng IoT & AI y tế Việt Nam', 'Version v1.0.3 • Made for Vietnam • IoT & Edge AI')}
+                    </Text>
+                  </View>
+                  <View style={docStyles.heroRight}>
+                    <Image
+                      source={require('../../assets/app-logo.png')}
+                      style={{ width: 68, height: 68, borderRadius: 16 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                </View>
+
+                <View style={docStyles.dividerLine} />
+
+                <View style={docStyles.articleBody}>
+                  <Text style={docStyles.leadParagraph}>
+                    {t(
+                      'ProWatch Health là hệ sinh thái thiết bị đeo thông minh và ứng dụng chăm sóc sức khỏe chủ động toàn diện, được nghiên cứu và phát triển để đồng hành cùng từng nhịp đập của người dùng Việt Nam.',
+                      'ProWatch Health is a comprehensive proactive health companion and smart wearable platform designed to support the wellness of Vietnamese users.'
+                    )}
+                  </Text>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('1. Sứ mệnh của chúng tôi', '1. Our Mission')}
+                  </Text>
+                  <Text style={docStyles.bodyParagraph}>
+                    {t(
+                      'Chúng tôi tin rằng sức khỏe là tài sản quý giá nhất của mỗi người. ProWatch hướng tới việc mang công nghệ y tế sinh trắc học và trí tuệ nhân tạo (TinyML AI) tiếp cận gần gũi với mọi gia đình, giúp người dùng theo dõi các chỉ số sinh tồn liên tục, phát hiện sớm và phòng ngừa các biến chứng tim mạch nguy hiểm.',
+                      'We believe health is your greatest wealth. ProWatch aims to bring biometric medical technology and TinyML AI to every family, enabling continuous vital sign tracking and early prevention of cardiovascular risks.'
+                    )}
+                  </Text>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('2. Nền tảng công nghệ phần cứng chuyên sâu', '2. Advanced Hardware Engineering')}
+                  </Text>
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>• </Text>
+                      <Text style={{ fontWeight: '700', color: '#111827' }}>XIAO ESP32-S3: </Text>
+                      {t('Bộ vi xử lý lõi kép 240MHz hỗ trợ Bluetooth 5.0 Low Energy (BLE) với khả năng tiết kiệm pin tối ưu.', 'Dual-core 240MHz microcontroller with BLE 5.0 and ultra-low power consumption.')}
+                    </Text>
+                  </View>
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>• </Text>
+                      <Text style={{ fontWeight: '700', color: '#111827' }}>MAX30102: </Text>
+                      {t('Cảm biến quang học đo nhịp tim (BPM) và nồng độ oxy trong máu (SpO2) chuẩn sinh trắc học chính xác cao.', 'Optical biometric sensor for high-precision heart rate and SpO2 tracking.')}
+                    </Text>
+                  </View>
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>• </Text>
+                      <Text style={{ fontWeight: '700', color: '#111827' }}>MPU6050 & TinyML AI: </Text>
+                      {t('Cảm biến gia tốc và con quay hồi chuyển 6 trục kết hợp mô hình AI phân loại chuyển động và đánh giá rủi ro tim mạch chạy trực tiếp trên chip đồng hồ.', '6-axis IMU coupled with on-device TinyML AI for real-time motion and health risk assessment.')}
+                    </Text>
+                  </View>
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>• </Text>
+                      <Text style={{ fontWeight: '700', color: '#111827' }}>Supabase & n8n: </Text>
+                      {t('Cơ sở dữ liệu đám mây mã hóa an toàn cao và hệ thống tự động hóa gửi thông báo khẩn cấp tới người thân khi chỉ số vượt ngưỡng nguy hiểm.', 'Encrypted cloud database and automated alert workflows to notify family members in emergencies.')}
+                    </Text>
+                  </View>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('3. Cam kết chất lượng & Bảo mật', '3. Quality & Security Commitment')}
+                  </Text>
+                  <Text style={docStyles.bodyParagraph}>
+                    {t(
+                      'Đội ngũ ProWatch cam kết liên tục cải tiến phần mềm, thuật toán lọc nhiễu tín hiệu quang phổ và tối ưu thời lượng pin để mang lại thiết bị đeo tin cậy và bền bỉ nhất.',
+                      'The ProWatch team is dedicated to continuous software improvements, noise filtering algorithms, and battery optimization to deliver a reliable smart wearable experience.'
+                    )}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* ============================================================= */}
+            {/* 5. CHÍNH SÁCH BẢO MẬT (PRIVACY POLICY)                        */}
+            {/* ============================================================= */}
+            {activeDoc === 'privacy' && (
+              <View>
+                <View style={docStyles.heroRow}>
+                  <View style={docStyles.heroLeft}>
+                    <Text style={docStyles.heroTitle}>
+                      {t('Chính sách bảo mật', 'Privacy Policy')}
+                    </Text>
+                    <Text style={docStyles.heroDate}>
+                      {t('Hiệu lực từ: Tháng 11/2026 • Tuân thủ bảo mật dữ liệu y tế', 'Effective November 2026 • Medical Data Security Compliance')}
+                    </Text>
+                  </View>
+                  <View style={docStyles.heroRight}>
+                    <ShieldIllustration />
+                  </View>
+                </View>
+
+                <View style={docStyles.dividerLine} />
+
+                <View style={docStyles.articleBody}>
+                  <Text style={docStyles.leadParagraph}>
+                    {t(
+                      'ProWatch Health tôn trọng và cam kết bảo vệ tuyệt đối quyền riêng tư và dữ liệu sinh trắc học sức khỏe của người dùng. Chính sách này giải thích minh bạch cách chúng tôi thu thập, xử lý và bảo vệ thông tin của bạn.',
+                      'ProWatch Health strictly respects and safeguards your personal privacy and biometric health data. This policy transparently outlines how your data is collected, handled, and protected.'
+                    )}
+                  </Text>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('1. Dữ liệu chúng tôi thu thập', '1. Data We Collect')}
+                  </Text>
+                  <Text style={docStyles.bodyParagraph}>
+                    {t(
+                      'Khi bạn sử dụng ứng dụng và đồng hồ ProWatch, chúng tôi chỉ thu thập các dữ liệu cần thiết phục vụ việc chăm sóc sức khỏe:',
+                      'We only collect information strictly required to deliver proactive health monitoring features:'
+                    )}
+                  </Text>
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>• </Text>
+                      <Text style={{ fontWeight: '700', color: '#111827' }}>
+                        {t('Dữ liệu hồ sơ cơ bản: ', 'Profile Data: ')}
+                      </Text>
+                      {t('Họ tên, email, chiều cao, cân nặng, giới tính và độ tuổi để cá nhân hóa chỉ số BMI, lượng calo và ngưỡng nhịp tim tối đa.', 'Name, email, height, weight, gender, and age to personalize BMI, calories, and max heart rate.')}
+                    </Text>
+                  </View>
+                  <View style={docStyles.pointItem}>
+                    <Text style={docStyles.pointText}>
+                      <Text style={docStyles.pointNumber}>• </Text>
+                      <Text style={{ fontWeight: '700', color: '#111827' }}>
+                        {t('Dữ liệu đo sinh trắc học: ', 'Biometric Measurements: ')}
+                      </Text>
+                      {t('Lịch sử nhịp tim (BPM), nồng độ oxy máu (SpO2), số bước chân, trạng thái vận động và giấc ngủ được truyền từ đồng hồ qua kết nối Bluetooth mã hóa.', 'Heart rate history, SpO2 levels, step count, and motion status transmitted via encrypted Bluetooth.')}
+                    </Text>
+                  </View>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('2. Cơ chế bảo mật dữ liệu cấp cao', '2. High-Grade Security Architecture')}
+                  </Text>
+                  <Text style={docStyles.bodyParagraph}>
+                    {t(
+                      'Toàn bộ kết nối giữa ứng dụng và máy chủ Supabase đều được mã hóa bằng giao thức HTTPS/TLS tiêu chuẩn công nghiệp. Cơ sở dữ liệu đám mây áp dụng nghiêm ngặt chính sách Row-Level Security (RLS) - chỉ có chính tài khoản của bạn mới được cấp quyền đọc và ghi dữ liệu sức khỏe của mình. Ứng dụng cũng tích hợp xác thực 2 bước (2FA TOTP) bảo vệ chống xâm nhập.',
+                      'All connections are protected via HTTPS/TLS encryption. Supabase cloud database strictly enforces Row-Level Security (RLS) policies ensuring only your authenticated account can access your health data. Multi-factor authentication (2FA TOTP) provides added defense.'
+                    )}
+                  </Text>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('3. Tuyệt đối không thương mại hóa dữ liệu', '3. Zero Third-party Commercialization')}
+                  </Text>
+                  <Text style={docStyles.bodyParagraph}>
+                    {t(
+                      'ProWatch cam kết tuyệt đối không bán, cho thuê, chia sẻ hoặc tiết lộ dữ liệu sức khỏe hay thông tin cá nhân của bạn cho bất kỳ bên thứ ba, nhà môi giới dữ liệu hoặc đối tác quảng cáo nào.',
+                      'ProWatch strictly pledges never to sell, rent, share, or disclose your health or personal data to third parties, data brokers, or advertising partners.'
+                    )}
+                  </Text>
+
+                  <Text style={docStyles.subHeading}>
+                    {t('4. Quyền kiểm soát toàn diện của bạn', '4. Your Data Ownership Rights')}
+                  </Text>
+                  <Text style={docStyles.bodyParagraph}>
+                    {t(
+                      'Bạn có toàn quyền xem, chỉnh sửa thông tin hoặc yêu cầu xóa vĩnh viễn toàn bộ lịch sử đo sức khỏe và tài khoản của mình bất kỳ lúc nào trong cài đặt ứng dụng.',
+                      'You maintain full ownership of your data with the right to review, update, or permanently delete your account and biometric history at any time.'
+                    )}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View style={{ height: 50 }} />
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -2639,6 +3647,39 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 8,
   },
+  listSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 18,
+    marginBottom: 8,
+    marginLeft: 2,
+  },
+  listMenuCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  listMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+  },
+  listMenuItemText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  listMenuDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginHorizontal: 18,
+  },
   card: {
     backgroundColor: Colors.white,
     borderRadius: 18,
@@ -2754,6 +3795,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: Colors.textPrimary,
+  },
+  versionFootnote: {
+    textAlign: 'center',
+    fontSize: 12.5,
+    color: '#9CA3AF',
+    marginTop: 14,
+    marginBottom: 4,
+    fontWeight: '500',
   },
   logoutBtn: {
     flexDirection: 'row',
@@ -3508,5 +4557,581 @@ const sliderStyles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#2563EB',
+  },
+});
+
+const biStyles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 48 : 16,
+    paddingBottom: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+  topHeaderTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  noticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#BBF7D0',
+  },
+  noticeBannerText: {
+    color: '#15803D',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  mainScroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    gap: 14,
+  },
+
+  // Ruler Card
+  rulerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    ...Shadows.sm,
+  },
+  rulerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 10,
+  },
+  rulerLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  rulerValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  rulerValue: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.5,
+  },
+  rulerUnit: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginLeft: 4,
+  },
+  rulerTrack: {
+    position: 'relative',
+    height: 72,
+    justifyContent: 'center',
+  },
+  redNeedle: {
+    position: 'absolute',
+    left: '50%',
+    top: 6,
+    width: 2.5,
+    height: 38,
+    backgroundColor: '#EF4444',
+    borderRadius: 2,
+    zIndex: 10,
+    marginLeft: -1.25,
+  },
+  stepBtnLeft: {
+    position: 'absolute',
+    left: -6,
+    top: 14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  stepBtnRight: {
+    position: 'absolute',
+    right: -6,
+    top: 14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  tickLine: {
+    borderRadius: 1,
+  },
+  majorTick: {
+    width: 1.8,
+    height: 26,
+    backgroundColor: '#9CA3AF',
+  },
+  mediumTick: {
+    width: 1.4,
+    height: 19,
+    backgroundColor: '#D1D5DB',
+  },
+  minorTick: {
+    width: 1.2,
+    height: 13,
+    backgroundColor: '#E5E7EB',
+  },
+  tickNum: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+
+  // Dual Row
+  dualRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    ...Shadows.sm,
+  },
+  cardHeaderSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  cardLabelSmall: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardValueLarge: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+
+  // Note Card
+  noteCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    ...Shadows.sm,
+  },
+  noteInput: {
+    fontSize: 14,
+    color: '#1F2937',
+    paddingVertical: 4,
+    minHeight: 38,
+  },
+
+  // BMI Card
+  bmiCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    ...Shadows.sm,
+  },
+  bmiTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  spectrumWrapper: {
+    marginBottom: 18,
+  },
+  spectrumBar: {
+    flexDirection: 'row',
+    height: 9,
+    gap: 3,
+  },
+  spectrumSegment: {
+    flex: 1,
+    height: '100%',
+    borderRadius: 2,
+  },
+  triangleTrack: {
+    flexDirection: 'row',
+    gap: 3,
+    marginTop: 4,
+  },
+  triangleSlot: {
+    flex: 1,
+    alignItems: 'center',
+    height: 10,
+  },
+  triangle: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderBottomWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
+  legendTable: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 12,
+    gap: 10,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  legendRowActive: {
+    backgroundColor: '#F3F4F6',
+  },
+  legendLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  legendRange: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  legendTextActive: {
+    fontWeight: '700',
+    color: '#111827',
+  },
+
+  // Sub Modals
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  subModalBox: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    ...Shadows.md,
+  },
+  subModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginVertical: 2,
+  },
+  optionSelected: {
+    backgroundColor: '#EFF6FF',
+  },
+  optionText: {
+    fontSize: 15,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  optionTextSelected: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    marginVertical: 20,
+  },
+  stepCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ageDisplay: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  confirmBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    flex: 1,
+  },
+  confirmBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  directInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginVertical: 14,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    color: '#4B5563',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
+
+const docStyles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 48 : 16,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryPillsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 10,
+    paddingTop: 4,
+  },
+  categoryPillsScroll: {
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pillBtn: {
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginRight: 8,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillBtnActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  pillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  mainScroll: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  scrollContent: {
+    paddingBottom: 48,
+  },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  heroLeft: {
+    flex: 1,
+    paddingRight: 14,
+  },
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.4,
+    lineHeight: 32,
+  },
+  heroDate: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+    marginTop: 6,
+    fontWeight: '500',
+  },
+  heroRight: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dividerLine: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginHorizontal: 20,
+    marginVertical: 16,
+  },
+  articleBody: {
+    paddingHorizontal: 20,
+  },
+  leadParagraph: {
+    fontSize: 15,
+    lineHeight: 25,
+    color: '#334155',
+    marginBottom: 16,
+  },
+  subHeading: {
+    fontSize: 16.5,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 20,
+    marginBottom: 10,
+    letterSpacing: -0.2,
+  },
+  bodyParagraph: {
+    fontSize: 14.5,
+    lineHeight: 24,
+    color: '#475569',
+    marginBottom: 12,
+  },
+  pointItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  pointNumber: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  pointText: {
+    fontSize: 14.5,
+    lineHeight: 23,
+    color: '#475569',
+    flex: 1,
+  },
+  medicalBadge: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 14,
+    padding: 14,
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  medicalBadgeText: {
+    fontSize: 13.5,
+    color: '#1E40AF',
+    lineHeight: 21,
+    fontWeight: '500',
   },
 });

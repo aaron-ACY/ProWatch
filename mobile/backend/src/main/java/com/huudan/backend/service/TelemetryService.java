@@ -241,7 +241,26 @@ public class TelemetryService {
                 .build();
     }
 
+    private UUID parseUserUuid(String userId) {
+        if (userId != null && !userId.isBlank() && !"guest_user".equalsIgnoreCase(userId)) {
+            try {
+                return UUID.fromString(userId.trim());
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     public List<HealthRecord> getHealthRecords(String deviceId, int limit) {
+        return getHealthRecords(deviceId, null, limit);
+    }
+
+    public List<HealthRecord> getHealthRecords(String deviceId, String userId, int limit) {
+        UUID uid = parseUserUuid(userId);
+        if (uid != null) {
+            return healthRecordRepo.findByUserIdOrderByRecordedAtDesc(uid, PageRequest.of(0, limit));
+        }
         return healthRecordRepo.findByDeviceIdOrderByRecordedAtDesc(deviceId, PageRequest.of(0, limit));
     }
 
@@ -255,17 +274,57 @@ public class TelemetryService {
 
     @SuppressWarnings("null")
     public HealthSummaryDto getHealthSummary(String deviceId) {
+        return getHealthSummary(deviceId, null);
+    }
+
+    @SuppressWarnings("null")
+    public HealthSummaryDto getHealthSummary(String deviceId, String userId) {
         final String effectiveId = (deviceId == null || deviceId.isBlank() || "XIAO-ESP32S3-01".equals(deviceId))
                 ? "XIAO-ESP32S3-PROWATCH-01"
                 : deviceId;
+
+        UUID uid = parseUserUuid(userId);
 
         Optional<Device> devOpt = deviceRepo.findByDeviceId(effectiveId);
         boolean isConnected = devOpt.map(d -> Boolean.TRUE.equals(d.getIsOnline()) && 
                 d.getLastHeartbeat() != null && 
                 Instant.now().isBefore(d.getLastHeartbeat().plusSeconds(25))).orElse(false);
 
-        List<HealthRecord> recentRecords = healthRecordRepo.findByDeviceIdOrderByRecordedAtDesc(effectiveId, PageRequest.of(0, 50));
-        Optional<Activity> latestActivity = activityRepo.findFirstByDeviceIdOrderByRecordedAtDesc(effectiveId);
+        List<HealthRecord> recentRecords;
+        Optional<Activity> latestActivity;
+
+        if (uid != null) {
+            recentRecords = healthRecordRepo.findByUserIdOrderByRecordedAtDesc(uid, PageRequest.of(0, 50));
+            latestActivity = activityRepo.findFirstByUserIdOrderByRecordedAtDesc(uid);
+
+            // BẢO VỆ NGƯỜI DÙNG MỚI ĐĂNG KÝ: Nếu chưa có số đo nào, trả về trạng thái trắng (0 / null), KHÔNG hiển thị số đo cũ của người khác
+            if (recentRecords.isEmpty() && latestActivity.isEmpty()) {
+                return HealthSummaryDto.builder()
+                        .currentBpm(null)
+                        .currentSpO2(null)
+                        .steps(0)
+                        .stepsGoal(10000)
+                        .calories(0)
+                        .sleepHours(0.0)
+                        .restingHr(0)
+                        .maxHrToday(0)
+                        .minHrToday(0)
+                        .avgSpO2Today(0)
+                        .battery(devOpt.map(Device::getBatteryLevel).orElse(0))
+                        .isCharging(devOpt.map(Device::getIsCharging).orElse(false))
+                        .isConnected(isConnected)
+                        .lastSync("Chưa có dữ liệu")
+                        .riskScore(null)
+                        .riskLevel(null)
+                        .currentActivity("Chưa có dữ liệu")
+                        .totalMeasurementsToday(0)
+                        .totalMeasurementsTotal(0L)
+                        .build();
+            }
+        } else {
+            recentRecords = healthRecordRepo.findByDeviceIdOrderByRecordedAtDesc(effectiveId, PageRequest.of(0, 50));
+            latestActivity = activityRepo.findFirstByDeviceIdOrderByRecordedAtDesc(effectiveId);
+        }
 
         Optional<HealthRecord> latestHrRecord = recentRecords.stream()
                 .filter(r -> r.getHeartRate() != null && r.getHeartRate() > 0)
@@ -300,7 +359,7 @@ public class TelemetryService {
         Integer currentSpo2 = latestSpo2Record.map(HealthRecord::getSpo2).orElse(null);
         Integer steps = latestActivity.map(Activity::getSteps).orElse(0);
         Integer calories = latestActivity.map(a -> a.getCalories() != null ? a.getCalories().intValue() : 0).orElse(0);
-        String currentActivity = latestActivity.map(Activity::getActivity).filter(a -> a != null && !a.isBlank()).orElse("REST");
+        String currentActivity = latestActivity.map(Activity::getActivity).filter(a -> a != null && !a.isBlank()).orElse(recentRecords.isEmpty() ? "Chưa có dữ liệu" : "REST");
 
         // Đánh giá điểm rủi ro AI từ bản ghi hoặc tính toán trực tiếp
         Double riskScore = recentRecords.stream()
@@ -316,8 +375,12 @@ public class TelemetryService {
                 .orElseGet(() -> mapRiskLevel(riskScore));
 
         Instant startOfDay = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant();
-        int totalToday = (int) healthRecordRepo.countByDeviceIdAndRecordedAtBetween(effectiveId, startOfDay, Instant.now());
-        long totalAll = healthRecordRepo.countByDeviceId(effectiveId);
+        int totalToday = (uid != null)
+                ? (int) healthRecordRepo.countByUserIdAndRecordedAtBetween(uid, startOfDay, Instant.now())
+                : (int) healthRecordRepo.countByDeviceIdAndRecordedAtBetween(effectiveId, startOfDay, Instant.now());
+        long totalAll = (uid != null)
+                ? healthRecordRepo.countByUserId(uid)
+                : healthRecordRepo.countByDeviceId(effectiveId);
 
         return HealthSummaryDto.builder()
                 .currentBpm(currentBpm)
@@ -325,7 +388,7 @@ public class TelemetryService {
                 .steps(steps != null ? steps : 0)
                 .stepsGoal(10000)
                 .calories(calories != null ? calories : 0)
-                .sleepHours(7.5)
+                .sleepHours(recentRecords.isEmpty() ? 0.0 : 7.5)
                 .restingHr(minHr)
                 .maxHrToday(maxHr)
                 .minHrToday(minHr)
@@ -348,9 +411,15 @@ public class TelemetryService {
      * Lấy dữ liệu thống kê Ngày / Tuần / Tháng đồng bộ hoàn toàn với logic hiển thị đồ thị của App
      */
     public HealthStatisticsDto getHealthStatistics(String deviceId, String timeframe) {
+        return getHealthStatistics(deviceId, timeframe, null);
+    }
+
+    public HealthStatisticsDto getHealthStatistics(String deviceId, String timeframe, String userId) {
         final String effectiveId = (deviceId == null || deviceId.isBlank() || "XIAO-ESP32S3-01".equals(deviceId))
                 ? "XIAO-ESP32S3-PROWATCH-01"
                 : deviceId;
+
+        UUID uid = parseUserUuid(userId);
 
         String tf = (timeframe == null || timeframe.isBlank()) ? "today" : timeframe.toLowerCase();
         Instant now = Instant.now();
@@ -369,11 +438,39 @@ public class TelemetryService {
             periodText = "hôm nay";
         }
 
-        List<HealthRecord> periodRecords = healthRecordRepo.findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtAsc(
-                effectiveId, start, now);
+        List<HealthRecord> periodRecords;
+        List<HealthRecord> allRecent;
 
-        List<HealthRecord> allRecent = healthRecordRepo.findByDeviceIdOrderByRecordedAtDesc(
-                effectiveId, PageRequest.of(0, 50));
+        if (uid != null) {
+            periodRecords = healthRecordRepo.findByUserIdAndRecordedAtBetweenOrderByRecordedAtAsc(uid, start, now);
+            allRecent = healthRecordRepo.findByUserIdOrderByRecordedAtDesc(uid, PageRequest.of(0, 50));
+            if (allRecent.isEmpty()) {
+                return HealthStatisticsDto.builder()
+                        .timeframe(tf)
+                        .periodText(periodText)
+                        .hasData(false)
+                        .avgHr(0)
+                        .minHr(0)
+                        .maxHr(0)
+                        .latestHr(0)
+                        .latestHrTime("")
+                        .hrCount(0)
+                        .hrPoints(java.util.Collections.emptyList())
+                        .avgSpo2(0)
+                        .minSpo2(0)
+                        .maxSpo2(0)
+                        .latestSpo2(0)
+                        .latestSpo2Time("")
+                        .spo2Count(0)
+                        .spo2Points(java.util.Collections.emptyList())
+                        .hrHistory(java.util.Collections.emptyList())
+                        .spo2History(java.util.Collections.emptyList())
+                        .build();
+            }
+        } else {
+            periodRecords = healthRecordRepo.findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtAsc(effectiveId, start, now);
+            allRecent = healthRecordRepo.findByDeviceIdOrderByRecordedAtDesc(effectiveId, PageRequest.of(0, 50));
+        }
 
         boolean hasData = !allRecent.isEmpty();
 

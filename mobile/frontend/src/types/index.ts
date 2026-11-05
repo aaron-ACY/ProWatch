@@ -67,7 +67,7 @@ export type RootTabParamList = {
   HeartRate: undefined;
   Sport: undefined;
   Statistics: undefined;
-  Settings: undefined;
+  Settings: undefined | { openDoc?: 'about' | 'knowledge' | 'privacy' };
 };
 
 export interface User {
@@ -93,5 +93,4 @@ export type AuthStackParamList = {
 export type MainStackParamList = {
   MainTabs: undefined;
   Logout: undefined;
-  BasicHealthInfo: undefined;
 };

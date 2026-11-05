@@ -79,6 +79,17 @@ export const DashboardScreen: React.FC = () => {
     const spo2 = healthSummary.currentSpO2;
     const riskLevel = healthSummary.riskLevel;
 
+    // Nếu chưa có dữ liệu đo nào (người dùng mới đăng ký chưa có chỉ số)
+    if ((!bpm || bpm <= 0) && (!spo2 || spo2 <= 0) && !riskLevel) {
+      return {
+        statusText: t('Chưa có dữ liệu', 'No Data'),
+        titleColor: '#64748B',
+        bg: '#F8FAFC',
+        textColor: '#64748B',
+        needleAngle: -90, // Kim ở trạng thái nghỉ ban đầu
+      };
+    }
+
     if (riskLevel === 'High' || (bpm > 0 && (bpm > 120 || bpm < 45)) || (spo2 > 0 && spo2 < 90)) {
       return {
         statusText: t('Nguy cơ', 'At Risk'),
@@ -128,16 +139,18 @@ export const DashboardScreen: React.FC = () => {
   const offset2 = c2 * (1 - caloRatio);
 
   // Tính toán vị trí thanh trượt min-max cho Nhịp tim (Thang đo 40..140, an toàn 50..100)
-  const hrVal = healthSummary.currentBpm > 0 ? healthSummary.currentBpm : 59;
+  const hasHrData = Boolean(healthSummary.currentBpm && healthSummary.currentBpm > 0);
+  const hrVal = hasHrData ? healthSummary.currentBpm : 0;
   const hrMin = 40;
   const hrMax = 140;
-  const hrPercent = Math.min(Math.max(((hrVal - hrMin) / (hrMax - hrMin)) * 100, 2), 98);
+  const hrPercent = hasHrData ? Math.min(Math.max(((hrVal - hrMin) / (hrMax - hrMin)) * 100, 2), 98) : 0;
 
   // Tính toán vị trí thanh trượt min-max cho SpO2 (Thang đo 85..100, an toàn 95..100)
-  const spo2Val = healthSummary.currentSpO2 > 0 ? healthSummary.currentSpO2 : 98;
+  const hasSpo2Data = Boolean(healthSummary.currentSpO2 && healthSummary.currentSpO2 > 0);
+  const spo2Val = hasSpo2Data ? healthSummary.currentSpO2 : 0;
   const spo2Min = 85;
   const spo2Max = 100;
-  const spo2Percent = Math.min(Math.max(((spo2Val - spo2Min) / (spo2Max - spo2Min)) * 100, 2), 98);
+  const spo2Percent = hasSpo2Data ? Math.min(Math.max(((spo2Val - spo2Min) / (spo2Max - spo2Min)) * 100, 2), 98) : 0;
 
   return (
     <View style={styles.screen}>
@@ -291,11 +304,15 @@ export const DashboardScreen: React.FC = () => {
                   <View style={[styles.rangeBarSafeZone, { left: '10%', width: '50%' }]} />
                 </View>
                 {/* Nút chỉ vị trí hiện tại */}
-                <View style={[styles.rangeBarKnob, { left: `${hrPercent}%` }]}>
-                  <View style={styles.rangeBarKnobInner} />
-                </View>
+                {hasHrData && (
+                  <View style={[styles.rangeBarKnob, { left: `${hrPercent}%` }]}>
+                    <View style={styles.rangeBarKnobInner} />
+                  </View>
+                )}
               </View>
-              <Text style={styles.rangeBarText}>{t('Ngưỡng an toàn 50–100', 'Safe zone 50–100')}</Text>
+              <Text style={styles.rangeBarText}>
+                {hasHrData ? t('Ngưỡng an toàn 50–100', 'Safe zone 50–100') : t('Chưa có số đo nhịp tim', 'No heart rate reading')}
+              </Text>
             </TouchableOpacity>
 
             <View style={styles.vitalsDivider} />
@@ -327,11 +344,15 @@ export const DashboardScreen: React.FC = () => {
                   <View style={[styles.rangeBarSafeZone, { left: '66.7%', width: '33.3%' }]} />
                 </View>
                 {/* Nút chỉ vị trí hiện tại */}
-                <View style={[styles.rangeBarKnob, { left: `${spo2Percent}%` }]}>
-                  <View style={styles.rangeBarKnobInner} />
-                </View>
+                {hasSpo2Data && (
+                  <View style={[styles.rangeBarKnob, { left: `${spo2Percent}%` }]}>
+                    <View style={styles.rangeBarKnobInner} />
+                  </View>
+                )}
               </View>
-              <Text style={styles.rangeBarText}>{t('Ngưỡng an toàn 95–100', 'Safe zone 95–100')}</Text>
+              <Text style={styles.rangeBarText}>
+                {hasSpo2Data ? t('Ngưỡng an toàn 95–100', 'Safe zone 95–100') : t('Chưa có số đo SpO₂', 'No SpO₂ reading')}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -453,28 +474,18 @@ export const DashboardScreen: React.FC = () => {
             </Text>
           </TouchableOpacity>
 
-          {/* Biểu đồ Thống kê */}
+          {/* Kiến thức cần biết */}
           <TouchableOpacity 
             style={[styles.quickBtn, Shadows.sm]}
-            onPress={() => navigation.navigate('Statistics')}
+            onPress={() => navigation.navigate('Settings', { openDoc: 'knowledge' })}
             activeOpacity={0.8}
           >
-            <View style={[styles.quickBtnIconBox, { backgroundColor: '#EFF6FF' }]}>
-              <MaterialCommunityIcons name="chart-box-outline" size={20} color={Colors.primary} />
+            <View style={[styles.quickBtnIconBox, { backgroundColor: '#F0FDF4' }]}>
+              <MaterialCommunityIcons name="book-open-page-variant-outline" size={20} color="#16A34A" />
             </View>
-            <Text style={styles.quickBtnLabel}>{t('Thống kê', 'Statistics')}</Text>
-          </TouchableOpacity>
-
-          {/* Chỉ số cơ bản: Chiều cao, cân nặng, BMI */}
-          <TouchableOpacity 
-            style={[styles.quickBtn, Shadows.sm]}
-            onPress={() => (navigation as any).navigate('BasicHealthInfo')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.quickBtnIconBox, { backgroundColor: '#FEE2E2' }]}>
-              <MaterialCommunityIcons name="scale-bathroom" size={20} color="#EF4444" />
-            </View>
-            <Text style={styles.quickBtnLabel}>{t('Chỉ số cơ bản', 'Basic Info')}</Text>
+            <Text style={styles.quickBtnLabel} numberOfLines={2}>
+              {t('Kiến thức cần biết', 'Essential Knowledge')}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

@@ -74,8 +74,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               <View style={styles.logoRipple} />
               <View style={styles.logoCircle}>
                 <Image
-                  source={require('../../assets/expo-go-app-logo.png')}
-                  style={{ width: 44, height: 44 }}
+                  source={require('../../assets/app-logo.png')}
+                  style={{ width: 58, height: 58, borderRadius: 14 }}
                   resizeMode="contain"
                 />
               </View>
@@ -226,17 +226,18 @@ const styles = StyleSheet.create({
     width: 86,
     height: 86,
     borderRadius: 43,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    backgroundColor: 'rgba(238, 91, 93, 0.15)',
   },
   logoCircle: {
     width: 68,
     height: 68,
-    borderRadius: 34,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    backgroundColor: '#1A0000',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(238, 91, 93, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     ...Shadows.md,
   },
   brandTitle: {
