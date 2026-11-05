@@ -1,0 +1,1266 @@
+{
+  "info": {
+    "_postman_id": "5090c21b-ebe0-40fa-9692-0a5e045ce606",
+    "name": "ProWatch API Automation Suite",
+    "description": "Comprehensive integration & automated test suite for ProWatch system covering Next.js Dashboard (:3000), Python TinyML Task Runner (:5005), and Spring Boot Backend (:8080 / Render Cloud).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Web Dashboard APIs (:3000)",
+      "item": [
+        {
+          "name": "Get AI Model Integration Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{web_url}}/api/integration",
+              "host": [
+                "{{web_url}}"
+              ],
+              "path": [
+                "api",
+                "integration"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is valid JSON with SUCCESS status', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('object');",
+                  "    pm.expect(jsonData.status).to.eql('SUCCESS');",
+                  "    pm.expect(jsonData.model_info).to.have.property('model_name');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "2f05ea78-e67e-4007-8efb-ee72c4570bbd"
+        },
+        {
+          "name": "Get Evaluation Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{web_url}}/api/metrics",
+              "host": [
+                "{{web_url}}"
+              ],
+              "path": [
+                "api",
+                "metrics"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Metrics contain accuracy and macro_f1', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('test_accuracy');",
+                  "    pm.expect(jsonData.test_accuracy).to.be.a('number');",
+                  "    pm.expect(jsonData).to.have.property('macro_f1');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "f7e7ed2d-b5bc-4f0a-90fe-3f295406287c"
+        },
+        {
+          "name": "Query Health Dataset Records",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{web_url}}/api/dataset?channel=CLEAN_HEALTH&limit=10",
+              "host": [
+                "{{web_url}}"
+              ],
+              "path": [
+                "api",
+                "dataset"
+              ],
+              "query": [
+                {
+                  "key": "channel",
+                  "value": "CLEAN_HEALTH"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Dataset response contains data array', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('object');",
+                  "    pm.expect(jsonData.rows || jsonData.data).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "b875b7ea-408b-4abb-a27f-b8f8d598e979"
+        },
+        {
+          "name": "Trigger n8n Workflow Dispatch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"use_supabase\": false,\n  \"epochs\": 15,\n  \"batch_size\": 32,\n  \"triggered_by\": \"postman-automated-suite\"\n}"
+            },
+            "url": {
+              "raw": "{{web_url}}/api/n8n",
+              "host": [
+                "{{web_url}}"
+              ],
+              "path": [
+                "api",
+                "n8n"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 503 if n8n service offline', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 202, 502, 503]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "27cece85-b836-4fa2-9708-8d2ee7534815"
+        }
+      ],
+      "id": "44a524e8-ec1c-4c2b-8c73-29fe3acfe4f1"
+    },
+    {
+      "name": "2. Python ML Runner (:5005)",
+      "item": [
+        {
+          "name": "Check ML Runner Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{ml_runner_url}}/health",
+              "host": [
+                "{{ml_runner_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Service status is ONLINE or OK', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.match(/ONLINE|OK|HEALTHY/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "82a09e99-786f-4e59-b2dd-63ba6a0bc62d"
+        }
+      ],
+      "id": "abf787a3-45c2-42fb-b5c2-86ae3c9cc7b2"
+    },
+    {
+      "name": "3. Spring Boot Backend (:8080 / Render Cloud)",
+      "item": [
+        {
+          "name": "3.1 System & Health",
+          "item": [
+            {
+              "name": "Actuator Health Check",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/actuator/health",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "actuator",
+                    "health"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Spring Boot status is UP', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.status).to.eql('UP');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "9f00f5fa-64c3-4a61-b155-d1660beba916"
+            },
+            {
+              "name": "Actuator Info Check",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/actuator/info",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "actuator",
+                    "info"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "a52c0091-62ec-473d-82d4-1a9829f032aa"
+            },
+            {
+              "name": "Get Device Health Summary",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/health/summary?deviceId={{device_id}}",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "health",
+                    "summary"
+                  ],
+                  "query": [
+                    {
+                      "key": "deviceId",
+                      "value": "{{device_id}}"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Summary schema contains vitals', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('steps');",
+                      "    pm.expect(jsonData).to.have.property('calories');",
+                      "    pm.expect(jsonData).to.have.property('battery');",
+                      "    pm.expect(jsonData).to.have.property('riskLevel');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "d1b95211-d553-44bd-9e56-8960ebc531e5"
+            },
+            {
+              "name": "Get Device Health Records",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/health/records?deviceId={{device_id}}&limit=10",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "health",
+                    "records"
+                  ],
+                  "query": [
+                    {
+                      "key": "deviceId",
+                      "value": "{{device_id}}"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Health records response is an array', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.be.an('array');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "e98e4d3a-18b5-4b07-bfd2-1c207b1d98fa"
+            },
+            {
+              "name": "Get Health Statistics (Today)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/health/statistics?deviceId={{device_id}}&timeframe=today",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "health",
+                    "statistics"
+                  ],
+                  "query": [
+                    {
+                      "key": "deviceId",
+                      "value": "{{device_id}}"
+                    },
+                    {
+                      "key": "timeframe",
+                      "value": "today"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Statistics contain valid metrics', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('timeframe', 'today');",
+                      "    pm.expect(jsonData).to.have.property('hasData');",
+                      "    pm.expect(jsonData).to.have.property('avgHr');",
+                      "    pm.expect(jsonData).to.have.property('avgSpo2');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "c138df1a-28e4-44b2-9a84-069ad7ec9fa1"
+            },
+            {
+              "name": "Get Health Statistics (Week)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/health/statistics?deviceId={{device_id}}&timeframe=week",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "health",
+                    "statistics"
+                  ],
+                  "query": [
+                    {
+                      "key": "deviceId",
+                      "value": "{{device_id}}"
+                    },
+                    {
+                      "key": "timeframe",
+                      "value": "week"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "52857bb6-e01e-450f-a2e5-4d7a46c1092e"
+            },
+            {
+              "name": "Get Health Statistics (Month)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/health/statistics?deviceId={{device_id}}&timeframe=month",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "health",
+                    "statistics"
+                  ],
+                  "query": [
+                    {
+                      "key": "deviceId",
+                      "value": "{{device_id}}"
+                    },
+                    {
+                      "key": "timeframe",
+                      "value": "month"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "7699477e-fb8a-4c2f-b44a-1ef97d8b5e91"
+            }
+          ],
+          "id": "908bc74e-6e82-41eb-8984-7a096c2b184f"
+        },
+        {
+          "name": "3.2 Device Management & Config",
+          "item": [
+            {
+              "name": "Register or Update Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"deviceName\": \"ProWatch S3 Pro\",\n  \"macAddress\": \"C8:2E:18:24:A1:02\",\n  \"model\": \"Seeed Studio XIAO ESP32-S3\",\n  \"firmwareVersion\": \"v1.5.1\",\n  \"ownerName\": \"Huu Dan\",\n  \"batteryLevel\": 95\n}"
+                },
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices/register",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices",
+                    "register"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Registered device returned correctly', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.deviceId).to.eql(pm.environment.get('device_id'));",
+                      "    pm.expect(jsonData.model).to.include('XIAO ESP32-S3');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "e458129a-2415-4672-9118-86d1ef40e32b"
+            },
+            {
+              "name": "Get All Registered Devices",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Devices list is an array', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.be.an('array');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "78148b53-0ca7-4c33-be7f-2ad8fa8e9c99"
+            },
+            {
+              "name": "Get Single Device Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices/{{device_id}}",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices",
+                    "{{device_id}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200 or 404', function () {",
+                      "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "a90df182-3591-4cf1-8c43-4f9de1a88b56"
+            },
+            {
+              "name": "Send Device Heartbeat",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices/{{device_id}}/heartbeat?battery=94&isCharging=false&ipAddress=192.168.1.120",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices",
+                    "{{device_id}}",
+                    "heartbeat"
+                  ],
+                  "query": [
+                    {
+                      "key": "battery",
+                      "value": "94"
+                    },
+                    {
+                      "key": "isCharging",
+                      "value": "false"
+                    },
+                    {
+                      "key": "ipAddress",
+                      "value": "192.168.1.120"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Heartbeat response has ONLINE status', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.status).to.eql('ONLINE');",
+                      "    pm.expect(jsonData.deviceId).to.eql(pm.environment.get('device_id'));",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "528574ab-67b1-4f18-a621-e8d1976a2185"
+            },
+            {
+              "name": "Poll Device Command",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices/{{device_id}}/command",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices",
+                    "{{device_id}}",
+                    "command"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Command object returned', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('deviceId');",
+                      "    pm.expect(jsonData).to.have.property('command');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "e0d048ea-f2d4-4db0-9831-d8ec71904a29"
+            },
+            {
+              "name": "Get Device Config",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices/{{device_id}}/config",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices",
+                    "{{device_id}}",
+                    "config"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Config contains watch face & thresholds', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('watchFace');",
+                      "    pm.expect(jsonData).to.have.property('hrAlertHigh');",
+                      "    pm.expect(jsonData).to.have.property('spo2AlertLow');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "3e9b8971-419b-4e09-905c-3f92de9f018a"
+            },
+            {
+              "name": "Update Device Config",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"watchFace\": \"health\",\n  \"alwaysOnDisplay\": true,\n  \"raiseToWake\": true,\n  \"hrAlertHigh\": 110,\n  \"hrAlertLow\": 50,\n  \"spo2AlertLow\": 95,\n  \"notificationsEnabled\": true\n}"
+                },
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices/{{device_id}}/config",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices",
+                    "{{device_id}}",
+                    "config"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "18f98c76-591e-450b-8d02-1262d87e0291"
+            },
+            {
+              "name": "Queue Device Measurement (HR)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices/{{device_id}}/measure?type=MEASURE_HR",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices",
+                    "{{device_id}}",
+                    "measure"
+                  ],
+                  "query": [
+                    {
+                      "key": "type",
+                      "value": "MEASURE_HR"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Measure command queued successfully', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.success).to.be.true;",
+                      "    pm.expect(jsonData.command).to.eql('MEASURE_HR');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "402e9bc1-8274-4ec2-9112-70b99de241ab"
+            },
+            {
+              "name": "Queue Device Measurement (SpO2)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices/{{device_id}}/measure?type=MEASURE_SPO2",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices",
+                    "{{device_id}}",
+                    "measure"
+                  ],
+                  "query": [
+                    {
+                      "key": "type",
+                      "value": "MEASURE_SPO2"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Measure command queued successfully', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.success).to.be.true;",
+                      "    pm.expect(jsonData.command).to.eql('MEASURE_SPO2');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "95d98a0e-0d4e-4f59-86ab-590f11acb508"
+            },
+            {
+              "name": "Trigger Telemetry Command",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices/{{device_id}}/trigger-telemetry?heartRate=75&spo2=98&battery=90",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices",
+                    "{{device_id}}",
+                    "trigger-telemetry"
+                  ],
+                  "query": [
+                    {
+                      "key": "heartRate",
+                      "value": "75"
+                    },
+                    {
+                      "key": "spo2",
+                      "value": "98"
+                    },
+                    {
+                      "key": "battery",
+                      "value": "90"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "cfa3d9a1-0f72-46bb-9871-912a7bf89150"
+            },
+            {
+              "name": "Disconnect Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices/{{device_id}}/disconnect",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices",
+                    "{{device_id}}",
+                    "disconnect"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Status is DISCONNECTED', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.status).to.eql('DISCONNECTED');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "8cb4172a-9e05-4c01-b541-0cfd6ba89b41"
+            }
+          ],
+          "id": "bf8c11aa-2144-4cb6-ba42-990a827725ca"
+        },
+        {
+          "name": "3.3 Telemetry & Activities",
+          "item": [
+            {
+              "name": "Ingest Telemetry Data (BPM & SpO2)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"heartRate\": 75,\n  \"spo2\": 98,\n  \"battery\": 92,\n  \"steps\": 2450,\n  \"activity\": \"REST\",\n  \"riskScore\": 0.05,\n  \"riskLevel\": \"Low\",\n  \"offlineSeq\": 1,\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/devices/telemetry",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "devices",
+                    "telemetry"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200 or 201', function () {",
+                      "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                      "});",
+                      "",
+                      "pm.test('Response indicates successful ingest', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.success).to.be.true;",
+                      "    pm.expect(jsonData).to.have.property('syncStatus');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "f75adbe6-1c9f-4976-ad96-0bd23ba5d99b"
+            },
+            {
+              "name": "Get Activity Records",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/activities/records?deviceId={{device_id}}&limit=10",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "activities",
+                    "records"
+                  ],
+                  "query": [
+                    {
+                      "key": "deviceId",
+                      "value": "{{device_id}}"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Activity records response is an array', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.be.an('array');",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "b10a9f52-872c-47bc-8ef2-4809bc4011ef"
+            },
+            {
+              "name": "Ingest Activity Record",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deviceId\": \"{{device_id}}\",\n  \"activity\": \"RUN\",\n  \"steps\": 3500,\n  \"calories\": 195,\n  \"distanceMeters\": 2625.0,\n  \"recordedAt\": \"{{$isoTimestamp}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{backend_url}}/api/v1/activities",
+                  "host": [
+                    "{{backend_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "activities"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status code is 200 or 201', function () {",
+                      "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                      "});",
+                      "",
+                      "pm.test('Activity created has valid fields', function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.activity).to.eql('RUN');",
+                      "    pm.expect(jsonData.steps).to.eql(3500);",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "id": "89ec201a-cf2a-4c28-9844-3d9bf8015ad3"
+            }
+          ],
+          "id": "1894a821-2a91-4cf5-998f-0158a74ec102"
+        }
+      ],
+      "id": "73febba5-9459-4ea8-aca8-7fedd0cf1b2f"
+    }
+  ]
+}

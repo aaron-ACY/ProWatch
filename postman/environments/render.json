@@ -1,0 +1,32 @@
+{
+  "id": "e2f17849-c16e-44db-84b2-c7f8a9101d52",
+  "name": "ProWatch Render Cloud Environment",
+  "values": [
+    {
+      "key": "web_url",
+      "value": "http://localhost:3000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "backend_url",
+      "value": "https://prowatch-backend.onrender.com/prowatch",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "ml_runner_url",
+      "value": "http://localhost:5005",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "device_id",
+      "value": "XIAO-ESP32S3-PROWATCH-01",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}
+

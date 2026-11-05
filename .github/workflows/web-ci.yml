@@ -37,3 +37,4 @@ jobs:
 
       - name: Build Next.js Web Application
         run: npm run build
+

@@ -1,0 +1,31 @@
+{
+  "id": "81916ad6-7f59-4653-b35e-189be21e3149",
+  "name": "ProWatch Local Environment",
+  "values": [
+    {
+      "key": "web_url",
+      "value": "http://localhost:3000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "backend_url",
+      "value": "http://localhost:8080/prowatch",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "ml_runner_url",
+      "value": "http://localhost:5005",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "device_id",
+      "value": "XIAO-ESP32S3-PROWATCH-01",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

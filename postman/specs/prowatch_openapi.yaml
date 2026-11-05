@@ -1,0 +1,728 @@
+openapi: 3.0.3
+info:
+  title: ProWatch AI & IoT Healthcare Platform API
+  description: >
+    Production REST API specification for ProWatch Healthcare Smartwatch Ecosystem,
+    including Spring Boot Backend Microservices, Next.js Web Dashboard, and Python TinyML Runner.
+  version: 1.0.20
+  contact:
+    name: ProWatch Engineering Team
+    email: support@prowatch.com
+
+servers:
+  - url: http://localhost:8080/prowatch
+    description: Local Spring Boot Backend (Development)
+  - url: https://prowatch-backend.onrender.com/prowatch
+    description: Production Render Cloud Backend
+  - url: http://localhost:3000
+    description: Local Next.js Web Dashboard
+  - url: http://localhost:5005
+    description: Local Python TinyML Task Runner
+
+paths:
+  /actuator/health:
+    get:
+      tags:
+        - System
+      summary: Actuator Health Check
+      description: Returns service health status and component indicators (DB, disk, ping).
+      responses:
+        '200':
+          description: Service is healthy and UP.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+
+  /actuator/info:
+    get:
+      tags:
+        - System
+      summary: Actuator Info
+      description: Returns application metadata.
+      responses:
+        '200':
+          description: Application info response.
+
+  /api/v1/health/summary:
+    get:
+      tags:
+        - Health & Telemetry
+      summary: Get Health Summary
+      description: Retrieves the current biometric vitals, steps, sleep, battery, and TinyML risk assessment.
+      parameters:
+        - name: deviceId
+          in: query
+          required: false
+          schema:
+            type: string
+            default: XIAO-ESP32S3-PROWATCH-01
+      responses:
+        '200':
+          description: Health summary data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthSummary'
+
+  /api/v1/health/records:
+    get:
+      tags:
+        - Health & Telemetry
+      summary: Get Health Records
+      description: Retrieves recent timestamped biometric measurement records (HR, SpO2, TinyML risk).
+      parameters:
+        - name: deviceId
+          in: query
+          required: false
+          schema:
+            type: string
+            default: XIAO-ESP32S3-PROWATCH-01
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: List of health records.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HealthRecord'
+
+  /api/v1/health/statistics:
+    get:
+      tags:
+        - Health & Telemetry
+      summary: Get Health Statistics
+      description: Returns aggregated min, max, avg, count and chart points across a timeframe (today, week, month).
+      parameters:
+        - name: deviceId
+          in: query
+          required: false
+          schema:
+            type: string
+            default: XIAO-ESP32S3-PROWATCH-01
+        - name: timeframe
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [today, week, month]
+            default: today
+      responses:
+        '200':
+          description: Aggregated health statistics and trend series.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatistics'
+
+  /api/v1/devices/telemetry:
+    post:
+      tags:
+        - Devices & Control
+      summary: Ingest Device Telemetry
+      description: Ingests real-time biometric metrics from XIAO ESP32-S3 or mobile companion app.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryRequest'
+      responses:
+        '200':
+          description: Telemetry successfully ingested.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryResponse'
+
+  /api/v1/devices/register:
+    post:
+      tags:
+        - Devices & Control
+      summary: Register or Update Device
+      description: Registers hardware specs, MAC address, firmware version, and owner name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRegistrationRequest'
+      responses:
+        '200':
+          description: Device metadata stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+
+  /api/v1/devices:
+    get:
+      tags:
+        - Devices & Control
+      summary: List Registered Devices
+      description: Retrieves all paired and registered smartwatch hardware instances.
+      responses:
+        '200':
+          description: List of devices.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Device'
+
+  /api/v1/devices/{deviceId}:
+    get:
+      tags:
+        - Devices & Control
+      summary: Get Device Details
+      description: Retrieves single device info by deviceId.
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device details.
+        '404':
+          description: Device not found.
+
+  /api/v1/devices/{deviceId}/heartbeat:
+    post:
+      tags:
+        - Devices & Control
+      summary: Device Periodic Heartbeat
+      description: Periodic check-in from microcontroller with battery, charging status, and returns queued commands.
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: battery
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: isCharging
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: ipAddress
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Heartbeat acknowledged and pending command returned if available.
+
+  /api/v1/devices/{deviceId}/command:
+    get:
+      tags:
+        - Devices & Control
+      summary: Poll Queued Command
+      description: Microcontroller polls pending action commands (e.g. MEASURE, SYNC_TIME).
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Returns command payload.
+
+  /api/v1/devices/{deviceId}/config:
+    get:
+      tags:
+        - Devices & Control
+      summary: Get Device Configuration
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Watch face & alert threshold configuration.
+    put:
+      tags:
+        - Devices & Control
+      summary: Update Device Configuration
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceConfig'
+      responses:
+        '200':
+          description: Updated configuration.
+
+  /api/v1/devices/{deviceId}/measure:
+    post:
+      tags:
+        - Devices & Control
+      summary: Queue Manual Measurement
+      description: Commands the watch to trigger MAX30105 sensor measurement (HR or SpO2).
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            default: MEASURE
+      responses:
+        '200':
+          description: Command queued and broadcast via WebSocket.
+
+  /api/v1/devices/{deviceId}/trigger-telemetry:
+    post:
+      tags:
+        - Devices & Control
+      summary: Trigger Telemetry & Measurement
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: heartRate
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: spo2
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: battery
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Telemetry triggered and queued.
+
+  /api/v1/devices/{deviceId}/disconnect:
+    post:
+      tags:
+        - Devices & Control
+      summary: Disconnect Device
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device marked as DISCONNECTED.
+
+  /api/v1/activities/records:
+    get:
+      tags:
+        - Activities & Fitness
+      summary: Get Activity Records
+      description: Returns step counter, calorie expenditure, and physical activity sessions.
+      parameters:
+        - name: deviceId
+          in: query
+          required: false
+          schema:
+            type: string
+            default: XIAO-ESP32S3-PROWATCH-01
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: List of activity logs.
+
+  /api/v1/activities:
+    post:
+      tags:
+        - Activities & Fitness
+      summary: Ingest Activity Record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Activity'
+      responses:
+        '200':
+          description: Activity recorded.
+
+  /api/integration:
+    get:
+      tags:
+        - Next.js Web Dashboard
+      summary: AI Model Integration Status
+      description: Returns TinyML INT8 quantization metadata and deployment readiness.
+      responses:
+        '200':
+          description: Integration metadata.
+
+  /api/metrics:
+    get:
+      tags:
+        - Next.js Web Dashboard
+      summary: Model Evaluation Metrics
+      description: Returns accuracy, precision, recall, and F1-score evaluation metrics.
+      responses:
+        '200':
+          description: Model evaluation metrics.
+
+  /api/dataset:
+    get:
+      tags:
+        - Next.js Web Dashboard
+      summary: Query Cleaned Healthcare Dataset
+      parameters:
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            default: CLEAN_HEALTH
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Sample dataset rows.
+
+  /api/n8n:
+    post:
+      tags:
+        - Next.js Web Dashboard
+      summary: Trigger n8n Automated Pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                use_supabase:
+                  type: boolean
+                epochs:
+                  type: integer
+                batch_size:
+                  type: integer
+                triggered_by:
+                  type: string
+      responses:
+        '200':
+          description: Workflow triggered.
+
+  /health:
+    get:
+      tags:
+        - Python TinyML Task Runner
+      summary: Task Runner Health Check
+      responses:
+        '200':
+          description: Python runner service health status.
+
+components:
+  schemas:
+    HealthSummary:
+      type: object
+      properties:
+        currentBpm:
+          type: integer
+          nullable: true
+          example: 75
+        currentSpO2:
+          type: integer
+          nullable: true
+          example: 98
+        steps:
+          type: integer
+          example: 3450
+        stepsGoal:
+          type: integer
+          example: 10000
+        calories:
+          type: integer
+          example: 210
+        sleepHours:
+          type: number
+          example: 7.5
+        battery:
+          type: integer
+          example: 88
+        isConnected:
+          type: boolean
+          example: true
+        riskScore:
+          type: number
+          nullable: true
+          example: 0.08
+        riskLevel:
+          type: string
+          example: Low
+        currentActivity:
+          type: string
+          example: REST
+
+    HealthRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 101
+        deviceId:
+          type: string
+          example: XIAO-ESP32S3-PROWATCH-01
+        heartRate:
+          type: integer
+          nullable: true
+          example: 72
+        spo2:
+          type: integer
+          nullable: true
+          example: 98
+        riskScore:
+          type: number
+          nullable: true
+          example: 0.05
+        riskLevel:
+          type: string
+          example: Low
+        recordedAt:
+          type: string
+          format: date-time
+        offlineSeq:
+          type: integer
+          example: 42
+
+    HealthStatistics:
+      type: object
+      properties:
+        timeframe:
+          type: string
+          example: today
+        periodText:
+          type: string
+          example: hôm nay
+        hasData:
+          type: boolean
+          example: true
+        avgHr:
+          type: integer
+          example: 74
+        minHr:
+          type: integer
+          example: 58
+        maxHr:
+          type: integer
+          example: 96
+        avgSpo2:
+          type: integer
+          example: 98
+        minSpo2:
+          type: integer
+          example: 96
+        maxSpo2:
+          type: integer
+          example: 100
+        hrPoints:
+          type: array
+          items:
+            type: object
+        spo2Points:
+          type: array
+          items:
+            type: object
+
+    TelemetryRequest:
+      type: object
+      required:
+        - deviceId
+      properties:
+        deviceId:
+          type: string
+          example: XIAO-ESP32S3-PROWATCH-01
+        heartRate:
+          type: integer
+          example: 74
+        spo2:
+          type: integer
+          example: 98
+        battery:
+          type: integer
+          example: 92
+        steps:
+          type: integer
+          example: 2150
+        activity:
+          type: string
+          example: REST
+        riskScore:
+          type: number
+          example: 0.06
+        riskLevel:
+          type: string
+          example: Low
+        offlineSeq:
+          type: integer
+          example: 18
+
+    TelemetryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Dữ liệu đo đã được xử lý và lưu trữ thành công
+        syncStatus:
+          type: string
+          example: SYNCED
+        serverTime:
+          type: string
+          format: date-time
+        riskLevel:
+          type: string
+          example: Low
+
+    DeviceRegistrationRequest:
+      type: object
+      required:
+        - deviceId
+      properties:
+        deviceId:
+          type: string
+          example: XIAO-ESP32S3-PROWATCH-01
+        deviceName:
+          type: string
+          example: ProWatch S3
+        macAddress:
+          type: string
+          example: C8:2E:18:24:A1:02
+        model:
+          type: string
+          example: Seeed Studio XIAO ESP32-S3
+        firmwareVersion:
+          type: string
+          example: v1.5.1
+        ownerName:
+          type: string
+          example: Nguyễn Văn A
+        batteryLevel:
+          type: integer
+          example: 90
+
+    Device:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          example: XIAO-ESP32S3-PROWATCH-01
+        deviceName:
+          type: string
+        macAddress:
+          type: string
+        model:
+          type: string
+        firmwareVersion:
+          type: string
+        ownerName:
+          type: string
+        batteryLevel:
+          type: integer
+        status:
+          type: string
+          example: ONLINE
+
+    DeviceConfig:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          example: XIAO-ESP32S3-PROWATCH-01
+        watchFace:
+          type: string
+          example: health
+        alwaysOnDisplay:
+          type: boolean
+          example: true
+        raiseToWake:
+          type: boolean
+          example: true
+        hrAlertHigh:
+          type: integer
+          example: 110
+        hrAlertLow:
+          type: integer
+          example: 50
+        spo2AlertLow:
+          type: integer
+          example: 95
+        notificationsEnabled:
+          type: boolean
+          example: true
+
+    Activity:
+      type: object
+      properties:
+        id:
+          type: integer
+        deviceId:
+          type: string
+          example: XIAO-ESP32S3-PROWATCH-01
+        activity:
+          type: string
+          example: RUN
+        steps:
+          type: integer
+          example: 3200
+        calories:
+          type: integer
+          example: 180
+        distanceMeters:
+          type: number
+          example: 2400.0
+        recordedAt:
+          type: string
+          format: date-time
+
