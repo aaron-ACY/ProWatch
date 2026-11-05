@@ -3,7 +3,7 @@
     "name": "ProWatch Health",
     "slug": "prowatch-health",
     "scheme": "prowatch-health",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,11 +16,11 @@
     },
     "android": {
       "package": "com.prowatch.health",
-      "versionCode": 20,
+      "versionCode": 21,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
-        "backgroundColor": "#1A0000",
+        "backgroundColor": "#00000000",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

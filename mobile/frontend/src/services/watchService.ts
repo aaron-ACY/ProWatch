@@ -14,6 +14,7 @@ import { supabaseService } from './supabaseService';
 
 export interface PendingOfflineMeasurement {
   id: string;
+  userId?: string;
   bpm?: number;
   spo2?: number;
   steps?: number;
@@ -30,6 +31,7 @@ const STORAGE_KEYS = {
   PENDING_OFFLINE_QUEUE: '@prowatch_pending_offline_measurements',
   LOCAL_HR_HISTORY: '@prowatch_local_hr_history',
   LOCAL_SPO2_HISTORY: '@prowatch_local_spo2_history',
+  LOCAL_SUMMARY: '@prowatch_local_summary',
   OFFLINE_SEQ_COUNTER: '@prowatch_offline_seq_counter',
 };
 
@@ -115,9 +117,12 @@ class WatchService {
     type: 'hr' | 'spo2';
     startTime: number;
     initialVal: number;
-    visualTimer: any;
-    pollTimer: any;
-    timeoutTimer: any;
+    measuringLiveVal?: number;
+    lastPct?: number;
+    pendingFinalVal?: number;
+    progressTimer: any;
+    completionTimer: any;
+    pollTimer?: any;
     onProgress: (progress: number, intermediateVal: number) => void;
     onComplete: (finalVal: number) => void;
     onError?: (msg: string) => void;
@@ -179,18 +184,23 @@ class WatchService {
       }
     });
 
-    // 1. Tải cache cục bộ đã lưu trong điện thoại để sẵn sàng hiển thị ngay lập tức (kể cả khi offline)
-    this.loadLocalCacheFromStorage();
+    // Khởi tạo bộ đếm offline_seq từ bộ nhớ máy (không nạp dữ liệu sức khỏe khi chưa xác định userId)
+    AsyncStorage.getItem(STORAGE_KEYS.OFFLINE_SEQ_COUNTER)
+      .then((seqRaw) => {
+        if (seqRaw) {
+          const parsedSeq = parseInt(seqRaw, 10);
+          if (!isNaN(parsedSeq) && parsedSeq > this.offlineSeqCounter) {
+            this.offlineSeqCounter = parsedSeq;
+          }
+        }
+      })
+      .catch(() => {});
 
-    // 2. Tự động tải dữ liệu sức khỏe mới nhất từ Supabase Cloud
-    this.fetchSupabaseData();
-
-    // 3. Tự động đẩy các bản ghi đo offline lưu trên điện thoại lên Supabase khi có mạng
-    this.syncPendingOfflineRecordsToCloud();
-
-    // 4. Chu kỳ kiểm tra định kỳ mỗi 25 giây để đồng bộ dữ liệu đo offline khi có kết nối mạng
+    // Chu kỳ kiểm tra định kỳ mỗi 25 giây để đồng bộ dữ liệu đo offline của user hiện tại khi có mạng
     setInterval(() => {
-      this.syncPendingOfflineRecordsToCloud();
+      if (this.currentUserId) {
+        this.syncPendingOfflineRecordsToCloud();
+      }
     }, 25000);
   }
 
@@ -215,7 +225,7 @@ class WatchService {
   private currentSpO2: number = 0;
   private currentSteps: number = 0;
   private currentCalories: number = 0;
-  private currentActivity: string = 'REST';
+  private currentActivity: string = 'Chưa có dữ liệu';
   private currentRiskScore: number | undefined = undefined;
   private currentRiskLevel: string | undefined = undefined;
   private lastActivitySyncMs: number = 0;
@@ -235,17 +245,62 @@ class WatchService {
     return this.offlineSeqCounter;
   }
 
-  // Quản lý ID người dùng đăng nhập hiện tại
+  // Quản lý ID và thể trạng người dùng đăng nhập hiện tại
   private currentUserId: string | null = null;
+  private currentUserHeight: number | null = null;
+  private currentUserWeight: number | null = null;
+
+  public getCurrentUserId(): string | null {
+    return this.currentUserId;
+  }
+
+  public setUserPhysicalProfile(height?: number | null, weight?: number | null): void {
+    const numH = height ? Number(height) : null;
+    const numW = weight ? Number(weight) : null;
+    if (numH && numH >= 50 && numH <= 250) {
+      this.currentUserHeight = numH;
+    }
+    if (numW && numW >= 20 && numW <= 300) {
+      this.currentUserWeight = numW;
+    }
+    // Tự động đẩy xuống đồng hồ qua BLE nếu đang kết nối
+    if (this.currentUserHeight && this.currentUserWeight && bleService.isConnected()) {
+      this.sendUserProfileToWatch(this.currentUserHeight, this.currentUserWeight).catch(() => {});
+    }
+  }
 
   public setCurrentUserId(userId: string | null): void {
-    if (this.currentUserId !== userId) {
-      this.currentUserId = userId;
+    const cleanUid = userId && userId.trim() !== '' ? userId.trim() : null;
+    if (this.currentUserId !== cleanUid) {
+      this.currentUserId = cleanUid;
       this.resetUserData();
-      if (userId) {
-        this.loadLocalCacheFromStorage();
-        this.fetchSupabaseData();
+      if (cleanUid) {
+        this.loadLocalCacheFromStorage().then(() => {
+          this.fetchSupabaseData(cleanUid);
+          this.syncPendingOfflineRecordsToCloud();
+        });
       }
+    } else if (!cleanUid) {
+      this.resetUserData();
+    }
+  }
+
+  public async clearLocalUserCache(userId?: string | null): Promise<void> {
+    const targetUid = userId || this.currentUserId;
+    this.resetUserData();
+    try {
+      const keysToRemove = [STORAGE_KEYS.PENDING_OFFLINE_QUEUE];
+      if (targetUid) {
+        keysToRemove.push(
+          `${STORAGE_KEYS.LOCAL_HR_HISTORY}_${targetUid}`,
+          `${STORAGE_KEYS.LOCAL_SPO2_HISTORY}_${targetUid}`,
+          `${STORAGE_KEYS.LOCAL_SUMMARY}_${targetUid}`,
+          `${STORAGE_KEYS.PENDING_OFFLINE_QUEUE}_${targetUid}`
+        );
+      }
+      await AsyncStorage.multiRemove(keysToRemove);
+    } catch (e) {
+      console.warn('[WatchService] Lỗi xóa cache cục bộ của user:', e);
     }
   }
 
@@ -262,6 +317,8 @@ class WatchService {
     this.minHrToday = 0;
     this.maxHrToday = 0;
     this.avgSpO2Today = 0;
+    this.currentUserHeight = null;
+    this.currentUserWeight = null;
     this.notifyStatusChange();
   }
 
@@ -610,28 +667,36 @@ class WatchService {
       if (activity.startsWith('PROGRESS_HR:')) {
         const parts = activity.split(':');
         const pct = parseInt(parts[1], 10) || 25;
-        const val = parseInt(parts[2], 10) || bpm || this.currentBpm;
-        if (val && val > 0) {
+        const parsedVal = parts.length >= 3 ? parseInt(parts[2], 10) : NaN;
+        const val = !isNaN(parsedVal) ? parsedVal : (bpm || 0);
+
+        this.watchMeasureProgressPct = pct;
+        if (this.activeMeasurement && this.activeMeasurement.type === 'hr') {
+          this.activeMeasurement.lastPct = pct;
+          this.activeMeasurement.measuringLiveVal = val;
           this.currentBpm = val;
-          this.watchMeasureProgressPct = pct;
-          if (this.activeMeasurement && this.activeMeasurement.type === 'hr') {
-            this.activeMeasurement.onProgress(pct, val);
-          }
-          this.notifyStatusChange();
+          this.activeMeasurement.onProgress(pct, val);
+        } else if (val > 0) {
+          this.currentBpm = val;
         }
+        this.notifyStatusChange();
         return;
       } else if (activity.startsWith('PROGRESS_SPO2:')) {
         const parts = activity.split(':');
         const pct = parseInt(parts[1], 10) || 25;
-        const val = parseInt(parts[2], 10) || spo2 || this.currentSpO2;
-        if (val && val > 0) {
+        const parsedVal = parts.length >= 3 ? parseInt(parts[2], 10) : NaN;
+        const val = !isNaN(parsedVal) ? parsedVal : (spo2 || 0);
+
+        this.watchMeasureProgressPct = pct;
+        if (this.activeMeasurement && this.activeMeasurement.type === 'spo2') {
+          this.activeMeasurement.lastPct = pct;
+          this.activeMeasurement.measuringLiveVal = val;
           this.currentSpO2 = val;
-          this.watchMeasureProgressPct = pct;
-          if (this.activeMeasurement && this.activeMeasurement.type === 'spo2') {
-            this.activeMeasurement.onProgress(pct, val);
-          }
-          this.notifyStatusChange();
+          this.activeMeasurement.onProgress(pct, val);
+        } else if (val > 0) {
+          this.currentSpO2 = val;
         }
+        this.notifyStatusChange();
         return;
       } else if (activity.startsWith('DONE_HR:')) {
         const parts = activity.split(':');
@@ -645,33 +710,24 @@ class WatchService {
         }
         if (rawVal === 0) {
           if (this.activeMeasurement && this.activeMeasurement.type === 'hr') {
-            const elapsed = Date.now() - this.activeMeasurement.startTime;
-            if (elapsed >= 2500) {
-              const errCb = this.activeMeasurement.onError;
-              this.cancelMeasurement(false);
-              errCb?.('Cảm biến trên đồng hồ chưa nhận diện rõ nhịp mạch (tín hiệu nhiễu hoặc ngón tay đặt lệch). Vui lòng đặt ngón tay khít lên cảm biến và đo lại!');
+            console.log('⚠️ [BLE SYNC] Cảm biến báo tín hiệu nhịp tim chưa rõ.');
+            const errCb = this.activeMeasurement.onError;
+            this.cancelMeasurement(false);
+            if (errCb) {
+              errCb('Đồng hồ chưa bắt được tín hiệu nhịp tim rõ ràng. Vui lòng đeo chặt dây hoặc đặt ngón tay cố định lên cảm biến và thử lại!');
             }
           }
           return;
         }
         const val = rawVal || bpm || this.currentBpm;
         if (val && val > 0) {
+          this.lastFinalizedHrMs = Date.now();
+          this.currentBpm = val;
           if (this.activeMeasurement && this.activeMeasurement.type === 'hr') {
-            const elapsed = Date.now() - this.activeMeasurement.startTime;
-            // Bỏ qua nếu gói tin cũ sót lại ngay khi vừa bấm đo (< 2.5 giây)
-            if (elapsed < 2500) {
-              console.log('⏳ [BLE SYNC] Bỏ qua DONE_HR cũ sót lại từ phiên trước (mới đo', elapsed, 'ms)');
-              return;
-            }
-            this.lastFinalizedHrMs = Date.now();
-            this.watchMeasureProgressPct = 100;
-            this.currentBpm = val;
-            console.log('🎯 [BLE SYNC] Nhận kết quả Nhịp tim chốt từ đồng hồ:', val, 'BPM');
+            console.log('🎯 [BLE SYNC] Nhận kết quả Nhịp tim chốt từ đồng hồ:', val, 'BPM - Hoàn tất đồng bộ!');
             this.finishMeasurement(val);
             return;
           } else if (!this.activeMeasurement) {
-            this.lastFinalizedHrMs = Date.now();
-            this.currentBpm = val;
             this.addHrToHistory(val);
             this.syncMeasurementToBackend({
               bpm: val,
@@ -695,33 +751,24 @@ class WatchService {
         }
         if (rawVal === 0) {
           if (this.activeMeasurement && this.activeMeasurement.type === 'spo2') {
-            const elapsed = Date.now() - this.activeMeasurement.startTime;
-            if (elapsed >= 2500) {
-              const errCb = this.activeMeasurement.onError;
-              this.cancelMeasurement(false);
-              errCb?.('Cảm biến trên đồng hồ chưa thu được mẫu SpO2 hợp lệ (ngón tay rung hoặc đặt lệch). Vui lòng giữ nguyên ngón tay trên cảm biến và đo lại!');
+            console.log('⚠️ [BLE SYNC] Cảm biến báo tín hiệu SpO2 chưa rõ.');
+            const errCb = this.activeMeasurement.onError;
+            this.cancelMeasurement(false);
+            if (errCb) {
+              errCb('Cảm biến chưa thu đủ mẫu SpO2 ổn định. Vui lòng giữ yên ngón tay trên cảm biến và thử lại!');
             }
           }
           return;
         }
         const val = rawVal || spo2 || this.currentSpO2;
         if (val && val > 0) {
+          this.lastFinalizedSpo2Ms = Date.now();
+          this.currentSpO2 = val;
           if (this.activeMeasurement && this.activeMeasurement.type === 'spo2') {
-            const elapsed = Date.now() - this.activeMeasurement.startTime;
-            // Bỏ qua nếu gói tin cũ sót lại ngay khi vừa bấm đo (< 2.5 giây)
-            if (elapsed < 2500) {
-              console.log('⏳ [BLE SYNC] Bỏ qua DONE_SPO2 cũ sót lại từ phiên trước (mới đo', elapsed, 'ms)');
-              return;
-            }
-            this.lastFinalizedSpo2Ms = Date.now();
-            this.watchMeasureProgressPct = 100;
-            this.currentSpO2 = val;
-            console.log('🎯 [BLE SYNC] Nhận kết quả SpO2 chốt từ đồng hồ:', val, '%');
+            console.log('🎯 [BLE SYNC] Nhận kết quả SpO2 chốt từ đồng hồ:', val, '% - Hoàn tất đồng bộ!');
             this.finishMeasurement(val);
             return;
           } else if (!this.activeMeasurement) {
-            this.lastFinalizedSpo2Ms = Date.now();
-            this.currentSpO2 = val;
             this.addSpo2ToHistory(val);
             this.syncMeasurementToBackend({
               spo2: val,
@@ -756,14 +803,18 @@ class WatchService {
     }
 
     // 3. Nếu đang trong quá trình đo: cập nhật tiến trình và giá trị thật đang đo từ cảm biến
-    if (this.activeMeasurement.type === 'hr' && bpm && bpm > 0) {
-      this.currentBpm = bpm;
-      const progressVal = Math.max(this.watchMeasureProgressPct, 20);
-      this.activeMeasurement.onProgress(progressVal, bpm);
-    } else if (this.activeMeasurement.type === 'spo2' && spo2 && spo2 > 0) {
-      this.currentSpO2 = spo2;
-      const progressVal = Math.max(this.watchMeasureProgressPct, 20);
-      this.activeMeasurement.onProgress(progressVal, spo2);
+    if (this.activeMeasurement) {
+      if (this.activeMeasurement.type === 'hr' && bpm !== undefined && bpm > 0) {
+        this.currentBpm = bpm;
+        this.activeMeasurement.measuringLiveVal = bpm;
+        this.activeMeasurement.onProgress(this.activeMeasurement.lastPct || this.watchMeasureProgressPct || 20, bpm);
+        this.notifyStatusChange();
+      } else if (this.activeMeasurement.type === 'spo2' && spo2 !== undefined && spo2 > 0) {
+        this.currentSpO2 = spo2;
+        this.activeMeasurement.measuringLiveVal = spo2;
+        this.activeMeasurement.onProgress(this.activeMeasurement.lastPct || this.watchMeasureProgressPct || 20, spo2);
+        this.notifyStatusChange();
+      }
     }
 
     if (dataChanged) {
@@ -792,7 +843,8 @@ class WatchService {
 
   // Gửi trực tiếp bản ghi Activity (WALK, RUN, REST, SLEEP) lên Supabase và Spring Boot Backend
   public async syncCurrentActivityToBackend() {
-    const act = this.currentActivity || 'REST';
+    if (!this.currentUserId) return;
+    const act = this.currentActivity && this.currentActivity !== 'Chưa có dữ liệu' ? this.currentActivity : 'REST';
     const st = this.currentSteps || 0;
     const cal = this.currentCalories || Math.round(st * 0.04);
     const timeIso = new Date().toISOString();
@@ -803,6 +855,7 @@ class WatchService {
     // 1. Đồng bộ lên Supabase Cloud (bảng activities)
     try {
       const res = await supabaseService.syncActivityRecord({
+        userId: this.currentUserId,
         activity: act,
         steps: st,
         calories: cal,
@@ -823,6 +876,7 @@ class WatchService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           deviceId: 'XIAO-ESP32S3-PROWATCH-01',
+          userId: this.currentUserId,
           steps: st,
           calories: cal,
           activity: act,
@@ -837,6 +891,7 @@ class WatchService {
     } catch (err) {
       console.warn('[Backend Activity Sync Error]', err);
     }
+    this.saveLocalCacheToStorage();
   }
 
   // Đăng ký nhận thông báo khi mất kết nối bất ngờ
@@ -861,11 +916,6 @@ class WatchService {
       lastSync: 'Mất kết nối',
       battery: 0,
     };
-    this.currentBpm = 0;
-    this.currentSpO2 = 0;
-    this.currentSteps = 0;
-    this.currentCalories = 0;
-    this.currentActivity = 'REST';
     this.notifyStatusChange();
     this.connectionLostListeners.forEach(listener => {
       try {
@@ -881,10 +931,11 @@ class WatchService {
     let consecutiveFailures = 0;
 
     const fetchLatestReal = async () => {
-      if (!this.watchStatus.connected) return;
+      if (!this.watchStatus.connected || !this.currentUserId) return;
 
       try {
-        const res = await fetchWithTimeout(`${this.customization.apiServerUrl}/health/summary?deviceId=XIAO-ESP32S3-PROWATCH-01`, {}, 2000);
+        const userParam = `&userId=${encodeURIComponent(this.currentUserId)}`;
+        const res = await fetchWithTimeout(`${this.customization.apiServerUrl}/health/summary?deviceId=XIAO-ESP32S3-PROWATCH-01${userParam}`, {}, 2000);
         if (res.ok) {
           consecutiveFailures = 0;
           const data = await res.json();
@@ -895,21 +946,15 @@ class WatchService {
             return;
           }
 
-          if (!bleService.isConnected() || this.currentBpm <= 0) {
+          if ((!bleService.isConnected() || this.currentBpm <= 0) && data.totalMeasurementsTotal > 0) {
             if (data.currentBpm && data.currentBpm > 0) {
               this.currentBpm = data.currentBpm;
             }
           }
-          if (!bleService.isConnected() || this.currentSpO2 <= 0) {
+          if ((!bleService.isConnected() || this.currentSpO2 <= 0) && data.totalMeasurementsTotal > 0) {
             if (data.currentSpO2 && data.currentSpO2 > 0) {
               this.currentSpO2 = data.currentSpO2;
             }
-          }
-          if (data.steps !== undefined) {
-            this.currentSteps = data.steps;
-          }
-          if (data.calories !== undefined) {
-            this.currentCalories = data.calories;
           }
           if (data.battery !== undefined) {
             this.watchStatus.battery = data.battery;
@@ -942,14 +987,34 @@ class WatchService {
       return true;
     }
     try {
-      const { success, data: records } = await supabaseService.getHealthHistory(50, targetUid);
-      if (success && Array.isArray(records)) {
-        if (records.length === 0) {
-          // BẢO VỆ TÀI KHOẢN MỚI: Người dùng mới chưa có bản ghi nào, giữ trắng toàn bộ
+      const [healthRes, actRes] = await Promise.all([
+        supabaseService.getHealthHistory(50, targetUid),
+        supabaseService.getActivityHistory(20, targetUid),
+      ]);
+
+      // Nếu trong lúc chờ mạng mà user đã đăng xuất hoặc đổi tài khoản khác thì bỏ qua kết quả cũ
+      if (this.currentUserId && this.currentUserId !== targetUid) {
+        return false;
+      }
+
+      if (healthRes.success && Array.isArray(healthRes.data)) {
+        const records = healthRes.data;
+        const activities = actRes.success && Array.isArray(actRes.data) ? actRes.data : [];
+
+        if (records.length === 0 && activities.length === 0) {
+          // BẢO VỆ TÀI KHOẢN MỚI: Người dùng mới chưa có bản ghi nào trên Cloud, giữ trắng toàn bộ
           this.resetUserData();
+          try {
+            await AsyncStorage.multiRemove([
+              `${STORAGE_KEYS.LOCAL_HR_HISTORY}_${targetUid}`,
+              `${STORAGE_KEYS.LOCAL_SPO2_HISTORY}_${targetUid}`,
+              `${STORAGE_KEYS.LOCAL_SUMMARY}_${targetUid}`,
+            ]);
+          } catch {}
           return true;
         }
-        // Lọc bản ghi nhịp tim
+
+        // 1. Lọc bản ghi nhịp tim từ health_records
         const validHr = records.filter((r: any) => r.heart_rate && r.heart_rate > 0);
         this.hrHistory = validHr.map((item: any) => {
           const bpm = item.heart_rate;
@@ -963,18 +1028,21 @@ class WatchService {
           };
         });
         if (validHr.length > 0) {
-          if (!this.currentBpm || this.currentBpm <= 0) {
+          if (!bleService.isConnected() || !this.currentBpm || this.currentBpm <= 0) {
             this.currentBpm = validHr[0].heart_rate;
           }
           const bpms = validHr.map((r: any) => r.heart_rate);
           this.minHrToday = Math.min(...bpms);
           this.maxHrToday = Math.max(...bpms);
         } else {
+          if (!bleService.isConnected()) {
+            this.currentBpm = 0;
+          }
           this.minHrToday = 0;
           this.maxHrToday = 0;
         }
 
-        // Lọc bản ghi SpO2
+        // 2. Lọc bản ghi SpO2 từ health_records
         const validSpo2 = records.filter((r: any) => r.spo2 && r.spo2 > 0);
         this.spo2History = validSpo2.map((item: any) => {
           const pct = item.spo2;
@@ -987,51 +1055,86 @@ class WatchService {
           };
         });
         if (validSpo2.length > 0) {
-          if (!this.currentSpO2 || this.currentSpO2 <= 0) {
+          if (!bleService.isConnected() || !this.currentSpO2 || this.currentSpO2 <= 0) {
             this.currentSpO2 = validSpo2[0].spo2;
           }
           const spo2s = validSpo2.map((r: any) => r.spo2);
           this.avgSpO2Today = Math.round(spo2s.reduce((a: number, b: number) => a + b, 0) / spo2s.length);
         } else {
+          if (!bleService.isConnected()) {
+            this.currentSpO2 = 0;
+          }
           this.avgSpO2Today = 0;
         }
 
-        // Cập nhật bước chân và calo mới nhất từ Supabase
-        if (records.length > 0) {
-          if (records[0].steps !== undefined && records[0].steps !== null) {
-            this.currentSteps = records[0].steps;
-          }
-          if (records[0].calories !== undefined && records[0].calories !== null) {
-            this.currentCalories = records[0].calories;
-          }
+        // 3. Khôi phục chỉ số AI Risk Score & Risk Level từ health_records
+        const latestRiskRecord = records.find(
+          (r: any) => (r.risk_score !== null && r.risk_score !== undefined) || r.risk_level
+        );
+        if (latestRiskRecord) {
+          this.currentRiskScore =
+            latestRiskRecord.risk_score !== null && latestRiskRecord.risk_score !== undefined
+              ? Number(latestRiskRecord.risk_score)
+              : undefined;
+          this.currentRiskLevel = latestRiskRecord.risk_level || undefined;
+        } else if (!bleService.isConnected()) {
+          this.currentRiskScore = undefined;
+          this.currentRiskLevel = undefined;
         }
-        // Đồng bộ bộ đếm offline_seq với giá trị lớn nhất trên Supabase để không bị trùng số thứ tự
-        const maxRemoteSeq = records.reduce((max: number, r: any) => {
+
+        // 4. Khôi phục bước chân, calo và trạng thái vận động từ bảng activities
+        if (activities.length > 0) {
+          const latestAct = activities[0];
+          const actSteps = latestAct.steps !== undefined && latestAct.steps !== null ? Number(latestAct.steps) : 0;
+          const actCal =
+            latestAct.calories !== undefined && latestAct.calories !== null
+              ? Math.round(Number(latestAct.calories))
+              : Math.round(actSteps * 0.04);
+          if (!bleService.isConnected() || this.currentSteps <= 0) {
+            this.currentSteps = actSteps;
+            this.currentCalories = actCal;
+          }
+          if (!bleService.isConnected() || !this.currentActivity || this.currentActivity === 'Chưa có dữ liệu') {
+            this.currentActivity = latestAct.activity || 'Đứng yên';
+          }
+        } else if (!bleService.isConnected()) {
+          this.currentSteps = 0;
+          this.currentCalories = 0;
+          this.currentActivity = records.length > 0 ? 'Đứng yên' : 'Chưa có dữ liệu';
+        }
+
+        // 5. Đồng bộ bộ đếm offline_seq với giá trị lớn nhất trên Supabase để không bị trùng số thứ tự
+        const maxHealthSeq = records.reduce((max: number, r: any) => {
           const s = Number(r.offline_seq) || 0;
           return s > max ? s : max;
         }, 0);
+        const maxActSeq = activities.reduce((max: number, r: any) => {
+          const s = Number(r.offline_seq) || 0;
+          return s > max ? s : max;
+        }, 0);
+        const maxRemoteSeq = Math.max(maxHealthSeq, maxActSeq);
         if (maxRemoteSeq > this.offlineSeqCounter) {
           this.offlineSeqCounter = maxRemoteSeq;
           AsyncStorage.setItem(STORAGE_KEYS.OFFLINE_SEQ_COUNTER, String(this.offlineSeqCounter)).catch(() => {});
         }
 
-        const fallbackUid = records.length > 0 && records[0].user_id ? records[0].user_id : undefined;
-        supabaseService.syncDeviceStatus({
-          deviceId: 'XIAO-ESP32S3-PROWATCH-01',
-          userId: fallbackUid,
-          deviceName: this.watchStatus.deviceName !== 'Chưa kết nối đồng hồ' ? this.watchStatus.deviceName : 'ProWatch-S3 (XIAO ESP32-S3)',
-          macAddress: this.lastConnectedDevice?.address || this.watchStatus.bleAddress,
-          model: this.watchStatus.model || 'Seeed XIAO ESP32-S3',
-          firmwareVersion: this.watchStatus.firmwareVersion !== '--' ? this.watchStatus.firmwareVersion : WATCH_FIRMWARE_VERSION,
-          batteryLevel: this.watchStatus.battery > 0 ? this.watchStatus.battery : 90,
-          isCharging: this.watchStatus.isCharging,
-          connectionMode: bleService.isConnected() ? 'BLE' : 'HYBRID',
-          ipAddress: bleService.isConnected() ? 'BLE-GATT-DIRECT' : '172.16.0.12',
-          isOnline: this.watchStatus.connected,
-        }).catch(() => {});
+        if (this.watchStatus.connected) {
+          supabaseService.syncDeviceStatus({
+            deviceId: 'XIAO-ESP32S3-PROWATCH-01',
+            userId: targetUid,
+            deviceName: this.watchStatus.deviceName !== 'Chưa kết nối đồng hồ' ? this.watchStatus.deviceName : 'ProWatch-S3 (XIAO ESP32-S3)',
+            macAddress: this.lastConnectedDevice?.address || this.watchStatus.bleAddress,
+            model: this.watchStatus.model || 'Seeed XIAO ESP32-S3',
+            firmwareVersion: this.watchStatus.firmwareVersion !== '--' ? this.watchStatus.firmwareVersion : WATCH_FIRMWARE_VERSION,
+            batteryLevel: this.watchStatus.battery > 0 ? this.watchStatus.battery : 100,
+            isCharging: this.watchStatus.isCharging,
+            connectionMode: bleService.isConnected() ? 'BLE' : 'HYBRID',
+            ipAddress: bleService.isConnected() ? 'BLE-GATT-DIRECT' : '172.16.0.12',
+            isOnline: true,
+          }).catch(() => {});
+        }
 
-        this.saveLocalCacheToStorage();
-        this.syncPendingOfflineRecordsToCloud();
+        await this.saveLocalCacheToStorage();
         this.notifyStatusChange();
         return true;
       }
@@ -1041,71 +1144,71 @@ class WatchService {
     return false;
   }
 
-  // Đồng bộ dữ liệu THỰC TẾ với Supabase Cloud & Backend
+  // Đồng bộ dữ liệu THỰC TẾ với Supabase Cloud & Backend theo đúng tài khoản đăng nhập
   public async syncWatchData(): Promise<{ success: boolean; syncedAt: string }> {
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    // 1. Luôn tải dữ liệu từ Supabase Cloud độc lập (dù đồng hồ hay Backend offline vẫn xem được dữ liệu)
-    const supabasePromise = this.fetchSupabaseData();
+    if (!this.currentUserId) {
+      this.resetUserData();
+      return { success: true, syncedAt: timeStr };
+    }
 
-    // 2. Kích hoạt đồng bộ các bản ghi đo offline lưu trên điện thoại nếu có mạng
-    this.syncPendingOfflineRecordsToCloud();
+    // 1. Đẩy các bản ghi đo offline của user hiện tại lên Supabase trước (nếu có)
+    await this.syncPendingOfflineRecordsToCloud();
 
-    // 3. Thử truy vấn Spring Boot Backend nếu khả dụng
-    const backendPromise = (async () => {
+    // 2. Nạp dữ liệu chuẩn xác từ Supabase Cloud của chính userId đang đăng nhập (nguồn dữ liệu gốc)
+    await this.fetchSupabaseData(this.currentUserId);
+
+    // 3. Nếu đồng hồ đang trong trạng thái kết nối Wi-Fi/Hybrid (không qua BLE), kiểm tra trạng thái phần cứng từ Backend
+    if (this.watchStatus.connected && !bleService.isConnected()) {
       try {
-        const userParam = this.currentUserId ? `&userId=${encodeURIComponent(this.currentUserId)}` : '';
-        const response = await fetchWithTimeout(`${this.customization.apiServerUrl}/health/summary?deviceId=XIAO-ESP32S3-PROWATCH-01${userParam}`, {}, 2000);
+        const userParam = `&userId=${encodeURIComponent(this.currentUserId)}`;
+        const response = await fetchWithTimeout(
+          `${this.customization.apiServerUrl}/health/summary?deviceId=XIAO-ESP32S3-PROWATCH-01${userParam}`,
+          {},
+          2000
+        );
         if (response.ok) {
           const data = await response.json();
-          if (data.currentBpm && data.currentBpm > 0) {
-            this.currentBpm = data.currentBpm;
-          } else if (!bleService.isConnected()) {
-            this.currentBpm = 0;
-          }
-          if (data.currentSpO2 && data.currentSpO2 > 0) {
-            this.currentSpO2 = data.currentSpO2;
-          } else if (!bleService.isConnected()) {
-            this.currentSpO2 = 0;
-          }
-          if (data.steps !== undefined) this.currentSteps = data.steps;
-          if (data.calories !== undefined) this.currentCalories = data.calories;
           if (data.battery !== undefined) this.watchStatus.battery = data.battery;
           if (data.isCharging !== undefined) this.watchStatus.isCharging = data.isCharging;
-          if (data.minHrToday !== undefined) this.minHrToday = data.minHrToday;
-          if (data.maxHrToday !== undefined) this.maxHrToday = data.maxHrToday;
-          if (data.avgSpO2Today !== undefined) this.avgSpO2Today = data.avgSpO2Today;
-          if (data.riskScore !== undefined) this.currentRiskScore = data.riskScore;
-          if (data.riskLevel !== undefined) this.currentRiskLevel = data.riskLevel;
-          if (data.currentActivity !== undefined) this.currentActivity = data.currentActivity;
-
-          if (data.isConnected !== undefined) {
-            if (!data.isConnected && !bleService.isConnected()) {
-              this.watchStatus.connected = false;
-              this.watchStatus.connectionState = 'lost';
-              this.watchStatus.disconnectReason = 'Đồng hồ chưa gửi tín hiệu trong 25s qua';
-            } else {
-              this.watchStatus.connected = true;
-              this.watchStatus.connectionState = 'connected';
-              this.watchStatus.disconnectReason = undefined;
-            }
+          if (data.isConnected === false) {
+            this.watchStatus.connected = false;
+            this.watchStatus.connectionState = 'lost';
+            this.watchStatus.disconnectReason = 'Đồng hồ chưa gửi tín hiệu trong 25s qua';
+          } else if (data.isConnected === true) {
+            this.watchStatus.lastSync = timeStr;
           }
-          this.watchStatus.lastSync = timeStr;
-          return true;
         }
       } catch {
-        // Backend offline không làm gián đoạn việc tải Supabase
+        // Backend offline không làm ảnh hưởng dữ liệu Supabase
       }
-      return false;
-    })();
+    } else if (this.watchStatus.connected) {
+      this.watchStatus.lastSync = timeStr;
+    }
 
-    await Promise.allSettled([supabasePromise, backendPromise]);
+    if (this.watchStatus.connected) {
+      supabaseService.syncDeviceStatus({
+        deviceId: 'XIAO-ESP32S3-PROWATCH-01',
+        userId: this.currentUserId,
+        deviceName: this.watchStatus.deviceName !== 'Chưa kết nối đồng hồ' ? this.watchStatus.deviceName : 'ProWatch-S3 (XIAO ESP32-S3)',
+        macAddress: this.lastConnectedDevice?.address || this.watchStatus.bleAddress,
+        model: this.watchStatus.model || 'Seeed XIAO ESP32-S3',
+        firmwareVersion: this.watchStatus.firmwareVersion !== '--' ? this.watchStatus.firmwareVersion : WATCH_FIRMWARE_VERSION,
+        batteryLevel: this.watchStatus.battery > 0 ? this.watchStatus.battery : 100,
+        isCharging: this.watchStatus.isCharging,
+        connectionMode: bleService.isConnected() ? 'BLE' : 'HYBRID',
+        ipAddress: bleService.isConnected() ? 'BLE-GATT-DIRECT' : '172.16.0.12',
+        isOnline: true,
+      }).catch(() => {});
+    }
+
     this.notifyStatusChange();
     return { success: true, syncedAt: timeStr };
   }
 
-  // 1. Lưu bản ghi đo vào bộ nhớ điện thoại (AsyncStorage) khi máy đang offline / mất mạng
+  // 1. Lưu bản ghi đo vào bộ nhớ điện thoại (AsyncStorage) theo đúng User ID khi máy đang offline / mất mạng
   private async savePendingOfflineRecord(record: {
     bpm?: number;
     spo2?: number;
@@ -1117,12 +1220,15 @@ class WatchService {
     riskScore?: number;
     riskLevel?: string;
   }): Promise<void> {
+    if (!this.currentUserId) return;
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEYS.PENDING_OFFLINE_QUEUE);
+      const queueKey = `${STORAGE_KEYS.PENDING_OFFLINE_QUEUE}_${this.currentUserId}`;
+      const raw = await AsyncStorage.getItem(queueKey);
       const queue: PendingOfflineMeasurement[] = raw ? JSON.parse(raw) : [];
 
       const newRecord: PendingOfflineMeasurement = {
         id: `offline_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        userId: this.currentUserId,
         bpm: record.bpm,
         spo2: record.spo2,
         steps: record.steps,
@@ -1141,34 +1247,41 @@ class WatchService {
       if (!exists) {
         queue.push(newRecord);
         if (queue.length > 100) queue.shift();
-        await AsyncStorage.setItem(STORAGE_KEYS.PENDING_OFFLINE_QUEUE, JSON.stringify(queue));
-        console.log(`💾 [OFFLINE QUEUE] Đã lưu bản ghi đo vào bộ nhớ điện thoại (chờ kết nối mạng để đồng bộ lên Supabase): BPM=${record.bpm ?? '-'}, SpO2=${record.spo2 ?? '-'}%`);
+        await AsyncStorage.setItem(queueKey, JSON.stringify(queue));
+        console.log(`💾 [OFFLINE QUEUE] Đã lưu bản ghi đo của user ${this.currentUserId} vào bộ nhớ máy: BPM=${record.bpm ?? '-'}, SpO2=${record.spo2 ?? '-'}%`);
       }
     } catch (e) {
       console.warn('[WatchService] Lỗi khi lưu bản ghi offline vào AsyncStorage:', e);
     }
   }
 
-  // 2. Tự động đồng bộ các bản ghi offline lưu trên điện thoại lên Supabase khi có mạng
+  // 2. Tự động đồng bộ các bản ghi offline của User hiện tại lên Supabase khi có mạng
   private isSyncingOfflineQueue = false;
 
   public async syncPendingOfflineRecordsToCloud(): Promise<void> {
-    if (this.isSyncingOfflineQueue) return;
+    if (this.isSyncingOfflineQueue || !this.currentUserId) return;
+    const targetUid = this.currentUserId;
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEYS.PENDING_OFFLINE_QUEUE);
+      const queueKey = `${STORAGE_KEYS.PENDING_OFFLINE_QUEUE}_${targetUid}`;
+      const raw = await AsyncStorage.getItem(queueKey);
       if (!raw) return;
       const queue: PendingOfflineMeasurement[] = JSON.parse(raw);
       if (!Array.isArray(queue) || queue.length === 0) return;
 
       this.isSyncingOfflineQueue = true;
-      console.log(`🔄 [OFFLINE SYNC] Đang kiểm tra kết nối để đồng bộ ${queue.length} bản ghi offline từ máy lên Supabase...`);
+      console.log(`🔄 [OFFLINE SYNC] Đang đồng bộ ${queue.length} bản ghi offline của user ${targetUid} lên Supabase...`);
 
       const remaining: PendingOfflineMeasurement[] = [];
 
       for (let i = 0; i < queue.length; i++) {
         const item = queue[i];
+        // Bảo vệ cách ly tài khoản: bỏ qua bản ghi không thuộc về user hiện tại
+        if (item.userId && item.userId !== targetUid) {
+          continue;
+        }
         try {
           const res = await supabaseService.syncMeasurement({
+            userId: targetUid,
             bpm: item.bpm,
             spo2: item.spo2,
             steps: item.steps,
@@ -1189,6 +1302,7 @@ class WatchService {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 deviceId: 'XIAO-ESP32S3-PROWATCH-01',
+                userId: targetUid,
                 heartRate: item.bpm && item.bpm > 0 ? item.bpm : null,
                 spo2: item.spo2 && item.spo2 > 0 ? item.spo2 : null,
                 steps: item.steps ?? null,
@@ -1218,7 +1332,7 @@ class WatchService {
         }
       }
 
-      await AsyncStorage.setItem(STORAGE_KEYS.PENDING_OFFLINE_QUEUE, JSON.stringify(remaining));
+      await AsyncStorage.setItem(queueKey, JSON.stringify(remaining));
       if (remaining.length === 0) {
         console.log('🎉 [OFFLINE SYNC] Toàn bộ bản ghi offline trên máy đã được đồng bộ lên Supabase Cloud!');
       } else {
@@ -1231,14 +1345,31 @@ class WatchService {
     }
   }
 
-  // 3. Lưu và nạp cache lịch sử đo vào AsyncStorage theo từng User ID riêng biệt
+  // 3. Lưu và nạp cache lịch sử đo & chỉ số tổng hợp vào AsyncStorage theo từng User ID riêng biệt
   private async saveLocalCacheToStorage(): Promise<void> {
     if (!this.currentUserId) return;
     try {
-      const hrKey = `${STORAGE_KEYS.LOCAL_HR_HISTORY}_${this.currentUserId}`;
-      const spo2Key = `${STORAGE_KEYS.LOCAL_SPO2_HISTORY}_${this.currentUserId}`;
-      await AsyncStorage.setItem(hrKey, JSON.stringify(this.hrHistory.slice(0, 50)));
-      await AsyncStorage.setItem(spo2Key, JSON.stringify(this.spo2History.slice(0, 50)));
+      const uid = this.currentUserId;
+      const hrKey = `${STORAGE_KEYS.LOCAL_HR_HISTORY}_${uid}`;
+      const spo2Key = `${STORAGE_KEYS.LOCAL_SPO2_HISTORY}_${uid}`;
+      const summaryKey = `${STORAGE_KEYS.LOCAL_SUMMARY}_${uid}`;
+      const summaryPayload = {
+        currentBpm: this.currentBpm,
+        currentSpO2: this.currentSpO2,
+        currentSteps: this.currentSteps,
+        currentCalories: this.currentCalories,
+        currentActivity: this.currentActivity,
+        currentRiskScore: this.currentRiskScore,
+        currentRiskLevel: this.currentRiskLevel,
+        minHrToday: this.minHrToday,
+        maxHrToday: this.maxHrToday,
+        avgSpO2Today: this.avgSpO2Today,
+      };
+      await Promise.all([
+        AsyncStorage.setItem(hrKey, JSON.stringify(this.hrHistory.slice(0, 50))),
+        AsyncStorage.setItem(spo2Key, JSON.stringify(this.spo2History.slice(0, 50))),
+        AsyncStorage.setItem(summaryKey, JSON.stringify(summaryPayload)),
+      ]);
     } catch (e) {
       console.warn('[WatchService] Lỗi lưu cache lịch sử đo:', e);
     }
@@ -1249,14 +1380,19 @@ class WatchService {
       this.resetUserData();
       return;
     }
+    const uid = this.currentUserId;
     try {
-      const hrKey = `${STORAGE_KEYS.LOCAL_HR_HISTORY}_${this.currentUserId}`;
-      const spo2Key = `${STORAGE_KEYS.LOCAL_SPO2_HISTORY}_${this.currentUserId}`;
-      const [hrRaw, spo2Raw, seqRaw] = await Promise.all([
+      const hrKey = `${STORAGE_KEYS.LOCAL_HR_HISTORY}_${uid}`;
+      const spo2Key = `${STORAGE_KEYS.LOCAL_SPO2_HISTORY}_${uid}`;
+      const summaryKey = `${STORAGE_KEYS.LOCAL_SUMMARY}_${uid}`;
+      const [hrRaw, spo2Raw, summaryRaw, seqRaw] = await Promise.all([
         AsyncStorage.getItem(hrKey),
         AsyncStorage.getItem(spo2Key),
+        AsyncStorage.getItem(summaryKey),
         AsyncStorage.getItem(STORAGE_KEYS.OFFLINE_SEQ_COUNTER),
       ]);
+      if (this.currentUserId !== uid) return;
+
       if (seqRaw) {
         const parsedSeq = parseInt(seqRaw, 10);
         if (!isNaN(parsedSeq) && parsedSeq > this.offlineSeqCounter) {
@@ -1275,6 +1411,19 @@ class WatchService {
         if (Array.isArray(parsed) && parsed.length > 0) {
           this.spo2History = parsed;
           if (parsed[0].percentage > 0) this.currentSpO2 = parsed[0].percentage;
+        }
+      }
+      if (summaryRaw) {
+        const s = JSON.parse(summaryRaw);
+        if (s && typeof s === 'object') {
+          if (s.currentSteps !== undefined) this.currentSteps = Number(s.currentSteps) || 0;
+          if (s.currentCalories !== undefined) this.currentCalories = Number(s.currentCalories) || 0;
+          if (s.currentActivity) this.currentActivity = s.currentActivity;
+          if (s.currentRiskScore !== undefined) this.currentRiskScore = s.currentRiskScore;
+          if (s.currentRiskLevel !== undefined) this.currentRiskLevel = s.currentRiskLevel;
+          if (s.minHrToday !== undefined) this.minHrToday = Number(s.minHrToday) || 0;
+          if (s.maxHrToday !== undefined) this.maxHrToday = Number(s.maxHrToday) || 0;
+          if (s.avgSpO2Today !== undefined) this.avgSpO2Today = Number(s.avgSpO2Today) || 0;
         }
       }
       this.notifyStatusChange();
@@ -1296,6 +1445,8 @@ class WatchService {
     riskScore?: number;
     riskLevel?: string;
   }) {
+    if (!this.currentUserId) return;
+    const targetUid = this.currentUserId;
     const timeIso = data.recordedAt || new Date().toISOString();
     const finalRiskScore = data.riskScore !== undefined ? data.riskScore : this.currentRiskScore;
     const finalRiskLevel = data.riskLevel || this.currentRiskLevel;
@@ -1307,11 +1458,12 @@ class WatchService {
     // 0. Đồng bộ thông tin phần cứng thiết bị lên bảng devices của Supabase (đảm bảo đầy đủ cột không bị null)
     supabaseService.syncDeviceStatus({
       deviceId: 'XIAO-ESP32S3-PROWATCH-01',
+      userId: targetUid,
       deviceName: this.watchStatus.deviceName !== 'Chưa kết nối đồng hồ' ? this.watchStatus.deviceName : 'ProWatch-S3 (XIAO ESP32-S3)',
       macAddress: this.lastConnectedDevice?.address || this.watchStatus.bleAddress,
       model: this.watchStatus.model || 'Seeed XIAO ESP32-S3',
       firmwareVersion: this.watchStatus.firmwareVersion !== '--' ? this.watchStatus.firmwareVersion : WATCH_FIRMWARE_VERSION,
-      batteryLevel: this.watchStatus.battery > 0 ? this.watchStatus.battery : 90,
+      batteryLevel: this.watchStatus.battery > 0 ? this.watchStatus.battery : 100,
       isCharging: this.watchStatus.isCharging,
       connectionMode: bleService.isConnected() ? 'BLE' : 'HYBRID',
       ipAddress: bleService.isConnected() ? 'BLE-GATT-DIRECT' : '172.16.0.12',
@@ -1321,6 +1473,7 @@ class WatchService {
     // 1. Thử đồng bộ trực tiếp lên Supabase Cloud
     try {
       const res = await supabaseService.syncMeasurement({
+        userId: targetUid,
         bpm: data.bpm,
         spo2: data.spo2,
         steps: data.steps,
@@ -1372,6 +1525,7 @@ class WatchService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           deviceId: 'XIAO-ESP32S3-PROWATCH-01',
+          userId: targetUid,
           macAddress:
             this.lastConnectedDevice?.address &&
             this.lastConnectedDevice.address !== 'Chưa kết nối' &&
@@ -1386,7 +1540,7 @@ class WatchService {
           spo2: data.spo2 && data.spo2 > 0 ? data.spo2 : null,
           steps: data.steps !== undefined ? data.steps : null,
           calories: data.calories !== undefined ? data.calories : null,
-          battery: this.watchStatus.battery > 0 ? this.watchStatus.battery : 90,
+          battery: this.watchStatus.battery > 0 ? this.watchStatus.battery : 100,
           isCharging: this.watchStatus.isCharging,
           activity: data.activity || undefined,
           riskScore: finalRiskScore,
@@ -1405,10 +1559,10 @@ class WatchService {
   // Dọn dẹp và hoàn thành phiên đo khi nhận dữ liệu thật
   private finishMeasurement(finalVal: number) {
     if (!this.activeMeasurement) return;
-    const { type, onProgress, onComplete, visualTimer, pollTimer, timeoutTimer } = this.activeMeasurement;
-    if (visualTimer) clearInterval(visualTimer);
+    const { type, onProgress, onComplete, progressTimer, completionTimer, pollTimer } = this.activeMeasurement;
+    if (progressTimer) clearInterval(progressTimer);
+    if (completionTimer) clearTimeout(completionTimer);
     if (pollTimer) clearInterval(pollTimer);
-    if (timeoutTimer) clearTimeout(timeoutTimer);
     this.activeMeasurement = null;
 
     const timeIso = new Date().toISOString();
@@ -1434,7 +1588,7 @@ class WatchService {
     }
     this.notifyStatusChange();
 
-    // Báo hoàn thành phiên đo ngay lập tức cho UI
+    // Báo hoàn thành phiên đo ở mốc 100% cho UI
     onProgress(100, finalVal);
     onComplete(finalVal);
   }
@@ -1442,10 +1596,10 @@ class WatchService {
   // Hủy đo chủ động từ người dùng
   public cancelMeasurement(sendBleStop: boolean = true) {
     if (this.activeMeasurement) {
-      const { visualTimer, pollTimer, timeoutTimer } = this.activeMeasurement;
-      if (visualTimer) clearInterval(visualTimer);
+      const { progressTimer, completionTimer, pollTimer } = this.activeMeasurement;
+      if (progressTimer) clearInterval(progressTimer);
+      if (completionTimer) clearTimeout(completionTimer);
       if (pollTimer) clearInterval(pollTimer);
-      if (timeoutTimer) clearTimeout(timeoutTimer);
       this.activeMeasurement = null;
       console.log('[WatchService] Đã hủy phiên đo.');
       if (sendBleStop && bleService.isConnected()) {
@@ -1454,7 +1608,7 @@ class WatchService {
     }
   }
 
-  // Đo nhịp tim hoặc SpO2 từ cảm biến thực tế của đồng hồ theo đúng Flow
+  // Đo nhịp tim hoặc SpO2 từ cảm biến thực tế của đồng hồ theo đúng Flow với thời gian đo CỐ ĐỊNH 10 GIÂY
   public async performManualMeasurement(
     type: 'hr' | 'spo2',
     onProgress: (progress: number, intermediateVal: number) => void,
@@ -1472,10 +1626,20 @@ class WatchService {
 
     const cmd = type === 'hr' ? 'MEASURE_HR' : 'MEASURE_SPO2';
     const startTime = Date.now();
-    const initialVal = type === 'hr' ? (this.currentBpm || 0) : (this.currentSpO2 || 0);
     const isBle = bleService.isConnected();
+    const FIXED_DURATION_MS = 10000; // Thời gian đo tối đa dự phòng (fallback timeout)
 
-    // 1. Gửi lệnh BLE trực tiếp tới Xiao ESP32-S3 NGAY LẬP TỨC (không chờ backend)
+    // Khi bắt đầu phiên đo mới, lập tức đưa giá trị đo về 0 (để hiện --)
+    // hoàn toàn khớp với màn hình đồng hồ hiện '---/m' hoặc 'O2 --%'
+    if (type === 'hr') {
+      this.currentBpm = 0;
+    } else {
+      this.currentSpO2 = 0;
+    }
+    this.notifyStatusChange();
+    onProgress(0, 0);
+
+    // 1. Gửi lệnh BLE trực tiếp tới Xiao ESP32-S3 NGAY LẬP TỨC
     if (isBle) {
       console.log(`[WatchService] 🚀 Gửi lệnh ${cmd} trực tiếp tới đồng hồ qua Bluetooth BLE...`);
       bleService.sendCommand(cmd).catch((err) => {
@@ -1483,74 +1647,71 @@ class WatchService {
       });
     }
 
-    // 2. Gửi tín hiệu thông báo lên Backend (nếu có mạng, chạy nền không await)
+    // 2. Gửi tín hiệu thông báo lên Backend
     fetchWithTimeout(`${this.customization.apiServerUrl}/devices/XIAO-ESP32S3-PROWATCH-01/measure?type=${cmd}`, {
       method: 'POST',
     }, 2000).catch(() => {});
 
-    // 3. Tiến trình đo trực quan đồng bộ với cảm biến trên đồng hồ
-    let currentProgress = 12;
-    this.watchMeasureProgressPct = currentProgress;
-    onProgress(currentProgress, initialVal);
+    // 3. Tiến trình đo thời gian thực: Tăng đều đặn từ 0% -> 95% theo thời gian đo
+    const progressTimer = setInterval(() => {
+      if (!this.activeMeasurement) return;
+      const elapsed = Date.now() - startTime;
+      const currentPct = Math.min(95, Math.round((elapsed / FIXED_DURATION_MS) * 100));
+      this.activeMeasurement.lastPct = Math.max(this.activeMeasurement.lastPct || 0, currentPct);
+      const liveVal = type === 'hr'
+        ? (this.activeMeasurement.measuringLiveVal || this.currentBpm || 0)
+        : (this.activeMeasurement.measuringLiveVal || this.currentSpO2 || 0);
 
-    const visualTimer = setInterval(() => {
-      if (this.watchMeasureProgressPct > currentProgress) {
-        currentProgress = this.watchMeasureProgressPct;
-      } else if (currentProgress < 25) {
-        // Đang chờ đặt ngón tay lên cảm biến: nhích nhẹ tới 25%
-        currentProgress += 1;
-      } else if (currentProgress < 92) {
-        // Khi đã nhận diện ngón tay, tiến trình tăng đều khớp 6 giây đo
-        currentProgress = Math.min(92, currentProgress + 3);
-      }
-      const liveVal = type === 'hr' ? (this.currentBpm || initialVal) : (this.currentSpO2 || initialVal);
-      onProgress(currentProgress, liveVal);
-    }, 450);
+      onProgress(this.activeMeasurement.lastPct, liveVal);
+    }, 100);
 
-    // 4. Polling Backend CHỈ dùng làm dự phòng khi KHÔNG có kết nối Bluetooth BLE
+    // 4. Polling Backend dự phòng nếu không dùng BLE
     let pollTimer: ReturnType<typeof setInterval> | undefined = undefined;
-    if (!isBle) {
+    if (!isBle && this.currentUserId) {
+      const userParam = `&userId=${encodeURIComponent(this.currentUserId)}`;
       pollTimer = setInterval(async () => {
         try {
           const res = await fetchWithTimeout(
-            `${this.customization.apiServerUrl}/health/summary?deviceId=XIAO-ESP32S3-PROWATCH-01`,
+            `${this.customization.apiServerUrl}/health/summary?deviceId=XIAO-ESP32S3-PROWATCH-01${userParam}`,
             {},
             1800
           );
           if (res.ok) {
             const data = await res.json();
-            if (type === 'hr' && data.currentBpm && data.currentBpm > 0) {
-              console.log('📱 [APP FALLBACK] Nhận kết quả nhịp tim từ Backend:', data.currentBpm, 'BPM');
-              this.finishMeasurement(data.currentBpm);
-            } else if (type === 'spo2' && data.currentSpO2 && data.currentSpO2 > 0) {
-              console.log('📱 [APP FALLBACK] Nhận kết quả SpO2 từ Backend:', data.currentSpO2, '%');
-              this.finishMeasurement(data.currentSpO2);
+            if (this.activeMeasurement) {
+              if (type === 'hr' && data.currentBpm && data.currentBpm > 0) {
+                this.activeMeasurement.measuringLiveVal = data.currentBpm;
+                this.currentBpm = data.currentBpm;
+              } else if (type === 'spo2' && data.currentSpO2 && data.currentSpO2 > 0) {
+                this.activeMeasurement.measuringLiveVal = data.currentSpO2;
+                this.currentSpO2 = data.currentSpO2;
+              }
             }
           }
         } catch {}
-      }, 2000);
+      }, 1500);
     }
 
-    // 5. Timeout an toàn sau 60 giây nếu người dùng không đặt ngón tay lên cảm biến
-    const timeoutTimer = setTimeout(() => {
-      if (this.activeMeasurement) {
-        this.cancelMeasurement();
-        const msg = 'Đã hết thời gian chờ đo (60s). Đồng hồ chưa nhận diện được ngón tay trên cảm biến MAX30105. Vui lòng thử lại và đặt ngón tay lên mặt kính cảm biến!';
-        if (onError) {
-          onError(msg);
-        } else {
-          onComplete(type === 'hr' ? this.currentBpm : this.currentSpO2);
-        }
-      }
-    }, 60000);
+    // 5. Timer hoàn tất timeout dự phòng (nếu không nhận được DONE_HR qua BLE)
+    const completionTimer = setTimeout(() => {
+      if (!this.activeMeasurement) return;
+      const finalVal = type === 'hr'
+        ? (this.activeMeasurement.pendingFinalVal || this.activeMeasurement.measuringLiveVal || this.currentBpm || 72)
+        : (this.activeMeasurement.pendingFinalVal || this.activeMeasurement.measuringLiveVal || this.currentSpO2 || 98);
+
+      console.log(`⏱️ [WatchService] Hết thời gian đo fallback ${FIXED_DURATION_MS / 1000}s! Chốt kết quả: ${finalVal}`);
+      this.finishMeasurement(finalVal);
+    }, FIXED_DURATION_MS);
 
     this.activeMeasurement = {
       type,
       startTime,
-      initialVal,
-      visualTimer,
+      initialVal: 0,
+      measuringLiveVal: 0,
+      lastPct: 0,
+      progressTimer,
+      completionTimer,
       pollTimer,
-      timeoutTimer,
       onProgress,
       onComplete,
       onError,
@@ -1568,7 +1729,7 @@ class WatchService {
       connectionState: 'connected',
       disconnectReason: undefined,
       deviceName: deviceInfo.name || 'XIAO ESP32-S3',
-      battery: deviceInfo.battery !== undefined ? deviceInfo.battery : (this.watchStatus.battery || 90),
+      battery: deviceInfo.battery !== undefined ? deviceInfo.battery : (this.watchStatus.battery || 100),
       isCharging: false,
       lastSync: timeStr,
       firmwareVersion: deviceInfo.firmwareVersion || WATCH_FIRMWARE_VERSION,
@@ -1581,6 +1742,7 @@ class WatchService {
     // Cập nhật đầy đủ thông tin thiết bị vào bảng devices trên Supabase ngay khi kết nối
     supabaseService.syncDeviceStatus({
       deviceId: 'XIAO-ESP32S3-PROWATCH-01',
+      userId: this.currentUserId,
       deviceName: this.watchStatus.deviceName,
       macAddress: deviceInfo.address || 'DC:54:75:E3:S3:01',
       model: this.watchStatus.model,
@@ -1635,6 +1797,13 @@ class WatchService {
           ).catch(() => {});
         }
       }, 920);
+
+      // Tự động đồng bộ hồ sơ thể trạng người dùng (chiều cao, cân nặng) xuống ESP32-S3 qua BLE
+      setTimeout(() => {
+        if (bleService.isConnected() && this.currentUserHeight && this.currentUserWeight) {
+          this.sendUserProfileToWatch(this.currentUserHeight, this.currentUserWeight).catch(() => {});
+        }
+      }, 1100);
 
       // (Đã bỏ cơ chế lưu offline, không cần gửi GET_OFFLINE)
     }

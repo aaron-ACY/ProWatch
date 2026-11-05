@@ -39,6 +39,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [pendingUserData, setPendingUserData] = useState<User | null>(null);
 
+  // Helper tính tuổi từ ngày sinh (hỗ trợ YYYY-MM-DD hoặc DD/MM/YYYY)
+  const computeAgeFromDob = (dob?: string): number | undefined => {
+    if (!dob) return undefined;
+    let birthYear = NaN;
+    if (/^\d{4}-\d{2}-\d{2}/.test(dob)) {
+      birthYear = parseInt(dob.substring(0, 4), 10);
+    } else if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(dob)) {
+      const parts = dob.split('/');
+      birthYear = parseInt(parts[2], 10);
+    } else {
+      const d = new Date(dob);
+      if (!isNaN(d.getTime())) birthYear = d.getFullYear();
+    }
+    if (!isNaN(birthYear) && birthYear > 1900 && birthYear <= new Date().getFullYear()) {
+      return Math.max(1, new Date().getFullYear() - birthYear);
+    }
+    return undefined;
+  };
+
   // Helper nạp thông tin User từ Profile
   const loadUserFromProfile = async (sbUser: any, defaultEmail = ''): Promise<User> => {
     const { data: profile } = await supabase
@@ -52,15 +71,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userGender = profile?.gender || sbUser.user_metadata?.gender;
     const userHeight = profile?.height || sbUser.user_metadata?.height;
     const userWeight = profile?.weight || sbUser.user_metadata?.weight;
-    const userAge = profile?.age ?? sbUser.user_metadata?.age;
+    const userAge = profile?.age ?? sbUser.user_metadata?.age ?? computeAgeFromDob(dob);
     const userNotes = profile?.notes ?? sbUser.user_metadata?.notes;
     const isComplete = Boolean(dob && userGender && (userHeight || sbUser.user_metadata?.isProfileComplete));
 
     // Thiết lập tài khoản hiện tại cho watchService để tải đúng dữ liệu của user này
     watchService.setCurrentUserId(sbUser.id);
+    if (userHeight && userWeight) {
+      watchService.setUserPhysicalProfile(Number(userHeight), Number(userWeight));
+    }
 
-    // Tự động liên kết user_id và cập nhật đầy đủ thông tin cho bảng devices trên Supabase
-    supabaseService.syncDeviceStatus({ userId: sbUser.id }).catch(() => {});
+    // Chỉ cập nhật bảng devices khi đồng hồ đang thực sự kết nối với ứng dụng
+    if (watchService.getWatchStatus().connected) {
+      supabaseService.syncDeviceStatus({ userId: sbUser.id }).catch(() => {});
+    }
 
     return {
       id: sbUser.id,
@@ -99,6 +123,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const loadedUser = await loadUserFromProfile(session.user);
           setUser(loadedUser);
+        } else {
+          watchService.setCurrentUserId(null);
         }
       } catch (err) {
         console.warn('Lỗi phục hồi phiên đăng nhập:', err);
@@ -112,6 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Lắng nghe sự kiện thay đổi trạng thái Auth (login/logout)
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session) {
+        watchService.setCurrentUserId(null);
         setUser(null);
         setIsMfaPending(false);
         setMfaFactorId(null);
@@ -289,20 +316,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.user) {
         try {
-          await supabase.from('profiles').insert([
-            {
-              id: data.user.id,
-              full_name: trimmedName,
-              email: trimmedEmail,
-              updated_at: new Date().toISOString(),
-            },
-          ]);
+          await supabase.from('profiles').upsert(
+            [
+              {
+                id: data.user.id,
+                full_name: trimmedName,
+                email: trimmedEmail,
+                updated_at: new Date().toISOString(),
+              },
+            ],
+            { onConflict: 'id' }
+          );
         } catch (dbErr) {
           console.warn('Không thể tự tạo row profiles:', dbErr);
         }
 
         // BẢO VỆ TÀI KHOẢN MỚI ĐĂNG KÝ: Xóa sạch dữ liệu bộ nhớ đệm cũ và gán ID mới
-        watchService.resetUserData();
+        await watchService.clearLocalUserCache(data.user.id);
         watchService.setCurrentUserId(data.user.id);
 
         setUser({
@@ -337,15 +367,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const hMeters = (data.height || 170) / 100;
       const computedBmi = data.weight ? Math.round((data.weight / (hMeters * hMeters)) * 10) / 10 : null;
+      const finalAge = data.age ?? user.age ?? computeAgeFromDob(data.dateOfBirth);
 
       // 1. Cập nhật user_metadata trên Supabase Auth
       await supabase.auth.updateUser({
         data: {
+          full_name: user.name,
           gender: data.gender,
           date_of_birth: data.dateOfBirth,
           height: data.height,
           weight: data.weight,
-          age: data.age,
+          age: finalAge,
           notes: data.notes,
           bmi: computedBmi,
           isProfileComplete: true,
@@ -357,12 +389,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await supabase.from('profiles').upsert([
           {
             id: user.id,
+            full_name: user.name,
             email: user.email,
             gender: data.gender,
             date_of_birth: data.dateOfBirth,
             height: data.height,
             weight: data.weight,
-            age: data.age,
+            age: finalAge,
             notes: data.notes,
             bmi: computedBmi,
             updated_at: new Date().toISOString(),
@@ -374,6 +407,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 3. Đồng bộ thông tin hồ sơ sang Spring Boot Backend
       try {
+        if (data.height && data.weight) {
+          watchService.setUserPhysicalProfile(data.height, data.weight);
+        }
         const apiUrl = watchService.getCustomization().apiServerUrl;
         fetch(`${apiUrl}/users/profile`, {
           method: 'PUT',
@@ -386,7 +422,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             dateOfBirth: data.dateOfBirth,
             height: data.height,
             weight: data.weight,
-            age: data.age,
+            age: finalAge,
             notes: data.notes,
             bmi: computedBmi,
           }),
@@ -404,7 +440,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               height: data.height,
               weight: data.weight,
               notes: data.notes ?? prev.notes,
-              age: data.age ?? prev.age,
+              age: finalAge,
               isProfileComplete: true,
             }
           : null

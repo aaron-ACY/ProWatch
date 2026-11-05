@@ -42,7 +42,7 @@ public class TelemetryService {
         String deviceId = (req.getDeviceId() != null && !req.getDeviceId().isBlank())
                 ? req.getDeviceId()
                 : "XIAO-ESP32S3-PROWATCH-01";
-        
+
         UUID userUuid = null;
         if (req.getUserId() != null && !req.getUserId().isBlank() && !"guest_user".equalsIgnoreCase(req.getUserId())) {
             try {
@@ -58,22 +58,28 @@ public class TelemetryService {
                 : now;
 
         String seqTag = (req.getOfflineSeq() != null) ? " [Seq #" + req.getOfflineSeq() + "]" : "";
-        if ((req.getTimestamp() != null && req.getTimestamp() > 1700000000L && req.getTimestamp() < now.getEpochSecond() - 30)
+        if ((req.getTimestamp() != null && req.getTimestamp() > 1700000000L
+                && req.getTimestamp() < now.getEpochSecond() - 30)
                 || req.getOfflineSeq() != null) {
             log.info("📥 [OFFLINE SYNC{}] Nhận bản ghi đo Offline từ {}: Đo lúc={}, BPM={}, SpO2={}%",
                     seqTag, deviceId, recordTime, req.getHeartRate(), req.getSpo2());
-            System.out.println("📥 [OFFLINE SYNC -> SUPABASE]" + seqTag + " Lưu bản ghi Offline từ " + deviceId 
-                    + " -> Thời điểm đo: " + recordTime + " | BPM: " + req.getHeartRate() + " | SpO2: " + req.getSpo2() + "%");
+            System.out.println("📥 [OFFLINE SYNC -> SUPABASE]" + seqTag + " Lưu bản ghi Offline từ " + deviceId
+                    + " -> Thời điểm đo: " + recordTime + " | BPM: " + req.getHeartRate() + " | SpO2: " + req.getSpo2()
+                    + "%");
         }
 
-        // 1. Cập nhật trạng thái thiết bị Device (online, battery, charging, macAddress, firmware, ipAddress)
+        // 1. Cập nhật trạng thái thiết bị Device (online, battery, charging,
+        // macAddress, firmware, ipAddress)
         Optional<Device> devOpt = deviceRepo.findByDeviceId(deviceId);
         Device device = devOpt.orElseGet(() -> Device.builder()
                 .deviceId(deviceId)
                 .deviceName("ProWatch-S3 (XIAO ESP32-S3)")
-                .macAddress(req.getMacAddress() != null && !req.getMacAddress().isBlank() ? req.getMacAddress() : "DC:54:75:E3:S3:01")
+                .macAddress(req.getMacAddress() != null && !req.getMacAddress().isBlank() ? req.getMacAddress()
+                        : "DC:54:75:E3:S3:01")
                 .model("Seeed XIAO ESP32-S3")
-                .firmwareVersion(req.getFirmwareVersion() != null && !req.getFirmwareVersion().isBlank() ? req.getFirmwareVersion() : "v1.5.3-max30102-no-offline")
+                .firmwareVersion(req.getFirmwareVersion() != null && !req.getFirmwareVersion().isBlank()
+                        ? req.getFirmwareVersion()
+                        : "v1.5.3-max30102-no-offline")
                 .batteryLevel(req.getBattery() != null ? req.getBattery() : 90)
                 .isCharging(req.getIsCharging() != null ? req.getIsCharging() : false)
                 .connectionMode(req.getConnectionMode() != null ? req.getConnectionMode() : "BLE")
@@ -91,7 +97,8 @@ public class TelemetryService {
         } else if (device.getMacAddress() == null || device.getMacAddress().isBlank()) {
             device.setMacAddress("DC:54:75:E3:S3:01");
         }
-        if (userUuid != null) device.setUserId(userUuid);
+        if (userUuid != null)
+            device.setUserId(userUuid);
         if (device.getModel() == null || device.getModel().isBlank()) {
             device.setModel("Seeed XIAO ESP32-S3");
         }
@@ -154,16 +161,20 @@ public class TelemetryService {
                         .recordedAt(recordTime)
                         .build();
                 HealthRecord saved = healthRecordRepo.save(record);
-                log.info("💾 [BACKEND SAVE HEALTH SUCCESS] Đã lưu HealthRecord ID={} (Seq=#{} | BPM={}, SpO2={}%, RiskScore={}, RiskLevel={})",
-                        saved.getId(), saved.getOfflineSeq(), saved.getHeartRate(), saved.getSpo2(), saved.getRiskScore(), saved.getRiskLevel());
+                log.info(
+                        "💾 [BACKEND SAVE HEALTH SUCCESS] Đã lưu HealthRecord ID={} (Seq=#{} | BPM={}, SpO2={}%, RiskScore={}, RiskLevel={})",
+                        saved.getId(), saved.getOfflineSeq(), saved.getHeartRate(), saved.getSpo2(),
+                        saved.getRiskScore(), saved.getRiskLevel());
             }
         }
 
-        // 3. Lưu bản ghi vận động & cảm biến MPU6050 vào bảng activities (tách biệt với lần đo HR/SpO2)
-        boolean hasActivityData = !hasHealthData && ((req.getSteps() != null && req.getSteps() > 0)
+        // 3. Lưu bản ghi vận động & cảm biến MPU6050 vào bảng activities
+        boolean hasActivityData = (req.getSteps() != null && req.getSteps() > 0)
                 || (req.getCalories() != null && req.getCalories() > 0)
                 || (req.getAccelX() != null || req.getAccelY() != null || req.getAccelZ() != null)
-                || (req.getActivity() != null && !req.getActivity().isBlank() && !"Tự động đo".equalsIgnoreCase(req.getActivity())));
+                || (req.getActivity() != null && !req.getActivity().isBlank()
+                        && !"Tự động đo".equalsIgnoreCase(req.getActivity())
+                        && !"Chưa có dữ liệu".equalsIgnoreCase(req.getActivity()));
 
         if (hasActivityData) {
             boolean isActivityDuplicate = activityRepo.existsByDeviceIdAndOfflineSeq(deviceId, effectiveSeq);
@@ -174,7 +185,8 @@ public class TelemetryService {
                 Activity act = Activity.builder()
                         .deviceId(deviceId)
                         .userId(userUuid)
-                        .activity(req.getActivity() != null && !req.getActivity().isBlank() ? req.getActivity() : "Đứng yên")
+                        .activity(req.getActivity() != null && !req.getActivity().isBlank() ? req.getActivity()
+                                : "Đứng yên")
                         .steps(req.getSteps() != null ? req.getSteps() : 0)
                         .calories(req.getCalories() != null ? req.getCalories().doubleValue() : 0.0)
                         .accelX(req.getAccelX())
@@ -185,7 +197,8 @@ public class TelemetryService {
                         .createdAt(now)
                         .build();
                 Activity savedAct = activityRepo.save(act);
-                log.info("🏃 [BACKEND SAVE ACTIVITY SUCCESS] Đã lưu Activity ID={} (Activity={}, Steps={}, Accel=[{}, {}, {}])",
+                log.info(
+                        "🏃 [BACKEND SAVE ACTIVITY SUCCESS] Đã lưu Activity ID={} (Activity={}, Steps={}, Accel=[{}, {}, {}])",
                         savedAct.getId(), savedAct.getActivity(), savedAct.getSteps(),
                         savedAct.getAccelX(), savedAct.getAccelY(), savedAct.getAccelZ());
             }
@@ -286,8 +299,8 @@ public class TelemetryService {
         UUID uid = parseUserUuid(userId);
 
         Optional<Device> devOpt = deviceRepo.findByDeviceId(effectiveId);
-        boolean isConnected = devOpt.map(d -> Boolean.TRUE.equals(d.getIsOnline()) && 
-                d.getLastHeartbeat() != null && 
+        boolean isConnected = devOpt.map(d -> Boolean.TRUE.equals(d.getIsOnline()) &&
+                d.getLastHeartbeat() != null &&
                 Instant.now().isBefore(d.getLastHeartbeat().plusSeconds(25))).orElse(false);
 
         List<HealthRecord> recentRecords;
@@ -296,34 +309,35 @@ public class TelemetryService {
         if (uid != null) {
             recentRecords = healthRecordRepo.findByUserIdOrderByRecordedAtDesc(uid, PageRequest.of(0, 50));
             latestActivity = activityRepo.findFirstByUserIdOrderByRecordedAtDesc(uid);
-
-            // BẢO VỆ NGƯỜI DÙNG MỚI ĐĂNG KÝ: Nếu chưa có số đo nào, trả về trạng thái trắng (0 / null), KHÔNG hiển thị số đo cũ của người khác
-            if (recentRecords.isEmpty() && latestActivity.isEmpty()) {
-                return HealthSummaryDto.builder()
-                        .currentBpm(null)
-                        .currentSpO2(null)
-                        .steps(0)
-                        .stepsGoal(10000)
-                        .calories(0)
-                        .sleepHours(0.0)
-                        .restingHr(0)
-                        .maxHrToday(0)
-                        .minHrToday(0)
-                        .avgSpO2Today(0)
-                        .battery(devOpt.map(Device::getBatteryLevel).orElse(0))
-                        .isCharging(devOpt.map(Device::getIsCharging).orElse(false))
-                        .isConnected(isConnected)
-                        .lastSync("Chưa có dữ liệu")
-                        .riskScore(null)
-                        .riskLevel(null)
-                        .currentActivity("Chưa có dữ liệu")
-                        .totalMeasurementsToday(0)
-                        .totalMeasurementsTotal(0L)
-                        .build();
-            }
         } else {
-            recentRecords = healthRecordRepo.findByDeviceIdOrderByRecordedAtDesc(effectiveId, PageRequest.of(0, 50));
-            latestActivity = activityRepo.findFirstByDeviceIdOrderByRecordedAtDesc(effectiveId);
+            recentRecords = Collections.emptyList();
+            latestActivity = Optional.empty();
+        }
+
+        // BẢO VỆ NGƯỜI DÙNG MỚI ĐĂNG KÝ HOẶC CHƯA XÁC THỰC USER_ID: Nếu chưa có số đo
+        // nào của chính user đó, trả về trạng thái trắng (0 / null)
+        if (recentRecords.isEmpty() && latestActivity.isEmpty()) {
+            return HealthSummaryDto.builder()
+                    .currentBpm(null)
+                    .currentSpO2(null)
+                    .steps(0)
+                    .stepsGoal(10000)
+                    .calories(0)
+                    .sleepHours(0.0)
+                    .restingHr(0)
+                    .maxHrToday(0)
+                    .minHrToday(0)
+                    .avgSpO2Today(0)
+                    .battery(devOpt.map(Device::getBatteryLevel).orElse(0))
+                    .isCharging(devOpt.map(Device::getIsCharging).orElse(false))
+                    .isConnected(isConnected)
+                    .lastSync("Chưa có dữ liệu")
+                    .riskScore(null)
+                    .riskLevel(null)
+                    .currentActivity("Chưa có dữ liệu")
+                    .totalMeasurementsToday(0)
+                    .totalMeasurementsTotal(0L)
+                    .build();
         }
 
         Optional<HealthRecord> latestHrRecord = recentRecords.stream()
@@ -351,15 +365,16 @@ public class TelemetryService {
                         .filter(r -> r.getSpo2() != null && r.getSpo2() > 0)
                         .mapToInt(HealthRecord::getSpo2)
                         .average()
-                        .orElse(0.0)
-        );
+                        .orElse(0.0));
 
-        // Luôn bảo lưu số đo gần nhất của người dùng ngay cả khi đồng hồ tạm thời ngắt kết nối
+        // Luôn bảo lưu số đo gần nhất của người dùng ngay cả khi đồng hồ tạm thời ngắt
+        // kết nối
         Integer currentBpm = latestHrRecord.map(HealthRecord::getHeartRate).orElse(null);
         Integer currentSpo2 = latestSpo2Record.map(HealthRecord::getSpo2).orElse(null);
         Integer steps = latestActivity.map(Activity::getSteps).orElse(0);
         Integer calories = latestActivity.map(a -> a.getCalories() != null ? a.getCalories().intValue() : 0).orElse(0);
-        String currentActivity = latestActivity.map(Activity::getActivity).filter(a -> a != null && !a.isBlank()).orElse(recentRecords.isEmpty() ? "Chưa có dữ liệu" : "REST");
+        String currentActivity = latestActivity.map(Activity::getActivity).filter(a -> a != null && !a.isBlank())
+                .orElse(recentRecords.isEmpty() ? "Chưa có dữ liệu" : "REST");
 
         // Đánh giá điểm rủi ro AI từ bản ghi hoặc tính toán trực tiếp
         Double riskScore = recentRecords.stream()
@@ -408,7 +423,8 @@ public class TelemetryService {
     }
 
     /**
-     * Lấy dữ liệu thống kê Ngày / Tuần / Tháng đồng bộ hoàn toàn với logic hiển thị đồ thị của App
+     * Lấy dữ liệu thống kê Ngày / Tuần / Tháng đồng bộ hoàn toàn với logic hiển thị
+     * đồ thị của App
      */
     public HealthStatisticsDto getHealthStatistics(String deviceId, String timeframe) {
         return getHealthStatistics(deviceId, timeframe, null);
@@ -468,7 +484,8 @@ public class TelemetryService {
                         .build();
             }
         } else {
-            periodRecords = healthRecordRepo.findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtAsc(effectiveId, start, now);
+            periodRecords = healthRecordRepo.findByDeviceIdAndRecordedAtBetweenOrderByRecordedAtAsc(effectiveId, start,
+                    now);
             allRecent = healthRecordRepo.findByDeviceIdOrderByRecordedAtDesc(effectiveId, PageRequest.of(0, 50));
         }
 
@@ -485,7 +502,8 @@ public class TelemetryService {
 
         HealthRecord latestHrRec = !hrRecords.isEmpty() ? hrRecords.get(hrRecords.size() - 1) : null;
         if (latestHrRec == null && !allRecent.isEmpty()) {
-            latestHrRec = allRecent.stream().filter(r -> r.getHeartRate() != null && r.getHeartRate() > 0).findFirst().orElse(null);
+            latestHrRec = allRecent.stream().filter(r -> r.getHeartRate() != null && r.getHeartRate() > 0).findFirst()
+                    .orElse(null);
         }
         Integer latestHr = latestHrRec != null ? latestHrRec.getHeartRate() : 0;
         String latestHrTime = latestHrRec != null ? formatTime(latestHrRec.getRecordedAt()) : "";
@@ -501,7 +519,8 @@ public class TelemetryService {
 
         HealthRecord latestSpo2Rec = !spo2Records.isEmpty() ? spo2Records.get(spo2Records.size() - 1) : null;
         if (latestSpo2Rec == null && !allRecent.isEmpty()) {
-            latestSpo2Rec = allRecent.stream().filter(r -> r.getSpo2() != null && r.getSpo2() > 0).findFirst().orElse(null);
+            latestSpo2Rec = allRecent.stream().filter(r -> r.getSpo2() != null && r.getSpo2() > 0).findFirst()
+                    .orElse(null);
         }
         Integer latestSpo2 = latestSpo2Rec != null ? latestSpo2Rec.getSpo2() : 0;
         String latestSpo2Time = latestSpo2Rec != null ? formatTime(latestSpo2Rec.getRecordedAt()) : "";
@@ -556,7 +575,8 @@ public class TelemetryService {
     }
 
     private List<ChartPointDto> mapChartPoints(List<HealthRecord> records, boolean isHr, String tf) {
-        if (records == null || records.isEmpty()) return List.of();
+        if (records == null || records.isEmpty())
+            return List.of();
         double minSafe = isHr ? 50.0 : 70.0;
         double maxSafe = isHr ? 150.0 : 100.0;
         double safeTop = 22.0;
@@ -589,26 +609,33 @@ public class TelemetryService {
     }
 
     private String mapHrStatus(int bpm) {
-        if (bpm < 60) return "resting";
-        if (bpm <= 100) return "normal";
-        if (bpm <= 120) return "elevated";
+        if (bpm < 60)
+            return "resting";
+        if (bpm <= 100)
+            return "normal";
+        if (bpm <= 120)
+            return "elevated";
         return "high";
     }
 
     private String mapSpo2Status(int spo2) {
-        if (spo2 >= 98) return "optimal";
-        if (spo2 >= 95) return "normal";
+        if (spo2 >= 98)
+            return "optimal";
+        if (spo2 >= 95)
+            return "normal";
         return "low";
     }
 
     private String formatTime(Instant instant) {
-        if (instant == null) return "--:--";
+        if (instant == null)
+            return "--:--";
         ZonedDateTime zdt = instant.atZone(ZoneId.systemDefault());
         return String.format("%02d:%02d", zdt.getHour(), zdt.getMinute());
     }
 
     private String formatDisplayTime(Instant instant) {
-        if (instant == null) return "--:--";
+        if (instant == null)
+            return "--:--";
         ZonedDateTime zdt = instant.atZone(ZoneId.systemDefault());
         LocalDate today = LocalDate.now();
         String timeStr = String.format("%02d:%02d", zdt.getHour(), zdt.getMinute());
@@ -619,22 +646,30 @@ public class TelemetryService {
     }
 
     /**
-     * Đánh giá điểm rủi ro sức khỏe (0.0 đến 1.0) dựa trên quy tắc chuẩn hóa của mô hình
+     * Đánh giá điểm rủi ro sức khỏe (0.0 đến 1.0) dựa trên quy tắc chuẩn hóa của mô
+     * hình
      */
     public Double evaluateRiskScore(Integer heartRate, Integer spo2) {
-        if (heartRate == null && spo2 == null) return null;
+        if (heartRate == null && spo2 == null)
+            return null;
         double hr = (heartRate != null && heartRate > 0) ? heartRate.doubleValue() : 75.0;
         double ox = (spo2 != null && spo2 > 0) ? spo2.doubleValue() : 98.0;
 
         // Mô hình dựa trên các chỉ số nguy cơ: HR > 105 hoặc < 50 BPM, SpO2 < 96%
         double score = 0.05;
-        if (ox < 90.0) score += 0.80;
-        else if (ox < 94.0) score += 0.50;
-        else if (ox < 96.0) score += 0.25;
+        if (ox < 90.0)
+            score += 0.80;
+        else if (ox < 94.0)
+            score += 0.50;
+        else if (ox < 96.0)
+            score += 0.25;
 
-        if (hr > 130.0 || hr < 40.0) score += 0.60;
-        else if (hr > 110.0 || hr < 50.0) score += 0.35;
-        else if (hr > 100.0 || hr < 55.0) score += 0.15;
+        if (hr > 130.0 || hr < 40.0)
+            score += 0.60;
+        else if (hr > 110.0 || hr < 50.0)
+            score += 0.35;
+        else if (hr > 100.0 || hr < 55.0)
+            score += 0.15;
 
         double finalScore = Math.min(1.0, Math.max(0.0, score));
         return Math.round(finalScore * 100.0) / 100.0;
@@ -644,9 +679,12 @@ public class TelemetryService {
      * Ánh xạ điểm rủi ro sang phân loại 3 mức: Low, Medium, High
      */
     public String mapRiskLevel(Double score) {
-        if (score == null) return "Low";
-        if (score >= 0.55) return "High";
-        if (score >= 0.25) return "Medium";
+        if (score == null)
+            return "Low";
+        if (score >= 0.55)
+            return "High";
+        if (score >= 0.25)
+            return "Medium";
         return "Low";
     }
 }

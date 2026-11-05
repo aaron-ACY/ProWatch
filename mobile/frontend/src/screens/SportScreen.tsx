@@ -8,11 +8,13 @@ import {
   Modal,
 } from 'react-native';
 import { MaterialCommunityIcons, Feather, Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Shadows } from '../theme/colors';
 import { watchService } from '../services/watchService';
 import { HealthSummary, WatchStatus } from '../types';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 
 interface SportMode {
   id: string;
@@ -45,6 +47,7 @@ interface WorkoutSession {
 
 export const SportScreen: React.FC = () => {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [healthSummary, setHealthSummary] = useState<HealthSummary>(watchService.getHealthSummary());
   const [watchStatus, setWatchStatus] = useState<WatchStatus>(watchService.getWatchStatus());
   
@@ -55,24 +58,54 @@ export const SportScreen: React.FC = () => {
   const [isWorkingOut, setIsWorkingOut] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [workoutSeconds, setWorkoutSeconds] = useState(0);
-  const [currentLiveBpm, setCurrentLiveBpm] = useState(watchService.getHealthSummary().currentBpm || 75);
+  const [currentLiveBpm, setCurrentLiveBpm] = useState(watchService.getHealthSummary().currentBpm || 0);
   const [burnedCalories, setBurnedCalories] = useState(0);
   const [isFinishModalVisible, setIsFinishModalVisible] = useState(false);
 
-  // Workout history list
-  const [workoutHistory, setWorkoutHistory] = useState<WorkoutSession[]>([
-    { id: '1', title: 'Chạy bộ buổi sáng', icon: 'run-fast', color: '#EA580C', bg: '#FFEDD5', timeStr: 'Hôm nay • 06:30 • 35 phút', calories: 312, avgBpm: 142 },
-    { id: '2', title: 'Đạp xe rèn luyện', icon: 'bike', color: '#0284C7', bg: '#E0F2FE', timeStr: 'Hôm qua • 17:15 • 42 phút', calories: 380, avgBpm: 135 },
-    { id: '3', title: 'Đi bộ thư giãn', icon: 'walk', color: '#16A34A', bg: '#DCFCE7', timeStr: '2 ngày trước • 20:00 • 25 phút', calories: 120, avgBpm: 102 },
-  ]);
+  // Workout history list (riêng biệt theo từng tài khoản người dùng, tài khoản mới bắt đầu trống)
+  const [workoutHistory, setWorkoutHistory] = useState<WorkoutSession[]>([]);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Focus effect to keep data fresh
+  // Tải lịch sử buổi tập đã lưu của riêng user hiện tại
+  useEffect(() => {
+    if (!user?.id) {
+      setWorkoutHistory([]);
+      return;
+    }
+    let isMounted = true;
+    AsyncStorage.getItem(`@prowatch_workout_history_${user.id}`)
+      .then((raw) => {
+        if (!isMounted) return;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          setWorkoutHistory(Array.isArray(parsed) ? parsed : []);
+        } else {
+          setWorkoutHistory([]);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setWorkoutHistory([]);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+  // Focus effect to keep data fresh & synced with Supabase Cloud
   useFocusEffect(
     useCallback(() => {
       setWatchStatus(watchService.getWatchStatus());
-      setHealthSummary(watchService.getHealthSummary());
+      const summary = watchService.getHealthSummary();
+      setHealthSummary(summary);
+      setCurrentLiveBpm(summary.currentBpm || 0);
+
+      watchService.syncWatchData().then(() => {
+        setWatchStatus(watchService.getWatchStatus());
+        const updatedSummary = watchService.getHealthSummary();
+        setHealthSummary(updatedSummary);
+        setCurrentLiveBpm(updatedSummary.currentBpm || 0);
+      }).catch(() => {});
     }, [])
   );
 
@@ -80,6 +113,9 @@ export const SportScreen: React.FC = () => {
   useEffect(() => {
     const unsubStatus = watchService.onStatusChange((status) => {
       setWatchStatus(status);
+      const summary = watchService.getHealthSummary();
+      setHealthSummary(summary);
+      setCurrentLiveBpm(summary.currentBpm || 0);
     });
 
     const unsubSensors = watchService.subscribeToLiveUpdates((bpm) => {
@@ -154,17 +190,33 @@ export const SportScreen: React.FC = () => {
   };
 
   const confirmFinishWorkout = () => {
-    const newSession = {
+    const sessionCalories = Math.max(1, burnedCalories);
+    const newSession: WorkoutSession = {
       id: Date.now().toString(),
       title: `${selectedSport.name} vừa xong`,
       icon: selectedSport.icon,
       color: selectedSport.color,
       bg: selectedSport.bgColor,
       timeStr: `Hôm nay • ${formatTimer(workoutSeconds)}`,
-      calories: Math.max(1, burnedCalories),
-      avgBpm: currentLiveBpm || 120,
+      calories: sessionCalories,
+      avgBpm: currentLiveBpm || 0,
     };
-    setWorkoutHistory(prev => [newSession, ...prev]);
+    setWorkoutHistory(prev => {
+      const updated = [newSession, ...prev];
+      if (user?.id) {
+        AsyncStorage.setItem(`@prowatch_workout_history_${user.id}`, JSON.stringify(updated.slice(0, 30))).catch(() => {});
+      }
+      return updated;
+    });
+
+    // Đồng bộ hoạt động và calo của buổi tập lên Supabase Cloud & Backend
+    watchService.syncMeasurementToBackend({
+      bpm: currentLiveBpm > 0 ? currentLiveBpm : undefined,
+      calories: (healthSummary.calories || 0) + sessionCalories,
+      steps: healthSummary.steps || 0,
+      activity: selectedSport.name,
+    }).catch(() => {});
+
     setIsWorkingOut(false);
     setIsPaused(false);
     setWorkoutSeconds(0);
@@ -173,9 +225,31 @@ export const SportScreen: React.FC = () => {
   };
 
   const hrZone = getHeartRateZone(currentLiveBpm);
-  const distanceKm = (healthSummary.steps * 0.00075).toFixed(1);
+  const distanceNumeric = healthSummary.steps * 0.00075;
+  const distanceKm = distanceNumeric.toFixed(1);
+  const distanceGoalPercent = Math.min(100, Math.round((distanceNumeric / 5) * 100));
   const stepsGoalPercent = Math.min(100, Math.round((healthSummary.steps / (healthSummary.stepsGoal || 10000)) * 100));
   const calGoalPercent = Math.min(100, Math.round((healthSummary.calories / 600) * 100));
+
+  // Chỉ số Thể trạng & Khả năng phục hồi được tính động theo dữ liệu thực tế của user
+  const hasFitnessData =
+    workoutHistory.length > 0 ||
+    healthSummary.steps > 0 ||
+    healthSummary.calories > 0 ||
+    healthSummary.currentBpm > 0;
+
+  const totalBurnedKcal =
+    healthSummary.calories + workoutHistory.reduce((acc, item) => acc + (item.calories || 0), 0);
+
+  const recoveryHours = hasFitnessData
+    ? Math.min(36, Math.max(4, Math.round(totalBurnedKcal / 30) || 6))
+    : 0;
+
+  const estimatedVo2Max = hasFitnessData
+    ? healthSummary.currentBpm > 0
+      ? Number((15.3 * (190 / Math.max(55, Math.min(115, healthSummary.currentBpm)))).toFixed(1))
+      : Number((39.5 + Math.min(10, healthSummary.steps / 2000)).toFixed(1))
+    : 0;
 
   return (
     <View style={{ flex: 1 }}>
@@ -209,7 +283,7 @@ export const SportScreen: React.FC = () => {
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryStatItem}>
-                <Text style={styles.summaryStatVal}>{watchStatus.connected ? currentLiveBpm : 125} <Text style={{ fontSize: 11 }}>BPM</Text></Text>
+                <Text style={styles.summaryStatVal}>{watchStatus.connected && currentLiveBpm > 0 ? currentLiveBpm : '--'} <Text style={{ fontSize: 11 }}>BPM</Text></Text>
                 <Text style={styles.summaryStatLabel}>Nhịp tim TB</Text>
               </View>
             </View>
@@ -285,9 +359,9 @@ export const SportScreen: React.FC = () => {
             <Text style={styles.activityValue}>{distanceKm} <Text style={styles.unitText}>km</Text></Text>
             <Text style={styles.activityLabel}>{t('Quãng đường', 'Distance')}</Text>
             <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: '70%', backgroundColor: '#0284C7' }]} />
+              <View style={[styles.progressBarFill, { width: `${distanceGoalPercent}%`, backgroundColor: '#0284C7' }]} />
             </View>
-            <Text style={styles.progressSub}>{t('Ước tính theo bước chân', 'Estimated from steps')}</Text>
+            <Text style={styles.progressSub}>{distanceGoalPercent}% {t('mục tiêu (5.0 km)', 'goal (5.0 km)')}</Text>
           </View>
         </View>
 
@@ -411,24 +485,33 @@ export const SportScreen: React.FC = () => {
         {/* 4. Workout History Section */}
         <Text style={styles.sectionTitle}>{t('Lịch sử buổi tập gần đây', 'Recent Workout History')}</Text>
         <View style={[styles.card, Shadows.sm]}>
-          {workoutHistory.map((session, index) => (
-            <React.Fragment key={session.id}>
-              <View style={styles.historyRow}>
-                <View style={[styles.historyIcon, { backgroundColor: session.bg }]}>
-                  <MaterialCommunityIcons name={session.icon} size={20} color={session.color} />
+          {workoutHistory.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+              <MaterialCommunityIcons name="run" size={32} color={Colors.textMuted} />
+              <Text style={{ marginTop: 8, fontSize: 13, color: Colors.textSecondary, textAlign: 'center' }}>
+                {t('Chưa có lịch sử buổi tập nào. Hãy chọn môn thể thao bên trên để bắt đầu!', 'No workout history yet. Select a sport mode above to begin!')}
+              </Text>
+            </View>
+          ) : (
+            workoutHistory.map((session, index) => (
+              <React.Fragment key={session.id}>
+                <View style={styles.historyRow}>
+                  <View style={[styles.historyIcon, { backgroundColor: session.bg }]}>
+                    <MaterialCommunityIcons name={session.icon} size={20} color={session.color} />
+                  </View>
+                  <View style={styles.historyInfo}>
+                    <Text style={styles.historyTitle}>{session.title}</Text>
+                    <Text style={styles.historySub}>{session.timeStr}</Text>
+                  </View>
+                  <View style={styles.historyMetrics}>
+                    <Text style={styles.historyCal}>{session.calories} kcal</Text>
+                    <Text style={styles.historyHeart}>{session.avgBpm > 0 ? `${session.avgBpm} BPM TB` : '-- BPM'}</Text>
+                  </View>
                 </View>
-                <View style={styles.historyInfo}>
-                  <Text style={styles.historyTitle}>{session.title}</Text>
-                  <Text style={styles.historySub}>{session.timeStr}</Text>
-                </View>
-                <View style={styles.historyMetrics}>
-                  <Text style={styles.historyCal}>{session.calories} kcal</Text>
-                  <Text style={styles.historyHeart}>{session.avgBpm} BPM TB</Text>
-                </View>
-              </View>
-              {index < workoutHistory.length - 1 && <View style={styles.divider} />}
-            </React.Fragment>
-          ))}
+                {index < workoutHistory.length - 1 && <View style={styles.divider} />}
+              </React.Fragment>
+            ))
+          )}
         </View>
 
         {/* 5. Recovery & Fitness Insights Card */}
@@ -437,16 +520,30 @@ export const SportScreen: React.FC = () => {
           <View style={styles.recoveryRow}>
             <View style={styles.recoveryItem}>
               <Text style={styles.recoveryLabel}>{t('Thời gian hồi phục', 'Recovery Time')}</Text>
-              <Text style={[styles.recoveryValue, { color: Colors.primary }]}>{t('14 giờ', '14 hrs')}</Text>
-              <Text style={styles.recoverySub}>{t('Sẵn sàng vận động tốt', 'Ready for training')}</Text>
+              <Text style={[styles.recoveryValue, { color: hasFitnessData ? Colors.primary : Colors.textMuted }]}>
+                {hasFitnessData ? t(`${recoveryHours} giờ`, `${recoveryHours} hrs`) : '--'}
+              </Text>
+              <Text style={styles.recoverySub}>
+                {hasFitnessData
+                  ? recoveryHours <= 16
+                    ? t('Sẵn sàng vận động tốt', 'Ready for training')
+                    : t('Cần nghỉ ngơi phục hồi', 'Recovery recommended')
+                  : t('Chưa có dữ liệu vận động', 'No activity data yet')}
+              </Text>
             </View>
 
             <View style={styles.verticalDivider} />
 
             <View style={styles.recoveryItem}>
               <Text style={styles.recoveryLabel}>{t('VO2 Max ước tính', 'Estimated VO2 Max')}</Text>
-              <Text style={[styles.recoveryValue, { color: Colors.success }]}>44.5</Text>
-              <Text style={styles.recoverySub}>{t('ml/kg/min (Khá tốt)', 'ml/kg/min (Good)')}</Text>
+              <Text style={[styles.recoveryValue, { color: hasFitnessData ? Colors.success : Colors.textMuted }]}>
+                {hasFitnessData ? estimatedVo2Max : '--'}
+              </Text>
+              <Text style={styles.recoverySub}>
+                {hasFitnessData
+                  ? t('ml/kg/min (Khá tốt)', 'ml/kg/min (Good)')
+                  : t('Cần đo nhịp tim & tập luyện', 'Requires HR & workout data')}
+              </Text>
             </View>
           </View>
 

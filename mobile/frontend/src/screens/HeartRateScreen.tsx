@@ -46,12 +46,18 @@ export const HeartRateScreen: React.FC = () => {
   const refreshData = useCallback(() => {
     const st = watchService.getWatchStatus();
     setWatchStatus(st);
+    const initialSummary = watchService.getHealthSummary();
+    setCurrentBpm(initialSummary.currentBpm || 0);
+    setCurrentSpO2(initialSummary.currentSpO2 || 0);
+    setHrHistory(watchService.getHeartRateHistory());
+    setSpo2History(watchService.getSpO2History());
+
     watchService.syncWatchData().then(() => {
       const updatedSt = watchService.getWatchStatus();
       setWatchStatus(updatedSt);
       const summary = watchService.getHealthSummary();
-      if (summary.currentBpm && summary.currentBpm > 0) setCurrentBpm(summary.currentBpm);
-      if (summary.currentSpO2 && summary.currentSpO2 > 0) setCurrentSpO2(summary.currentSpO2);
+      setCurrentBpm(summary.currentBpm || 0);
+      setCurrentSpO2(summary.currentSpO2 || 0);
       setHrHistory(watchService.getHeartRateHistory());
       setSpo2History(watchService.getSpO2History());
     });
@@ -66,8 +72,8 @@ export const HeartRateScreen: React.FC = () => {
   useEffect(() => {
     // Lắng nghe dữ liệu trực tiếp từ cảm biến
     const unsubscribe = watchService.subscribeToLiveUpdates((bpm, spo2) => {
-      if (!isMeasuringHr && bpm > 0) setCurrentBpm(bpm);
-      if (!isMeasuringSpO2 && spo2 > 0) setCurrentSpO2(spo2);
+      if (bpm > 0) setCurrentBpm(bpm);
+      if (spo2 > 0) setCurrentSpO2(spo2);
       setHrHistory(watchService.getHeartRateHistory());
       setSpo2History(watchService.getSpO2History());
     });
@@ -75,11 +81,19 @@ export const HeartRateScreen: React.FC = () => {
     const unsubStatus = watchService.onStatusChange((status) => {
       setWatchStatus(status);
       const summary = watchService.getHealthSummary();
-      if (!isMeasuringHr && summary.currentBpm && summary.currentBpm > 0) {
-        setCurrentBpm(summary.currentBpm);
+      if (isMeasuringHr) {
+        if (summary.currentBpm && summary.currentBpm > 0) {
+          setCurrentBpm(summary.currentBpm);
+        }
+      } else {
+        setCurrentBpm(summary.currentBpm || 0);
       }
-      if (!isMeasuringSpO2 && summary.currentSpO2 && summary.currentSpO2 > 0) {
-        setCurrentSpO2(summary.currentSpO2);
+      if (isMeasuringSpO2) {
+        if (summary.currentSpO2 && summary.currentSpO2 > 0) {
+          setCurrentSpO2(summary.currentSpO2);
+        }
+      } else {
+        setCurrentSpO2(summary.currentSpO2 || 0);
       }
       if (!status.connected) {
         setIsMeasuringHr(false);
@@ -125,16 +139,16 @@ export const HeartRateScreen: React.FC = () => {
       setIsMeasuringSpO2(false);
     }
 
+    // Reset ngay lập tức về 0 (hiện --) để đồng bộ tuyệt đối với màn hình đồng hồ hiện '---/m'
+    setCurrentBpm(0);
     setIsMeasuringHr(true);
-    setProgress(15);
+    setProgress(0);
 
     watchService.performManualMeasurement(
       'hr',
       (prog, intermediateVal) => {
         setProgress(prog);
-        if (intermediateVal && intermediateVal > 0) {
-          setCurrentBpm(intermediateVal);
-        }
+        setCurrentBpm(intermediateVal || 0);
       },
       (finalVal) => {
         setIsMeasuringHr(false);
@@ -179,16 +193,16 @@ export const HeartRateScreen: React.FC = () => {
       setIsMeasuringHr(false);
     }
 
+    // Reset ngay lập tức về 0 (hiện --) để đồng bộ tuyệt đối với màn hình đồng hồ hiện 'O2 --%'
+    setCurrentSpO2(0);
     setIsMeasuringSpO2(true);
-    setProgress(15);
+    setProgress(0);
 
     watchService.performManualMeasurement(
       'spo2',
       (prog, intermediateVal) => {
         setProgress(prog);
-        if (intermediateVal && intermediateVal > 0) {
-          setCurrentSpO2(intermediateVal);
-        }
+        setCurrentSpO2(intermediateVal || 0);
       },
       (finalVal) => {
         setIsMeasuringSpO2(false);
@@ -307,7 +321,7 @@ export const HeartRateScreen: React.FC = () => {
         <View>
           {/* Main Interactive Pulsing Visualizer */}
           <HeartRateVisualizer
-            bpm={watchStatus.connected ? currentBpm : 0}
+            bpm={currentBpm}
             isMeasuring={isMeasuringHr}
             measurementProgress={progress}
             onToggleMeasure={handleToggleMeasureHr}
@@ -326,7 +340,7 @@ export const HeartRateScreen: React.FC = () => {
                 <Text style={styles.statLabel}>{t('Thấp nhất', 'Min')}</Text>
               </View>
               <Text style={styles.statValue}>
-                {watchStatus.connected && minBpm > 0 ? minBpm : '--'}{' '}
+                {minBpm > 0 ? minBpm : '--'}{' '}
                 <Text style={styles.statUnit}>BPM</Text>
               </Text>
               <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
@@ -341,7 +355,7 @@ export const HeartRateScreen: React.FC = () => {
                 <Text style={[styles.statLabel, { color: Colors.heartRate }]}>{t('Trung bình', 'Average')}</Text>
               </View>
               <Text style={[styles.statValue, { color: Colors.heartRate }]}>
-                {watchStatus.connected && avgBpm > 0 ? avgBpm : '--'}{' '}
+                {avgBpm > 0 ? avgBpm : '--'}{' '}
                 <Text style={[styles.statUnit, { color: Colors.heartRate }]}>BPM</Text>
               </Text>
               <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
@@ -356,7 +370,7 @@ export const HeartRateScreen: React.FC = () => {
                 <Text style={styles.statLabel}>{t('Cao nhất', 'Max')}</Text>
               </View>
               <Text style={styles.statValue}>
-                {watchStatus.connected && maxBpm > 0 ? maxBpm : '--'}{' '}
+                {maxBpm > 0 ? maxBpm : '--'}{' '}
                 <Text style={styles.statUnit}>BPM</Text>
               </Text>
               <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
@@ -371,10 +385,10 @@ export const HeartRateScreen: React.FC = () => {
             <View style={styles.insightContent}>
               <Text style={styles.insightTitle}>{t('Tiêu chuẩn nhịp tim sinh lý', 'Physiological Heart Rate Standard')}</Text>
               <Text style={styles.insightDesc}>
-                {watchStatus.connected && currentBpm > 0
+                {currentBpm > 0
                   ? t(
-                      `Nhịp tim hiện tại: ${currentBpm} BPM (${currentZone.name}). Ngưỡng chuẩn y tế khi nghỉ ngơi: ${hrLowThr} - ${hrHighThr} BPM.`,
-                      `Current HR: ${currentBpm} BPM (${currentZone.name}). Medical resting range: ${hrLowThr} - ${hrHighThr} BPM.`
+                      `Nhịp tim ghi nhận: ${currentBpm} BPM (${currentZone.name}). Ngưỡng chuẩn y tế khi nghỉ ngơi: ${hrLowThr} - ${hrHighThr} BPM.`,
+                      `Recorded HR: ${currentBpm} BPM (${currentZone.name}). Medical resting range: ${hrLowThr} - ${hrHighThr} BPM.`
                     )
                   : t(
                       'Bấm nút "Bắt đầu đo nhịp tim" ở trên và đặt ngón tay lên cảm biến MAX30105 của đồng hồ để nhận diện chỉ số.',
@@ -393,7 +407,7 @@ export const HeartRateScreen: React.FC = () => {
         <View>
           {/* Main SpO2 Gauge Visualizer with Measure Button */}
           <SpO2Gauge
-            percentage={watchStatus.connected ? currentSpO2 : 0}
+            percentage={currentSpO2}
             isMeasuring={isMeasuringSpO2}
             measurementProgress={progress}
             onToggleMeasure={handleToggleMeasureSpO2}
@@ -412,7 +426,7 @@ export const HeartRateScreen: React.FC = () => {
                 <Text style={styles.statLabel}>{t('Thấp nhất', 'Min')}</Text>
               </View>
               <Text style={styles.statValue}>
-                {watchStatus.connected && minSpo2 > 0 ? minSpo2 : '--'}{' '}
+                {minSpo2 > 0 ? minSpo2 : '--'}{' '}
                 <Text style={styles.statUnit}>%</Text>
               </Text>
               <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
@@ -427,7 +441,7 @@ export const HeartRateScreen: React.FC = () => {
                 <Text style={[styles.statLabel, { color: Colors.spo2 }]}>{t('Trung bình', 'Average')}</Text>
               </View>
               <Text style={[styles.statValue, { color: Colors.spo2 }]}>
-                {watchStatus.connected && avgSpo2 > 0 ? avgSpo2 : '--'}{' '}
+                {avgSpo2 > 0 ? avgSpo2 : '--'}{' '}
                 <Text style={[styles.statUnit, { color: Colors.spo2 }]}>%</Text>
               </Text>
               <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
@@ -442,7 +456,7 @@ export const HeartRateScreen: React.FC = () => {
                 <Text style={styles.statLabel}>{t('Cao nhất', 'Max')}</Text>
               </View>
               <Text style={styles.statValue}>
-                {watchStatus.connected && maxSpo2 > 0 ? maxSpo2 : '--'}{' '}
+                {maxSpo2 > 0 ? maxSpo2 : '--'}{' '}
                 <Text style={styles.statUnit}>%</Text>
               </Text>
               <Text style={styles.statSub}>{t('Hôm nay', 'Today')}</Text>
@@ -479,7 +493,7 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 20,
   },
   header: {
     flexDirection: 'row',
@@ -504,6 +518,8 @@ const styles = StyleSheet.create({
   },
   quickCard: {
     flex: 1,
+    minHeight: 124,
+    justifyContent: 'space-between',
     backgroundColor: Colors.white,
     borderRadius: 18,
     padding: 14,

@@ -92,11 +92,8 @@ export const supabaseService = {
         device_name: device.deviceName || 'ProWatch-S3 (XIAO ESP32-S3)',
         mac_address: validMac,
         model: device.model || 'Seeed XIAO ESP32-S3',
-        firmware_version: device.firmwareVersion || 'v1.5.3-max30102-no-offline',
-        battery_level:
-          device.batteryLevel !== undefined && device.batteryLevel > 0
-            ? device.batteryLevel
-            : 90,
+        firmware_version: 'v1.5.1',
+        battery_level: 100,
         is_charging: device.isCharging ?? false,
         connection_mode: device.connectionMode || 'BLE',
         ip_address: device.ipAddress || 'BLE-GATT-DIRECT',
@@ -109,14 +106,18 @@ export const supabaseService = {
         payload.user_id = cleanUid;
       }
 
+      // Cập nhật hoặc đăng ký thiết bị vào bảng public.devices qua UPSERT
       const { data, error } = await supabase
         .from('devices')
-        .upsert([payload], { onConflict: 'device_id' });
+        .upsert(payload, { onConflict: 'device_id' })
+        .select('device_id, battery_level, is_online, updated_at');
 
       if (error) {
         console.warn('[SUPABASE SYNC] Lỗi cập nhật bảng devices:', error.message);
         return { success: false, error };
       }
+
+      console.log('✅ [SUPABASE SYNC] Cập nhật bảng devices thành công:', devId);
       return { success: true, data };
     } catch (err: any) {
       console.warn('[SUPABASE SYNC] Ngoại lệ khi cập nhật bảng devices:', err);
@@ -176,6 +177,23 @@ export const supabaseService = {
           console.log(`☁️ [SUPABASE SYNC] Đã lưu bản ghi sức khỏe (BPM: ${record.heartRate || '-'}, SpO2: ${record.spo2 || '-'}%) lên bảng health_records!`);
           healthRes = { success: true, data };
         }
+      }
+
+      // Chuyển tiếp hoạt động, bước chân và calo sang bảng activities nếu có dữ liệu
+      if (
+        (record.steps !== undefined && record.steps !== null && record.steps > 0) ||
+        (record.calories !== undefined && record.calories !== null && record.calories > 0) ||
+        (record.activity && record.activity !== 'Tự động đo' && record.activity !== 'Chưa có dữ liệu')
+      ) {
+        await this.syncActivityRecord({
+          userId: cleanUid,
+          deviceId: devId,
+          activity: record.activity || 'Đứng yên',
+          steps: record.steps,
+          calories: record.calories,
+          offlineSeq: seqNum,
+          recordedAt: timeStr,
+        });
       }
 
       return healthRes;
@@ -323,16 +341,15 @@ export const supabaseService = {
         } catch {}
       }
 
-      let query = supabase
-        .from('health_records')
-        .select('*');
-
-      // BẢO VỆ DỮ LIỆU: Nếu đã đăng nhập, chỉ trả về dữ liệu của chính người dùng đó
-      if (uid) {
-        query = query.eq('user_id', uid);
+      // BẢO VỆ DỮ LIỆU NGHIÊM NGẶT: Không có userId hợp lệ thì tuyệt đối không trả về dữ liệu của người khác
+      if (!uid) {
+        return { success: true, data: [], error: null };
       }
 
-      const { data, error } = await query
+      const { data, error } = await supabase
+        .from('health_records')
+        .select('*')
+        .eq('user_id', uid)
         .order('recorded_at', { ascending: false })
         .limit(limit);
 
@@ -355,16 +372,15 @@ export const supabaseService = {
         } catch {}
       }
 
-      let query = supabase
-        .from('activities')
-        .select('*');
-
-      // BẢO VỆ DỮ LIỆU: Chỉ lấy dữ liệu vận động của chính tài khoản đang đăng nhập
-      if (uid) {
-        query = query.eq('user_id', uid);
+      // BẢO VỆ DỮ LIỆU NGHIÊM NGẶT: Chỉ lấy dữ liệu vận động của chính tài khoản đang đăng nhập
+      if (!uid) {
+        return { success: true, data: [], error: null };
       }
 
-      const { data, error } = await query
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('user_id', uid)
         .order('recorded_at', { ascending: false })
         .limit(limit);
 

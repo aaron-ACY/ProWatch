@@ -71,11 +71,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           {/* App Brand Header */}
           <View style={styles.brandHeader}>
             <View style={styles.logoWrapper}>
-              <View style={styles.logoRipple} />
               <View style={styles.logoCircle}>
                 <Image
                   source={require('../../assets/app-logo.png')}
-                  style={{ width: 58, height: 58, borderRadius: 14 }}
+                  style={{ width: 72, height: 72 }}
                   resizeMode="contain"
                 />
               </View>
@@ -229,16 +228,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(238, 91, 93, 0.15)',
   },
   logoCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 18,
-    backgroundColor: '#1A0000',
-    borderWidth: 1.5,
-    borderColor: 'rgba(238, 91, 93, 0.25)',
+    width: 76,
+    height: 76,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
-    ...Shadows.md,
   },
   brandTitle: {
     fontSize: 26,

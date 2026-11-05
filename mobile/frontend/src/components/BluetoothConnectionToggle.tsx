@@ -37,6 +37,17 @@ export const BluetoothConnectionToggle: React.FC<BluetoothConnectionToggleProps>
 }) => {
   const isConnected = !!watchStatus.connected;
 
+  const deviceName = (watchStatus.deviceName && watchStatus.deviceName !== 'Chưa kết nối đồng hồ')
+    ? watchStatus.deviceName
+    : 'ProWatch-S3';
+
+  const displayVersion = React.useMemo(() => {
+    const raw = watchStatus.firmwareVersion || WATCH_FIRMWARE_VERSION || 'v1.5.1';
+    if (!raw || raw === '--') return 'v1.5.1';
+    const base = raw.split('-')[0].trim();
+    return base || 'v1.5.1';
+  }, [watchStatus.firmwareVersion]);
+
   const handleToggle = (value: boolean) => {
     if (value) {
       if (watchStatus.deviceName && watchStatus.deviceName !== 'Chưa kết nối đồng hồ') {
@@ -73,16 +84,16 @@ export const BluetoothConnectionToggle: React.FC<BluetoothConnectionToggleProps>
               <View style={styles.connectedBadge}>
                 <View style={styles.greenDot} />
                 <Text style={styles.connectedBadgeText}>
-                  Đã kết nối{watchStatus.bleAddress ? ` • ${watchStatus.bleAddress}` : ''}
+                  Đã kết nối • {deviceName}
                 </Text>
               </View>
             )}
           </View>
-          <Text style={styles.subText} numberOfLines={1}>
-            {isConnected
-              ? `${watchStatus.deviceName || 'XIAO ESP32-S3'} • Pin ${watchStatus.battery}%`
-              : 'Gạt công tắc để dò tìm & ghép đôi đồng hồ'}
-          </Text>
+          {!isConnected && (
+            <Text style={styles.subText} numberOfLines={1}>
+              Gạt công tắc để dò tìm & ghép đôi đồng hồ
+            </Text>
+          )}
         </View>
 
         {isConnecting ? (
@@ -99,69 +110,21 @@ export const BluetoothConnectionToggle: React.FC<BluetoothConnectionToggleProps>
         )}
       </View>
 
-      {/* Connected Expanded Details & Actions */}
+      {/* Connected Expanded Details */}
       {isConnected ? (
         <View style={styles.expandedSection}>
           <View style={styles.divider} />
 
           <View style={styles.deviceMetaRow}>
             <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Địa chỉ MAC</Text>
+              <Text style={styles.metaLabel}>Địa chỉ MAC:</Text>
               <Text style={styles.metaVal}>{watchStatus.bleAddress || 'Đang kết nối'}</Text>
             </View>
+            <View style={styles.metaDivider} />
             <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Phiên bản</Text>
-              <Text style={styles.metaVal}>{watchStatus.firmwareVersion || WATCH_FIRMWARE_VERSION}</Text>
+              <Text style={styles.metaLabel}>Phiên bản:</Text>
+              <Text style={styles.metaVal}>{displayVersion}</Text>
             </View>
-          </View>
-
-          <View style={styles.actionBtnRow}>
-            {onSyncSettings && (
-              <TouchableOpacity
-                style={styles.syncBtn}
-                onPress={onSyncSettings}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="sync" size={15} color={Colors.white} />
-                <Text style={styles.syncBtnText}>Đồng bộ cấu hình</Text>
-              </TouchableOpacity>
-            )}
-
-            {onTestData && (
-              <TouchableOpacity
-                style={styles.testBtn}
-                onPress={onTestData}
-                disabled={isTestingDevice}
-                activeOpacity={0.8}
-              >
-                {isTestingDevice ? (
-                  <ActivityIndicator size="small" color="#0284C7" />
-                ) : (
-                  <MaterialCommunityIcons name="database-arrow-right" size={15} color="#0284C7" />
-                )}
-                <Text style={styles.testBtnText}>Test nhận tin</Text>
-              </TouchableOpacity>
-            )}
-
-            {onSyncOffline && (
-              <TouchableOpacity
-                style={styles.offlineBtn}
-                onPress={onSyncOffline}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="cloud-download-outline" size={15} color="#16A34A" />
-                <Text style={styles.offlineBtnText}>Tải Offline</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.scanOtherBtn}
-              onPress={onOpenScan}
-              activeOpacity={0.8}
-            >
-              <Feather name="refresh-cw" size={14} color={Colors.primary} />
-              <Text style={styles.scanOtherBtnText}>Đổi thiết bị</Text>
-            </TouchableOpacity>
           </View>
         </View>
       ) : (
@@ -258,92 +221,33 @@ const styles = StyleSheet.create({
   },
   deviceMetaRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: Colors.cardMuted,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: 12,
-    marginBottom: 10,
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
+  metaDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: Colors.border,
+    marginHorizontal: 4,
+  },
   metaLabel: {
-    fontSize: 11,
-    color: Colors.textMuted,
+    fontSize: 11.5,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
   metaVal: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
     color: Colors.textPrimary,
-  },
-  actionBtnRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  syncBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    paddingVertical: 9,
-    borderRadius: 10,
-    gap: 6,
-  },
-  syncBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.white,
-  },
-  testBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E0F2FE',
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    gap: 5,
-  },
-  testBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0284C7',
-  },
-  offlineBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#DCFCE7',
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    gap: 5,
-  },
-  offlineBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#16A34A',
-  },
-  scanOtherBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    gap: 5,
-  },
-  scanOtherBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.primary,
   },
   disconnectedActionRow: {
     marginTop: 10,

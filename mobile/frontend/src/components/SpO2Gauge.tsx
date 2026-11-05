@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../theme/colors';
 
@@ -20,8 +20,75 @@ export const SpO2Gauge: React.FC<SpO2GaugeProps> = ({
   showMeasureButton = true,
   isConnected = true,
 }) => {
+  const [barWidth, setBarWidth] = useState<number>(0);
+  const scanAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const isMeasuringRef = useRef(isMeasuring);
+
+  useEffect(() => {
+    isMeasuringRef.current = isMeasuring;
+  }, [isMeasuring]);
+
+  useEffect(() => {
+    if (!isMeasuring) {
+      scanAnim.stopAnimation();
+      pulseAnim.stopAnimation();
+      scanAnim.setValue(0);
+      pulseAnim.setValue(1);
+      return;
+    }
+
+    // Animation 1: Con trỏ quét và vệt sáng quang phổ lướt qua lại liên tục dọc theo thanh đo
+    const scanLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scanAnim, {
+          toValue: 1,
+          duration: 1200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scanAnim, {
+          toValue: 0,
+          duration: 1200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    // Animation 2: Hiệu ứng nhịp xung mao mạch phát quang nhẹ theo chu kỳ
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.35,
+          duration: 600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    scanLoop.start();
+    pulseLoop.start();
+
+    return () => {
+      scanLoop.stop();
+      pulseLoop.stop();
+      scanAnim.stopAnimation();
+      pulseAnim.stopAnimation();
+      scanAnim.setValue(0);
+      pulseAnim.setValue(1);
+    };
+  }, [isMeasuring]);
+
   const getStatus = (val: number) => {
-    if (!isConnected || !val || val <= 0) return { label: 'Chưa đo', color: Colors.textMuted, bg: '#F1F5F9' };
+    if (!val || val <= 0) return { label: 'Chưa đo', color: Colors.textMuted, bg: '#F1F5F9' };
     if (val >= 97) return { label: 'Tối ưu', color: Colors.spo2, bg: Colors.spo2Light };
     if (val >= 95) return { label: 'Bình thường', color: Colors.success, bg: Colors.successLight };
     if (val >= 90) return { label: 'Cần theo dõi', color: Colors.warning, bg: Colors.warningLight };
@@ -29,6 +96,19 @@ export const SpO2Gauge: React.FC<SpO2GaugeProps> = ({
   };
 
   const status = getStatus(percentage);
+  const hasReading = percentage > 0;
+
+  // Tính toán phạm vi quét của con trỏ scanner
+  const maxTravel = Math.max(0, barWidth - 10);
+  const scannerTranslateX = scanAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, maxTravel],
+  });
+
+  const beamTranslateX = scanAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-24, Math.max(0, barWidth - 40)],
+  });
 
   return (
     <View style={[styles.container, Shadows.lg]}>
@@ -40,7 +120,7 @@ export const SpO2Gauge: React.FC<SpO2GaugeProps> = ({
           </View>
           <Text style={styles.title}>Nồng độ Oxy trong máu (SpO2)</Text>
         </View>
-        {(isMeasuring || (isConnected && percentage > 0)) && (
+        {(isMeasuring || hasReading) && (
           <View style={[styles.statusBadge, { backgroundColor: isMeasuring ? Colors.warningLight : status.bg }]}>
             <Text style={[styles.statusText, { color: isMeasuring ? Colors.warning : status.color }]}>
               {isMeasuring ? `Đang đo: ${measurementProgress}%` : status.label}
@@ -51,32 +131,85 @@ export const SpO2Gauge: React.FC<SpO2GaugeProps> = ({
 
       {/* Main Value Display */}
       <View style={styles.centerValue}>
-        <Text style={styles.percentageText}>{isConnected && percentage > 0 ? percentage : '--'}</Text>
+        <Text style={styles.percentageText}>{hasReading ? percentage : '--'}</Text>
         <Text style={styles.percentSymbol}>%</Text>
       </View>
 
-      {/* Visual Range Indicator Bar */}
-      <View style={styles.scaleContainer}>
-        <View style={styles.scaleBar}>
+      {/* Visual Range Indicator Box - Đồng bộ kích thước chuẩn 56px với ecgBox của HeartRateVisualizer */}
+      <View style={[styles.gaugeBox, isMeasuring && styles.gaugeBoxActive]}>
+        <View 
+          style={styles.scaleBar} 
+          onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+        >
           {/* Segment Danger <90% */}
-          <View style={[styles.segment, { flex: 1, backgroundColor: Colors.dangerLight }]} />
+          <View 
+            style={[
+              styles.segment, 
+              { flex: 1, backgroundColor: isMeasuring ? '#FECDD3' : hasReading ? '#FEE2E2' : '#F1F5F9' }
+            ]} 
+          />
           {/* Segment Warning 90-94% */}
-          <View style={[styles.segment, { flex: 1, backgroundColor: Colors.warningLight }]} />
+          <View 
+            style={[
+              styles.segment, 
+              { flex: 1, backgroundColor: isMeasuring ? '#FDE68A' : hasReading ? '#FEF3C7' : '#F1F5F9' }
+            ]} 
+          />
           {/* Segment Normal 95-100% */}
-          <View style={[styles.segment, { flex: 3, backgroundColor: Colors.spo2Light }]} />
+          <View 
+            style={[
+              styles.segment, 
+              { flex: 3, backgroundColor: isMeasuring ? '#7DD3FC' : hasReading ? '#BAE6FD' : '#F1F5F9' }
+            ]} 
+          />
 
-          {/* Current Indicator Marker */}
-          {isConnected && percentage > 0 && (
-            <View 
+          {/* Vệt sáng quang phổ hồng ngoại lướt quét trên thanh đo khi đang đo */}
+          {isMeasuring && barWidth > 0 && (
+            <Animated.View
               style={[
-                styles.marker, 
-                { 
-                  left: `${Math.min(Math.max((percentage - 85) / 15 * 100, 0), 96)}%`,
-                  backgroundColor: status.color,
-                }
-              ]} 
+                styles.scanBeam,
+                {
+                  opacity: pulseAnim,
+                  transform: [{ translateX: beamTranslateX }],
+                },
+              ]}
+              pointerEvents="none"
             />
           )}
+
+          {/* Khi đang đo: Con trỏ quét mao mạch trượt qua lại và phát xung sáng */}
+          {isMeasuring && barWidth > 0 ? (
+            <Animated.View
+              style={[
+                styles.scannerMarkerWrap,
+                { transform: [{ translateX: scannerTranslateX }] },
+              ]}
+            >
+              <Animated.View style={[styles.scannerMarkerGlow, { opacity: pulseAnim }]} />
+              <View style={styles.scannerMarkerCore} />
+            </Animated.View>
+          ) : (
+            /* Khi không đo: Con trỏ hiển thị cố định tại kết quả đo vừa ghi nhận */
+            hasReading && (
+              <View 
+                style={[
+                  styles.marker, 
+                  { 
+                    left: `${Math.min(Math.max((percentage - 85) / 15 * 100, 0), 96)}%`,
+                    backgroundColor: status.color,
+                  }
+                ]} 
+              />
+            )
+          )}
+        </View>
+
+        {/* Thước tỉ lệ SpO2 chuẩn */}
+        <View style={styles.scaleLabels}>
+          <Text style={styles.scaleLabelText}>85%</Text>
+          <Text style={styles.scaleLabelText}>90%</Text>
+          <Text style={styles.scaleLabelText}>95%</Text>
+          <Text style={[styles.scaleLabelText, { color: Colors.spo2, fontWeight: '700' }]}>100%</Text>
         </View>
       </View>
 
@@ -122,6 +255,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    height: 36,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -154,6 +288,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    marginTop: 4,
+    marginBottom: 16,
+    height: 54,
   },
   percentageText: {
     fontSize: 52,
@@ -168,14 +305,19 @@ const styles = StyleSheet.create({
     color: Colors.spo2,
     includeFontPadding: false,
   },
-  subLabel: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    textAlign: 'center',
+  gaugeBox: {
+    height: 56,
+    backgroundColor: '#F0F9FF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E0F2FE',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
     marginBottom: 16,
   },
-  scaleContainer: {
-    marginBottom: 16,
+  gaugeBoxActive: {
+    borderColor: '#7DD3FC',
+    backgroundColor: '#F0F9FF',
   },
   scaleBar: {
     height: 10,
@@ -183,12 +325,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     overflow: 'visible',
     position: 'relative',
-    marginHorizontal: 4,
+    marginHorizontal: 2,
   },
   segment: {
     height: '100%',
     borderRadius: 3,
     marginHorizontal: 1,
+  },
+  scanBeam: {
+    position: 'absolute',
+    top: -2,
+    width: 36,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(2, 132, 199, 0.4)',
+  },
+  scannerMarkerWrap: {
+    position: 'absolute',
+    top: -5,
+    left: 0,
+    width: 10,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scannerMarkerGlow: {
+    position: 'absolute',
+    width: 18,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: 'rgba(2, 132, 199, 0.35)',
+  },
+  scannerMarkerCore: {
+    width: 8,
+    height: 18,
+    borderRadius: 4,
+    backgroundColor: Colors.spo2,
+    borderWidth: 2,
+    borderColor: Colors.white,
+    ...Shadows.sm,
   },
   marker: {
     position: 'absolute',
@@ -204,12 +379,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 6,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   scaleLabelText: {
     fontSize: 10,
     color: Colors.textMuted,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   progressContainer: {
     height: 6,
@@ -226,7 +401,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    height: 48,
     borderRadius: 14,
     gap: 8,
     ...Shadows.sm,

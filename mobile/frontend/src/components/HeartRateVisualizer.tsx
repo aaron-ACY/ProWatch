@@ -22,7 +22,15 @@ export const HeartRateVisualizer: React.FC<HeartRateVisualizerProps> = ({
 }) => {
   const scrollAnim = useRef(new Animated.Value(0)).current;
   const scaleYAnim = useRef(new Animated.Value(1)).current;
+  const translateYAnim = useRef(new Animated.Value(0)).current;
+  const beatPulseAnim = useRef(new Animated.Value(0)).current;
+
+  const bpmRef = useRef(bpm);
   const isMeasuringRef = useRef(isMeasuring);
+
+  useEffect(() => {
+    bpmRef.current = bpm;
+  }, [bpm]);
 
   useEffect(() => {
     isMeasuringRef.current = isMeasuring;
@@ -31,63 +39,149 @@ export const HeartRateVisualizer: React.FC<HeartRateVisualizerProps> = ({
   useEffect(() => {
     if (!isMeasuring) {
       scrollAnim.stopAnimation();
-      scrollAnim.setValue(0);
       scaleYAnim.stopAnimation();
+      translateYAnim.stopAnimation();
+      beatPulseAnim.stopAnimation();
+      scrollAnim.setValue(0);
       scaleYAnim.setValue(1);
+      translateYAnim.setValue(0);
+      beatPulseAnim.setValue(0);
       return;
     }
 
     let isCancelled = false;
 
-    // Cuộn ngang sóng ECG liên tục khi bắt đầu đo
-    const runScroll = () => {
+    // 1. Cuộn ngang liên tục theo tần số nhịp tim thực tế (1 nhịp = 160px chu kỳ sóng)
+    const runContinuousScroll = () => {
       if (isCancelled || !isMeasuringRef.current) return;
+      const currentBpm = bpmRef.current > 0 ? bpmRef.current : 75;
+      const cycleDuration = Math.round((60 / currentBpm) * 1000);
+
       scrollAnim.setValue(0);
       Animated.timing(scrollAnim, {
-        toValue: -320,
-        duration: 1100,
+        toValue: -160,
+        duration: Math.max(320, cycleDuration),
         easing: Easing.linear,
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (finished && !isCancelled && isMeasuringRef.current) {
-          runScroll();
+          runContinuousScroll();
         }
       });
     };
 
-    // Biên độ sóng nhảy lên xuống ngẫu nhiên mô phỏng nhịp đập sinh học thực tế
-    const runRandomHeight = () => {
+    // 2. Nhịp co bóp sinh học: Sóng R giật nảy lên cao dựa trực tiếp theo thông số BPM đo được
+    const runBiologicalHeartbeat = () => {
       if (isCancelled || !isMeasuringRef.current) return;
-      const targetScales = [1.35, 0.7, 1.45, 0.85, 1.25, 0.65, 1.4, 0.9];
-      const nextScale = targetScales[Math.floor(Math.random() * targetScales.length)];
-      const nextDuration = 180 + Math.floor(Math.random() * 220);
+      const currentBpm = bpmRef.current > 0 ? bpmRef.current : 75;
+      const beatInterval = Math.round((60 / currentBpm) * 1000);
 
-      Animated.timing(scaleYAnim, {
-        toValue: nextScale,
-        duration: nextDuration,
-        easing: Easing.inOut(Easing.quad),
-        useNativeDriver: true,
-      }).start(({ finished }) => {
+      // BPM càng cao thì nhịp co bóp tâm thất càng mạnh và dồn dập
+      const normBpm = Math.min(150, Math.max(50, currentBpm));
+      const spikeScale = 1.18 + ((normBpm - 50) / 100) * 0.45; // Biên độ nảy từ 1.18 -> 1.63
+      const dipScale = Math.max(0.68, 0.9 - ((normBpm - 50) / 100) * 0.22); // Đáy tụt từ 0.90 -> 0.68
+      const jumpY = -2 - Math.round(((normBpm - 50) / 100) * 4); // Độ nhún trục Y từ -2px đến -6px
+
+      const spikeTime = Math.round(beatInterval * 0.14); // Pha co bóp đạt đỉnh (~100ms)
+      const dipTime = Math.round(beatInterval * 0.12);   // Pha giãn thất sâu (~85ms)
+      const recoverTime = Math.round(beatInterval * 0.16); // Pha hồi phục tái cực (~115ms)
+      const restTime = Math.max(100, beatInterval - (spikeTime + dipTime + recoverTime)); // Pha nghỉ đẳng điện
+
+      // Xung phát quang nhấp nháy theo đúng nhịp đập tim
+      Animated.sequence([
+        Animated.timing(beatPulseAnim, {
+          toValue: 1,
+          duration: spikeTime,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(beatPulseAnim, {
+          toValue: 0,
+          duration: dipTime + recoverTime,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Đỉnh sóng giật nảy thật sự theo nhịp đập tim
+      Animated.sequence([
+        // Pha 1: Tâm thất co bóp mạnh, đỉnh sóng R phóng lên cao!
+        Animated.parallel([
+          Animated.timing(scaleYAnim, {
+            toValue: spikeScale,
+            duration: spikeTime,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateYAnim, {
+            toValue: jumpY,
+            duration: spikeTime,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+        // Pha 2: Đáy sóng S tụt xuống
+        Animated.parallel([
+          Animated.timing(scaleYAnim, {
+            toValue: dipScale,
+            duration: dipTime,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateYAnim, {
+            toValue: Math.abs(jumpY) * 0.5,
+            duration: dipTime,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+        // Pha 3: Sóng T hồi phục
+        Animated.parallel([
+          Animated.timing(scaleYAnim, {
+            toValue: 1.05,
+            duration: recoverTime,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateYAnim, {
+            toValue: 0,
+            duration: recoverTime,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+        // Pha 4: Đường đẳng điện nghỉ ngơi nhịp tim
+        Animated.timing(scaleYAnim, {
+          toValue: 1.0,
+          duration: restTime,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => {
         if (finished && !isCancelled && isMeasuringRef.current) {
-          runRandomHeight();
+          runBiologicalHeartbeat();
         }
       });
     };
 
-    runScroll();
-    runRandomHeight();
+    runContinuousScroll();
+    runBiologicalHeartbeat();
 
     return () => {
       isCancelled = true;
       scrollAnim.stopAnimation();
-      scrollAnim.setValue(0);
       scaleYAnim.stopAnimation();
+      translateYAnim.stopAnimation();
+      beatPulseAnim.stopAnimation();
+      scrollAnim.setValue(0);
       scaleYAnim.setValue(1);
+      translateYAnim.setValue(0);
+      beatPulseAnim.setValue(0);
     };
   }, [isMeasuring]);
 
   const getStatus = (val: number) => {
-    if (!isConnected || !val || val <= 0) return { label: 'Chưa đo', color: Colors.textMuted, bg: '#F1F5F9' };
+    if (!val || val <= 0) return { label: 'Chưa đo', color: Colors.textMuted, bg: '#F1F5F9' };
     if (val < 60) return { label: 'Nghỉ ngơi', color: '#0284C7', bg: '#E0F2FE' };
     if (val <= 100) return { label: 'Bình thường', color: Colors.success, bg: Colors.successLight };
     if (val <= 130) return { label: 'Đốt mỡ', color: Colors.warning, bg: Colors.warningLight };
@@ -108,7 +202,7 @@ export const HeartRateVisualizer: React.FC<HeartRateVisualizerProps> = ({
         </View>
 
         {/* Chỉ hiện badge khi đang đo hoặc khi có kết quả đo hợp lệ (lược bỏ chữ 'Chưa đo') */}
-        {(isMeasuring || (isConnected && bpm > 0)) && (
+        {(isMeasuring || bpm > 0) && (
           <View style={[styles.statusBadge, { backgroundColor: isMeasuring ? Colors.warningLight : status.bg }]}>
             <Text style={[styles.statusText, { color: isMeasuring ? Colors.warning : status.color }]}>
               {isMeasuring ? `Đang đo: ${measurementProgress}%` : status.label}
@@ -119,23 +213,40 @@ export const HeartRateVisualizer: React.FC<HeartRateVisualizerProps> = ({
 
       {/* Main Value Display: Căn thẳng hàng 100% */}
       <View style={styles.centerValue}>
-        <Text style={styles.percentageText}>{isConnected && bpm > 0 ? bpm : '--'}</Text>
+        <Text style={styles.percentageText}>{bpm > 0 ? bpm : '--'}</Text>
         <Text style={styles.bpmSymbol}>BPM</Text>
       </View>
 
-      {/* ECG Line Monitor: Đổi thanh đo thành đường sóng ECG chạy lên xuống ngẫu nhiên */}
+      {/* ECG Line Monitor: Sóng điện tim sinh học đập và nảy theo nhịp tim đo được */}
       <View style={styles.ecgBox}>
         {/* Đường mờ tim chuẩn ở giữa */}
         <View style={styles.ecgCenterGuideLine} />
 
+        {/* Lớp nền phát quang nhịp đập sinh học theo BPM thật */}
+        {isMeasuring && (
+          <Animated.View
+            style={[
+              styles.ecgPulseBg,
+              {
+                opacity: beatPulseAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 0.4],
+                }),
+              },
+            ]}
+            pointerEvents="none"
+          />
+        )}
+
         {isMeasuring ? (
-          /* Sóng ECG chạy và co giãn biên độ ngẫu nhiên khi đang đo */
+          /* Sóng ECG chạy và co bóp nảy nhịp theo BPM đo được */
           <Animated.View 
             style={[
               styles.ecgAnimatedTrack, 
               { 
                 transform: [
                   { translateX: scrollAnim },
+                  { translateY: translateYAnim },
                   { scaleY: scaleYAnim },
                 ],
               },
@@ -217,6 +328,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    height: 36,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -251,6 +363,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 4,
     marginBottom: 16,
+    height: 54,
   },
   percentageText: {
     fontSize: 52,
@@ -275,6 +388,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
     position: 'relative',
+  },
+  ecgPulseBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#EF4444',
   },
   ecgCenterGuideLine: {
     position: 'absolute',
@@ -311,7 +432,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    height: 48,
     borderRadius: 14,
     gap: 8,
     ...Shadows.sm,

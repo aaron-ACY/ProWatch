@@ -167,11 +167,24 @@ export const DashboardScreen: React.FC = () => {
           <Text style={styles.headerGreeting}>{t('Tổng quan hôm nay', 'Today Overview')}</Text>
           <TouchableOpacity 
             style={styles.notificationBtn}
-            onPress={() => Alert.alert(t('Thông báo', 'Notifications'), t('Tất cả chỉ số nhịp tim và oxy máu đều trong ngưỡng an toàn.', 'All heart rate and blood oxygen readings are within safe thresholds.'))}
+            onPress={() =>
+              Alert.alert(
+                t('Thông báo', 'Notifications'),
+                hasHrData || hasSpo2Data
+                  ? t(
+                      'Tất cả chỉ số nhịp tim và oxy máu đều trong ngưỡng an toàn.',
+                      'All heart rate and blood oxygen readings are within safe thresholds.'
+                    )
+                  : t(
+                      'Chưa có dữ liệu đo nhịp tim và oxy máu hôm nay.',
+                      'No heart rate or blood oxygen readings recorded today.'
+                    )
+              )
+            }
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="bell-outline" size={22} color="#0F172A" />
-            <View style={styles.notificationBadge} />
+            {(hasHrData || hasSpo2Data) && <View style={styles.notificationBadge} />}
           </TouchableOpacity>
         </View>
 
@@ -229,9 +242,9 @@ export const DashboardScreen: React.FC = () => {
                 />
               </G>
 
-              {/* Điểm mút xuất phát ở đỉnh (12h) */}
-              <Circle cx="56" cy={56 - r1} r="4.5" fill="#F59E0B" />
-              <Circle cx="56" cy={56 - r2} r="4.5" fill={Colors.heartRate} />
+              {/* Điểm mút xuất phát ở đỉnh (12h) khi có dữ liệu */}
+              {currentSteps > 0 && <Circle cx="56" cy={56 - r1} r="4.5" fill="#F59E0B" />}
+              {currentCalo > 0 && <Circle cx="56" cy={56 - r2} r="4.5" fill={Colors.heartRate} />}
             </Svg>
 
             {/* Icon ở tâm biểu đồ tròn để tạo điểm nhấn hài hòa */}
@@ -300,8 +313,10 @@ export const DashboardScreen: React.FC = () => {
               {/* Thanh trượt hiển thị ngưỡng an toàn Nhịp tim */}
               <View style={styles.rangeBarContainer}>
                 <View style={styles.rangeBarTrack}>
-                  {/* Vùng an toàn 50 - 100 BPM */}
-                  <View style={[styles.rangeBarSafeZone, { left: '10%', width: '50%' }]} />
+                  {/* Vùng an toàn 50 - 100 BPM (chỉ tô màu khi đã có số đo) */}
+                  {hasHrData && (
+                    <View style={[styles.rangeBarSafeZone, { left: '10%', width: '50%' }]} />
+                  )}
                 </View>
                 {/* Nút chỉ vị trí hiện tại */}
                 {hasHrData && (
@@ -340,8 +355,10 @@ export const DashboardScreen: React.FC = () => {
               {/* Thanh trượt hiển thị ngưỡng an toàn SpO2 */}
               <View style={styles.rangeBarContainer}>
                 <View style={styles.rangeBarTrack}>
-                  {/* Vùng an toàn 95 - 100% */}
-                  <View style={[styles.rangeBarSafeZone, { left: '66.7%', width: '33.3%' }]} />
+                  {/* Vùng an toàn 95 - 100% (chỉ tô màu khi đã có số đo) */}
+                  {hasSpo2Data && (
+                    <View style={[styles.rangeBarSafeZone, { left: '66.7%', width: '33.3%' }]} />
+                  )}
                 </View>
                 {/* Nút chỉ vị trí hiện tại */}
                 {hasSpo2Data && (
@@ -503,6 +520,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
+    paddingTop: 20,
     paddingBottom: 36,
   },
 

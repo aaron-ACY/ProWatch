@@ -129,7 +129,7 @@ CREATE TABLE public.devices (
     mac_address TEXT,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     model TEXT DEFAULT 'XIAO-ESP32S3' NOT NULL,
-    firmware_version TEXT DEFAULT '1.0.0' NOT NULL,
+    firmware_version TEXT DEFAULT 'v1.5.1' NOT NULL,
     battery_level INTEGER CHECK (battery_level IS NULL OR (battery_level >= 0 AND battery_level <= 100)),
     is_charging BOOLEAN DEFAULT false NOT NULL,
     connection_mode TEXT DEFAULT 'BLE' NOT NULL,
@@ -146,12 +146,12 @@ ALTER TABLE public.devices ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view claimed devices or unassigned devices"
     ON public.devices FOR SELECT
-    USING (user_id IS NULL OR user_id = (SELECT auth.uid()));
+    USING (true);
 
 CREATE POLICY "Users can claim or update their devices"
     ON public.devices FOR UPDATE
-    USING (user_id IS NULL OR user_id = (SELECT auth.uid()))
-    WITH CHECK (user_id IS NULL OR user_id = (SELECT auth.uid()));
+    USING (true)
+    WITH CHECK (true);
 
 CREATE POLICY "Authenticated users or devices can register"
     ON public.devices FOR INSERT
@@ -180,8 +180,8 @@ VALUES (
     'ProWatch-S3 (XIAO ESP32-S3)',
     'DC:54:75:E3:S3:01',
     'Seeed XIAO ESP32-S3',
-    'v1.5.3-max30102-no-offline',
-    90,
+    'v1.5.1',
+    100,
     false,
     'BLE',
     'BLE-GATT-DIRECT',
@@ -227,7 +227,7 @@ ALTER TABLE public.health_records ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own health records"
     ON public.health_records FOR SELECT
-    USING (user_id IS NULL OR user_id = (SELECT auth.uid()));
+    USING (user_id = (SELECT auth.uid()));
 
 CREATE POLICY "Users or services can insert health records"
     ON public.health_records FOR INSERT
@@ -275,7 +275,7 @@ ALTER TABLE public.activities ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own activities" 
     ON public.activities FOR SELECT 
-    USING (user_id IS NULL OR user_id = (SELECT auth.uid()));
+    USING (user_id = (SELECT auth.uid()));
 
 CREATE POLICY "Users or services can insert activities" 
     ON public.activities FOR INSERT 

@@ -72,7 +72,7 @@ void triggerLocalHealthNotification(int measuredBpm, int measuredSpo2);
 // Pin: đặt số chân ADC nếu có mạch chia áp đo pin, -1 = chưa có
 #define BATTERY_ADC_PIN       -1
 
-#define FIRMWARE_VER          "v1.5.3"
+#define FIRMWARE_VER          "v1.5.1"
 
 bool t0=false,t1=false,t2=false;
 bool lastT0=false,lastT1=false,lastT2=false;
@@ -194,11 +194,9 @@ long wakeIrBaseline = 0;
 
 
 // ================= DỮ LIỆU DÙNG CHUNG =================
-// Không còn task Wi-Fi: toàn bộ biến dữ liệu chỉ được đọc/ghi trong loop().
-// Callback BLE chỉ đặt cờ volatile, nên không cần mutex nữa.
 int batteryLevel = 0;
 bool batteryValid = false;
-int currentSteps = 0;       // TODO: gắn IMU/đếm bước thật rồi set stepsValid = true
+int currentSteps = 0;      
 int currentCalories = 0;
 bool stepsValid = false;
 bool isCharging = false;
@@ -2025,7 +2023,7 @@ Serial.setTimeout(20);   // readStringUntil không chặn loop() tới 1 giây
 delay(200);
 Serial.println("\n==============================================");
 Serial.println("  PROWATCH S3 - SMARTWATCH FIRMWARE BOOTING   ");
-Serial.printf ("  Firmware: %s (chỉ BLE, không Wi-Fi)\n", FIRMWARE_VER);
+Serial.printf ("  Firmware: ", FIRMWARE_VER);
 Serial.println("==============================================");
 
 // Múi giờ Việt Nam: để giờ do điện thoại gửi (SET_TIME) hiển thị đúng

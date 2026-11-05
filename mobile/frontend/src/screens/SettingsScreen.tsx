@@ -13,7 +13,8 @@ import {
   Platform,
   AppState,
   Image,
-  PanResponder
+  PanResponder,
+  StatusBar
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
 import Svg, { Rect, Polygon, Path, Circle, G, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -156,95 +157,147 @@ interface FontScaleSliderProps {
   t: (vi: string, en: string) => string;
 }
 
-const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange }) => {
+const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange, t }) => {
   const targetIndex = Math.max(0, FONT_SCALES.indexOf(scale));
   const [val, setVal] = useState<number>(targetIndex >= 0 ? targetIndex : 1);
+  const [previewScale, setPreviewScale] = useState<FontSizeScale>(scale);
   const [isDragging, setIsDragging] = useState(false);
+
   const trackRef = useRef<View>(null);
   const trackWidthRef = useRef<number>(240);
+  const grantXRef = useRef<number>(0);
+  const scaleRef = useRef<FontSizeScale>(scale);
+  const onChangeRef = useRef(onChange);
 
   useEffect(() => {
+    scaleRef.current = scale;
+    onChangeRef.current = onChange;
     if (!isDragging) {
-      setVal(targetIndex >= 0 ? targetIndex : 1);
+      const idx = FONT_SCALES.indexOf(scale);
+      setVal(idx >= 0 ? idx : 1);
+      setPreviewScale(scale);
     }
-  }, [scale, isDragging, targetIndex]);
+  }, [scale, onChange, isDragging]);
 
-  const updateFromRatio = (ratio: number, commit = false) => {
+  const applyRatio = useCallback((ratio: number, commit: boolean) => {
     const clampedRatio = Math.max(0, Math.min(1, ratio));
     const continuousVal = clampedRatio * (FONT_SCALES.length - 1);
-    setVal(continuousVal);
-
     const closestIndex = Math.round(continuousVal);
-    const newScale = FONT_SCALES[closestIndex];
-    if (newScale && newScale !== scale) {
-      onChange(newScale);
-    }
+    const nextScale = FONT_SCALES[closestIndex] || 'normal';
+
+    setPreviewScale(nextScale);
+
     if (commit) {
       setVal(closestIndex);
+      if (nextScale !== scaleRef.current) {
+        scaleRef.current = nextScale;
+        onChangeRef.current(nextScale);
+      }
+    } else {
+      setVal(continuousVal);
     }
-  };
+  }, []);
 
   const handlePointerDown = (e: any) => {
+    if (Platform.OS !== 'web' || !e.currentTarget) return;
     setIsDragging(true);
-    if (Platform.OS === 'web' && e.currentTarget) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const ratio = (e.clientX - rect.left) / rect.width;
-      updateFromRatio(ratio, false);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const startClientX =
+      'touches' in e && e.touches?.length > 0 ? e.touches[0].clientX : e.clientX;
+    const ratio = rect.width > 0 ? (startClientX - rect.left) / rect.width : 0;
+    applyRatio(ratio, false);
 
-      const onPointerMove = (moveEvt: MouseEvent | TouchEvent) => {
-        const clientX = 'touches' in moveEvt && (moveEvt as TouchEvent).touches.length > 0 ? (moveEvt as TouchEvent).touches[0].clientX : (moveEvt as MouseEvent).clientX;
-        const currentRatio = (clientX - rect.left) / rect.width;
-        updateFromRatio(currentRatio, false);
-      };
+    const onPointerMove = (moveEvt: MouseEvent | TouchEvent) => {
+      const clientX =
+        'touches' in moveEvt && (moveEvt as TouchEvent).touches.length > 0
+          ? (moveEvt as TouchEvent).touches[0].clientX
+          : (moveEvt as MouseEvent).clientX;
+      const currentRatio = rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
+      applyRatio(currentRatio, false);
+    };
 
-      const onPointerUp = (upEvt: MouseEvent | TouchEvent) => {
+    const onPointerUp = (upEvt: MouseEvent | TouchEvent) => {
+      setIsDragging(false);
+      const clientX =
+        'changedTouches' in upEvt && (upEvt as TouchEvent).changedTouches.length > 0
+          ? (upEvt as TouchEvent).changedTouches[0].clientX
+          : (upEvt as MouseEvent).clientX;
+      const finalRatio = rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
+      applyRatio(finalRatio, true);
+      window.removeEventListener('mousemove', onPointerMove);
+      window.removeEventListener('mouseup', onPointerUp);
+      window.removeEventListener('touchmove', onPointerMove);
+      window.removeEventListener('touchend', onPointerUp);
+    };
+
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+    window.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        setIsDragging(true);
+        const startX = evt.nativeEvent.locationX;
+        grantXRef.current = startX;
+        const w = trackWidthRef.current;
+        if (w > 0) {
+          applyRatio(startX / w, false);
+        }
+      },
+      onPanResponderMove: (_evt, gestureState) => {
+        const w = trackWidthRef.current;
+        if (w > 0) {
+          const currentX = grantXRef.current + gestureState.dx;
+          applyRatio(currentX / w, false);
+        }
+      },
+      onPanResponderRelease: (_evt, gestureState) => {
         setIsDragging(false);
-        const clientX = 'changedTouches' in upEvt && (upEvt as TouchEvent).changedTouches.length > 0 ? (upEvt as TouchEvent).changedTouches[0].clientX : (upEvt as MouseEvent).clientX;
-        const finalRatio = (clientX - rect.left) / rect.width;
-        updateFromRatio(finalRatio, true);
-        window.removeEventListener('mousemove', onPointerMove);
-        window.removeEventListener('mouseup', onPointerUp);
-        window.removeEventListener('touchmove', onPointerMove);
-        window.removeEventListener('touchend', onPointerUp);
-      };
+        const w = trackWidthRef.current;
+        if (w > 0) {
+          const finalX = grantXRef.current + gestureState.dx;
+          applyRatio(finalX / w, true);
+        }
+      },
+      onPanResponderTerminate: (_evt, gestureState) => {
+        setIsDragging(false);
+        const w = trackWidthRef.current;
+        if (w > 0) {
+          const finalX = grantXRef.current + gestureState.dx;
+          applyRatio(finalX / w, true);
+        }
+      },
+    })
+  ).current;
 
-      window.addEventListener('mousemove', onPointerMove);
-      window.addEventListener('mouseup', onPointerUp);
-      window.addEventListener('touchmove', onPointerMove, { passive: false });
-      window.addEventListener('touchend', onPointerUp);
+  const selectStepIndex = (idx: number) => {
+    const nextScale = FONT_SCALES[idx];
+    if (!nextScale) return;
+    setVal(idx);
+    setPreviewScale(nextScale);
+    if (nextScale !== scaleRef.current) {
+      scaleRef.current = nextScale;
+      onChangeRef.current(nextScale);
     }
   };
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (evt) => {
-          setIsDragging(true);
-          const { locationX } = evt.nativeEvent;
-          if (trackWidthRef.current > 0) {
-            updateFromRatio(locationX / trackWidthRef.current, false);
-          }
-        },
-        onPanResponderMove: (evt) => {
-          const { locationX } = evt.nativeEvent;
-          if (trackWidthRef.current > 0) {
-            updateFromRatio(locationX / trackWidthRef.current, false);
-          }
-        },
-        onPanResponderRelease: (evt) => {
-          setIsDragging(false);
-          const { locationX } = evt.nativeEvent;
-          if (trackWidthRef.current > 0) {
-            updateFromRatio(locationX / trackWidthRef.current, true);
-          }
-        },
-      }),
-    [scale]
-  );
-
   const percent = Math.max(0, Math.min(100, (val / (FONT_SCALES.length - 1)) * 100));
+
+  const stepLabels = [
+    { key: 'small' as FontSizeScale, label: t('Nhỏ (90%)', 'Small (90%)') },
+    { key: 'normal' as FontSizeScale, label: t('Mặc định (100%)', 'Default (100%)') },
+    { key: 'large' as FontSizeScale, label: t('Lớn (110%)', 'Large (110%)') },
+    { key: 'xlarge' as FontSizeScale, label: t('Rất lớn (120%)', 'X-Large (120%)') },
+  ];
 
   return (
     <View style={sliderStyles.container}>
@@ -252,32 +305,31 @@ const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange }) =>
       <View style={sliderStyles.sliderRow}>
         {/* Left 'a' button */}
         <TouchableOpacity
-          onPress={() => {
-            setVal(0);
-            onChange(FONT_SCALES[0]);
-          }}
+          onPress={() => selectStepIndex(0)}
           activeOpacity={0.7}
           style={sliderStyles.aBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={sliderStyles.labelSmallA}>a</Text>
+          <Text allowFontScaling={false} style={sliderStyles.labelSmallA}>a</Text>
         </TouchableOpacity>
 
-        {/* Interactive Track Area */}
+        {/* Interactive Track Area (all children have pointerEvents="none" so locationX never jumps) */}
         <View
           ref={trackRef}
           style={sliderStyles.trackTouchArea}
           onLayout={(e) => {
-            trackWidthRef.current = e.nativeEvent.layout.width;
+            if (e.nativeEvent.layout.width > 0) {
+              trackWidthRef.current = e.nativeEvent.layout.width;
+            }
           }}
           {...(Platform.OS === 'web'
             ? { onMouseDown: handlePointerDown, onTouchStart: handlePointerDown }
             : panResponder.panHandlers)}
         >
           {/* Background Bar */}
-          <View style={sliderStyles.trackBackground}>
+          <View style={sliderStyles.trackBackground} pointerEvents="none">
             {/* Active Fill Bar */}
-            <View style={[sliderStyles.trackActive, { width: `${percent}%` }]} />
+            <View style={[sliderStyles.trackActive, { width: `${percent}%` }]} pointerEvents="none" />
           </View>
 
           {/* Tick marks */}
@@ -299,6 +351,7 @@ const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange }) =>
 
           {/* Draggable Thumb */}
           <View
+            pointerEvents="none"
             style={[
               sliderStyles.thumb,
               {
@@ -314,16 +367,71 @@ const FontScaleSlider: React.FC<FontScaleSliderProps> = ({ scale, onChange }) =>
 
         {/* Right 'A' button */}
         <TouchableOpacity
-          onPress={() => {
-            setVal(FONT_SCALES.length - 1);
-            onChange(FONT_SCALES[FONT_SCALES.length - 1]);
-          }}
+          onPress={() => selectStepIndex(FONT_SCALES.length - 1)}
           activeOpacity={0.7}
           style={sliderStyles.aBtn}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={sliderStyles.labelBigA}>A</Text>
+          <Text allowFontScaling={false} style={sliderStyles.labelBigA}>A</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Quick Step Pills for instant 1-tap selection */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingHorizontal: 4 }}>
+        {stepLabels.map((item, idx) => {
+          const isSelected = previewScale === item.key;
+          return (
+            <TouchableOpacity
+              key={item.key}
+              onPress={() => selectStepIndex(idx)}
+              activeOpacity={0.75}
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 8,
+                backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
+                borderWidth: 1,
+                borderColor: isSelected ? '#BFDBFE' : 'transparent',
+              }}
+            >
+              <Text
+                allowFontScaling={false}
+                style={{
+                  fontSize: 11,
+                  fontWeight: isSelected ? '700' : '500',
+                  color: isSelected ? '#2563EB' : '#64748B',
+                }}
+              >
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Live Preview Box synced at 60fps during drag */}
+      <View style={[styles.fontPreviewBox, { marginTop: 12 }]}>
+        <View style={styles.fontPreviewBadge}>
+          <MaterialCommunityIcons name="eye-outline" size={13} color={Colors.textSecondary} />
+          <Text allowFontScaling={false} style={styles.fontPreviewBadgeText}>
+            {t('Xem trước văn bản', 'Live Preview')}
+          </Text>
+        </View>
+        <Text
+          allowFontScaling={false}
+          style={[
+            styles.fontPreviewSample,
+            previewScale === 'small' && { fontSize: 13, lineHeight: 19 },
+            previewScale === 'normal' && { fontSize: 14.5, lineHeight: 22 },
+            previewScale === 'large' && { fontSize: 16, lineHeight: 24 },
+            previewScale === 'xlarge' && { fontSize: 17.5, lineHeight: 26 },
+          ]}
+        >
+          {t(
+            'ProWatch Health: Nhịp tim 75 BPM, Oxy trong máu SpO2 98%. Bố cục cân đối, hiển thị sắc nét.',
+            'ProWatch Health: Heart Rate 75 BPM, SpO2 98%. Balanced layout, sharp typography.'
+          )}
+        </Text>
       </View>
     </View>
   );
@@ -636,13 +744,21 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
   // Sync state with user data
   useEffect(() => {
     if (user) {
-      if (user.weight) setBasicWeight(user.weight);
-      if (user.height) setBasicHeight(user.height);
-      if (user.gender) {
-        setBasicGender(user.gender.toLowerCase() === 'female' || user.gender.toLowerCase() === 'nữ' ? 'Female' : 'Male');
-      }
-      if (user.age) setBasicAge(user.age);
-      if (user.notes) setBasicNote(user.notes);
+      setBasicWeight(user.weight || 65);
+      setBasicHeight(user.height || 170);
+      setBasicGender(
+        user.gender && (user.gender.toLowerCase() === 'female' || user.gender.toLowerCase() === 'nữ')
+          ? 'Female'
+          : 'Male'
+      );
+      setBasicAge(user.age || 25);
+      setBasicNote(user.notes || '');
+    } else {
+      setBasicWeight(65);
+      setBasicHeight(170);
+      setBasicGender('Male');
+      setBasicAge(25);
+      setBasicNote('');
     }
   }, [user, isBasicInfoModalVisible]);
 
@@ -1402,10 +1518,10 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
         <Text style={styles.sectionTitle}>{t('Demo product', 'Demo Product')}</Text>
         <View style={[styles.card, Shadows.sm]}>
           <Text style={styles.controlSubTitle}>
-            {t('Chuyển nhanh màn hình (Firmware v1.5.1)', 'Quick Screen Switch (Firmware v1.5.1)')}
+            {t('Chuyển nhanh màn hình', 'Quick Screen Switch')}
           </Text>
-          <View style={styles.menuGrid}>
-            {WATCH_MENUS.map((m) => (
+          <View style={styles.menuRow}>
+            {WATCH_MENUS.slice(0, 2).map((m) => (
               <TouchableOpacity
                 key={m.id}
                 style={[
@@ -1417,23 +1533,48 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons
-                  name={
-                    m.id === 0
-                      ? "clock-outline"
-                      : m.id === 1
-                        ? "heart-pulse"
-                        : m.id === 2
-                          ? "cog-outline"
-                          : "bell-ring-outline"
-                  }
+                  name={m.id === 0 ? "clock-outline" : "heart-pulse"}
                   size={18}
                   color={watchStatus.connected ? Colors.primary : Colors.textMuted}
                 />
-                <Text style={[
-                  styles.menuBtnText,
-                  !watchStatus.connected && styles.textDisabled
-                ]}>
-                  {m.label}
+                <Text
+                  style={[
+                    styles.menuBtnText,
+                    !watchStatus.connected && styles.textDisabled
+                  ]}
+                  numberOfLines={1}
+                >
+                  {m.id === 0 ? t('Mặt đồng hồ', 'Watch Face') : t('Nhịp tim', 'Heart Rate')}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.menuRow}>
+            {WATCH_MENUS.slice(2, 4).map((m) => (
+              <TouchableOpacity
+                key={m.id}
+                style={[
+                  styles.menuBtn,
+                  !watchStatus.connected && styles.btnDisabled
+                ]}
+                onPress={() => handleSetWatchMenu(m.id, m.label)}
+                disabled={!watchStatus.connected}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons
+                  name={m.id === 2 ? "cog-outline" : "bell-ring-outline"}
+                  size={18}
+                  color={watchStatus.connected ? Colors.primary : Colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.menuBtnText,
+                    !watchStatus.connected && styles.textDisabled
+                  ]}
+                  numberOfLines={1}
+                >
+                  {m.id === 2 ? t('Cài đặt giờ', 'Clock Settings') : t('Thông báo', 'Notifications')}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -1882,36 +2023,12 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
               </View>
             </View>
 
-            {/* Thanh kéo Slider từ a đến A */}
+            {/* Thanh kéo Slider từ a đến A kèm khung xem trước 60fps */}
             <FontScaleSlider
               scale={fontSizeScale}
               onChange={(newScale) => setFontSizeScale(newScale)}
               t={t}
             />
-
-            {/* Khung xem trước trực tiếp đảm bảo không bị bể giao diện */}
-            <View style={styles.fontPreviewBox}>
-              <View style={styles.fontPreviewBadge}>
-                <MaterialCommunityIcons name="eye-outline" size={13} color={Colors.textSecondary} />
-                <Text style={styles.fontPreviewBadgeText}>
-                  {t('Xem trước văn bản', 'Live Preview')}
-                </Text>
-              </View>
-              <Text
-                style={[
-                  styles.fontPreviewSample,
-                  fontSizeScale === 'small' && { fontSize: 13, lineHeight: 19 },
-                  fontSizeScale === 'normal' && { fontSize: 14.5, lineHeight: 22 },
-                  fontSizeScale === 'large' && { fontSize: 16, lineHeight: 24 },
-                  fontSizeScale === 'xlarge' && { fontSize: 17.5, lineHeight: 26 },
-                ]}
-              >
-                {t(
-                  'ProWatch Health: Nhịp tim 75 BPM, Oxy trong máu SpO2 98%. Bố cục cân đối, hiển thị sắc nét.',
-                  'ProWatch Health: Heart Rate 75 BPM, SpO2 98%. Balanced layout, sharp typography.'
-                )}
-              </Text>
-            </View>
           </View>
         </View>
 
@@ -3080,6 +3197,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 16,
+    paddingTop: 20,
     paddingBottom: 40,
   },
   header: {
@@ -4144,26 +4262,26 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: 10,
   },
-  menuGrid: {
+  menuRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   menuBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    gap: 8,
+    paddingVertical: 11,
+    paddingHorizontal: 10,
     backgroundColor: Colors.primaryLight,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#BFDBFE',
   },
   menuBtnText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
     color: Colors.primary,
   },
@@ -4570,7 +4688,7 @@ const biStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 48 : 16,
+    paddingTop: Platform.OS === 'ios' ? 52 : Math.max((StatusBar.currentHeight || 28) + 12, 38),
     paddingBottom: 14,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
@@ -4980,7 +5098,7 @@ const docStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 48 : 16,
+    paddingTop: Platform.OS === 'ios' ? 52 : Math.max((StatusBar.currentHeight || 28) + 12, 38),
     paddingBottom: 8,
     backgroundColor: '#FFFFFF',
   },

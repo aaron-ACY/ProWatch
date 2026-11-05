@@ -27,7 +27,7 @@ export const BLE_UUIDS = {
 };
 
 // Phiên bản firmware Watch.ino mà App này tương thích (FIRMWARE_VER trong Watch.ino)
-export const WATCH_FIRMWARE_VERSION = 'v1.5.1-ble-only-touchfix';
+export const WATCH_FIRMWARE_VERSION = 'v1.5.1';
 
 // Menu trên đồng hồ (khớp enum MenuState trong Watch.ino)
 export type WatchMenu = 0 | 1 | 2 | 3;

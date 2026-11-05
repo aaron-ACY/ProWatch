@@ -137,9 +137,6 @@ export const StatisticsScreen: React.FC = () => {
     setRefreshing(false);
   }, [loadData]);
 
-  // Kiểm tra tài khoản hoàn toàn chưa có bất kỳ dữ liệu đo nào
-  const hasNoDataEver = hrHistory.length === 0 && spo2History.length === 0;
-
   // Lọc dữ liệu theo timeframe (Ngày, Tuần, Tháng)
   const filterByTimeframe = <T extends { timestamp: string }>(records: T[]): T[] => {
     if (records.length === 0) return [];
@@ -269,56 +266,6 @@ export const StatisticsScreen: React.FC = () => {
         />
       }
     >
-      {/* 0. HERO ONBOARDING CHO TÀI KHOẢN MỚI CHƯA CÓ DATA */}
-      {hasNoDataEver && (
-        <View style={[styles.onboardCard, Shadows.sm]}>
-          <View style={styles.onboardHeaderRow}>
-            <View style={styles.onboardIconCircle}>
-              <MaterialCommunityIcons name="heart-pulse" size={26} color="#E11D48" />
-            </View>
-            <View style={styles.onboardBadge}>
-              <MaterialCommunityIcons name="star-four-points" size={12} color="#059669" />
-              <Text style={styles.onboardBadgeText}>{t('Lần đầu sử dụng', 'First-time setup')}</Text>
-            </View>
-          </View>
-
-          <Text style={styles.onboardTitle}>{t('Bắt đầu theo dõi sức khỏe của bạn', 'Start tracking your health')}</Text>
-          <Text style={styles.onboardDesc}>
-            {t(
-              'Chưa có bản ghi đo nào từ đồng hồ. Hãy đeo đồng hồ thông minh và bắt đầu lần đo nhịp tim hoặc SpO₂ đầu tiên để xem phân tích biểu đồ trực quan tại đây.',
-              'No measurement records from your watch yet. Wear your smartwatch and start your first Heart Rate or SpO₂ measurement to view visual analytics here.'
-            )}
-          </Text>
-
-          <View style={styles.onboardActionsRow}>
-            <TouchableOpacity
-              style={styles.onboardPrimaryBtn}
-              onPress={() => navigation.navigate('HeartRate')}
-              activeOpacity={0.85}
-            >
-              <MaterialCommunityIcons name="heart-flash" size={18} color="#FFFFFF" />
-              <Text style={styles.onboardPrimaryBtnText}>{t('Bắt đầu đo ngay', 'Measure now')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.onboardSecondaryBtn}
-              onPress={() => loadData(true)}
-              activeOpacity={0.85}
-              disabled={isSyncing}
-            >
-              {isSyncing ? (
-                <ActivityIndicator size="small" color={Colors.primary} />
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="cloud-sync-outline" size={18} color={Colors.textPrimary} />
-                  <Text style={styles.onboardSecondaryBtnText}>{t('Đồng bộ Cloud', 'Sync Cloud')}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
       {/* 1. Timeframe Segmented Control (Ngày - Tuần - Tháng) với animation trượt */}
       <View 
         style={styles.timeframeCapsule}
@@ -799,7 +746,7 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 20,
   },
 
   // 0. Onboard Card cho tài khoản mới

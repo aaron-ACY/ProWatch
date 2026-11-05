@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, View, StatusBar as RNStatusBar } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabNavigator } from './src/navigation/BottomTabNavigator';
 import { AuthNavigator } from './src/navigation/AuthNavigator';
 import { ProfileSetupScreen } from './src/screens/ProfileSetupScreen';
@@ -89,6 +89,31 @@ const RootContent: React.FC = () => {
   );
 };
 
+const SafeAppShell: React.FC<{ isSplashFinished: boolean }> = ({ isSplashFinished }) => {
+  const insets = useSafeAreaInsets();
+  const androidStatusBarHeight = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 0;
+  const safeTopPadding =
+    Platform.OS === 'android'
+      ? Math.max(insets.top, androidStatusBarHeight) + 6
+      : insets.top;
+
+  return (
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: safeTopPadding,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}
+    >
+      <StatusBar style={isSplashFinished ? 'dark' : 'light'} />
+      <RootContent />
+    </View>
+  );
+};
+
 export default function App() {
   const [isSplashFinished, setIsSplashFinished] = React.useState(false);
 
@@ -96,10 +121,7 @@ export default function App() {
     <SafeAreaProvider>
       <LanguageProvider>
         <AuthProvider>
-          <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-            <StatusBar style={isSplashFinished ? "dark" : "light"} />
-            <RootContent />
-          </SafeAreaView>
+          <SafeAppShell isSplashFinished={isSplashFinished} />
           {!isSplashFinished && (
             <AppSplashScreen onFinish={() => setIsSplashFinished(true)} />
           )}
