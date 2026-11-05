@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "mobile": "npx serve -s ../mobile/frontend/dist -l 8085",
+    "mobile:build": "npm --prefix ../mobile/frontend run build:web",
     "sync:dataset": "node scripts/sync-dataset.mjs",
     "build": "next build",
     "start": "next start -p 3000",

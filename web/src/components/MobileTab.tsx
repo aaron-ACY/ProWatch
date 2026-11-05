@@ -73,6 +73,11 @@ export const MobileTab: React.FC = () => {
     ? envMobileUrl
     : 'http://localhost:8085';
 
+  // Thêm tham số timestamp để tránh trình duyệt cache bản web cũ trong iframe
+  const iframeSrc = activeMobileUrl
+    ? `${activeMobileUrl}${activeMobileUrl.includes('?') ? '&' : '?'}_t=${iframeKey}`
+    : activeMobileUrl;
+
   useEffect(() => {
     setLoadTimeout(false);
     const timer = setTimeout(() => {
@@ -146,7 +151,7 @@ export const MobileTab: React.FC = () => {
 
   const handleRefresh = () => {
     setIsLoaded(false);
-    setIframeKey(prev => prev + 1);
+    setIframeKey(Date.now());
   };
 
   const handleZoomIn = () => {
@@ -642,7 +647,7 @@ export const MobileTab: React.FC = () => {
                 <iframe
                   key={iframeKey}
                   ref={iframeRef}
-                  src={activeMobileUrl}
+                  src={iframeSrc}
                   allow="bluetooth; bluetooth-scanning; fullscreen; accelerometer; gyroscope"
                   allowFullScreen={true}
                   onLoad={() => setIsLoaded(true)}
