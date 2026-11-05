@@ -123,7 +123,7 @@ const DEMO_NOTIF_TYPES: Array<{
 
 export const SettingsScreen: React.FC = () => {
   const { user, logout } = useAuth();
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage, fontSizeScale, setFontSizeScale, t } = useLanguage();
   const [settings, setSettings] = useState<WatchCustomization>(watchService.getCustomization());
   const [watchStatus, setWatchStatus] = useState<WatchStatus>(watchService.getWatchStatus());
   const [isTestingDevice, setIsTestingDevice] = useState(false);
@@ -797,89 +797,167 @@ export const SettingsScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Cài đặt Ngôn ngữ (VI / EN) */}
-        <Text style={styles.sectionTitle}>{t('Ngôn ngữ ứng dụng', 'App Language')}</Text>
+        {/* Cài đặt Ngôn ngữ & Hiển thị */}
+        <Text style={styles.sectionTitle}>{t('Ngôn ngữ & Cỡ chữ', 'Language & Typography')}</Text>
         <View style={[styles.card, Shadows.sm]}>
-          <View style={styles.switchRow}>
-            <View style={[styles.notifTypeIcon, { backgroundColor: Colors.primaryLight }]}>
-              <MaterialCommunityIcons name="translate" size={20} color={Colors.primary} />
+          {/* Row 1: Chuyển đổi ngôn ngữ dạng viên thuốc (Pill toggle giống như Web) */}
+          <View style={styles.langRow}>
+            <View style={styles.langLeft}>
+              <View style={[styles.notifTypeIcon, { backgroundColor: Colors.primaryLight }]}>
+                <MaterialCommunityIcons name="translate" size={20} color={Colors.primary} />
+              </View>
+              <View style={styles.switchInfo}>
+                <Text style={styles.switchLabel}>
+                  {t('Ngôn ngữ ứng dụng', 'App Language')}
+                </Text>
+                <Text style={styles.switchSub}>
+                  {language === 'vi' ? 'Tiếng Việt (VI)' : 'English (EN)'}
+                </Text>
+              </View>
             </View>
-            <View style={styles.switchInfo}>
-              <Text style={styles.switchLabel}>
-                {t('Chuyển đổi ngôn ngữ (VI / EN)', 'Switch Language (VI / EN)')}
-              </Text>
-              <Text style={styles.switchSub}>
-                {language === 'vi'
-                  ? 'Đang sử dụng: Tiếng Việt (VI)'
-                  : 'Current language: English (EN)'}
-              </Text>
+
+            {/* Compact pill toggle giống hệt Web */}
+            <View style={styles.webLangPill}>
+              <TouchableOpacity
+                onPress={() => setLanguage('vi')}
+                activeOpacity={0.8}
+                style={[
+                  styles.webLangSegment,
+                  language === 'vi' && styles.webLangSegmentActive,
+                ]}
+              >
+                <Text style={styles.webLangFlag}>🇻🇳</Text>
+                <Text
+                  style={[
+                    styles.webLangText,
+                    language === 'vi' && styles.webLangTextActive,
+                  ]}
+                >
+                  VN
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setLanguage('en')}
+                activeOpacity={0.8}
+                style={[
+                  styles.webLangSegment,
+                  language === 'en' && styles.webLangSegmentActive,
+                ]}
+              >
+                <Text style={styles.webLangFlag}>🇬🇧</Text>
+                <Text
+                  style={[
+                    styles.webLangText,
+                    language === 'en' && styles.webLangTextActive,
+                  ]}
+                >
+                  EN
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
-          <View style={styles.langSwitchRow}>
-            <TouchableOpacity
-              style={[
-                styles.langOptionBtn,
-                language === 'vi' && styles.langOptionBtnActive,
-              ]}
-              onPress={() => setLanguage('vi')}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.langFlagText}>🇻🇳</Text>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[
-                    styles.langOptionTitle,
-                    language === 'vi' && styles.langOptionTitleActive,
-                  ]}
-                >
-                  Tiếng Việt
-                </Text>
-                <Text
-                  style={[
-                    styles.langOptionCode,
-                    language === 'vi' && styles.langOptionCodeActive,
-                  ]}
-                >
-                  VI • Mặc định
-                </Text>
-              </View>
-              {language === 'vi' && (
-                <MaterialCommunityIcons name="check-circle" size={18} color={Colors.primary} />
-              )}
-            </TouchableOpacity>
+          {/* Đường phân cách mảnh */}
+          <View style={styles.langDivider} />
 
-            <TouchableOpacity
-              style={[
-                styles.langOptionBtn,
-                language === 'en' && styles.langOptionBtnActive,
-              ]}
-              onPress={() => setLanguage('en')}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.langFlagText}>🇬🇧</Text>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[
-                    styles.langOptionTitle,
-                    language === 'en' && styles.langOptionTitleActive,
-                  ]}
-                >
-                  English
-                </Text>
-                <Text
-                  style={[
-                    styles.langOptionCode,
-                    language === 'en' && styles.langOptionCodeActive,
-                  ]}
-                >
-                  EN • International
+          {/* Row 2: Bộ chỉnh phóng to / thu nhỏ cỡ chữ (Typography scaling) */}
+          <View style={styles.fontSizeSection}>
+            <View style={styles.fontSizeHeaderRow}>
+              <View style={styles.fontSizeLeft}>
+                <View style={[styles.notifTypeIcon, { backgroundColor: '#F0FDF4' }]}>
+                  <MaterialCommunityIcons name="format-size" size={20} color="#16A34A" />
+                </View>
+                <View style={styles.switchInfo}>
+                  <Text style={styles.switchLabel}>
+                    {t('Cỡ chữ hiển thị', 'App Font Size')}
+                  </Text>
+                  <Text style={styles.switchSub}>
+                    {fontSizeScale === 'small'
+                      ? t('Thu nhỏ (90%) - Gọn gàng', 'Small (90%) - Compact')
+                      : fontSizeScale === 'normal'
+                      ? t('Mặc định (100%) - Tiêu chuẩn', 'Normal (100%) - Standard')
+                      : fontSizeScale === 'large'
+                      ? t('Phóng to (110%) - Rõ ràng', 'Large (110%) - Clear')
+                      : t('Cực đại (120%) - Dễ đọc', 'Extra Large (120%) - Large')}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Các mức chỉnh cỡ chữ có nút trực quan */}
+            <View style={styles.fontScaleRow}>
+              {[
+                { key: 'small', label: t('Nhỏ', 'Small'), pct: '90%', aSize: 13 },
+                { key: 'normal', label: t('Vừa', 'Normal'), pct: '100%', aSize: 15 },
+                { key: 'large', label: t('Lớn', 'Large'), pct: '110%', aSize: 17 },
+                { key: 'xlarge', label: t('Rất lớn', 'X-Large'), pct: '120%', aSize: 19 },
+              ].map((item) => {
+                const isActive = fontSizeScale === item.key;
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    onPress={() => setFontSizeScale(item.key as any)}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.fontScaleBtn,
+                      isActive && styles.fontScaleBtnActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.fontScaleA,
+                        { fontSize: item.aSize },
+                        isActive && styles.fontScaleAActive,
+                      ]}
+                    >
+                      A
+                    </Text>
+                    <Text
+                      style={[
+                        styles.fontScaleLabel,
+                        isActive && styles.fontScaleLabelActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.fontScaleSub,
+                        isActive && styles.fontScaleSubActive,
+                      ]}
+                    >
+                      {item.pct}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Khung xem trước trực tiếp đảm bảo không bị bể giao diện */}
+            <View style={styles.fontPreviewBox}>
+              <View style={styles.fontPreviewBadge}>
+                <MaterialCommunityIcons name="eye-outline" size={13} color={Colors.textSecondary} />
+                <Text style={styles.fontPreviewBadgeText}>
+                  {t('Xem trước văn bản', 'Live Preview')}
                 </Text>
               </View>
-              {language === 'en' && (
-                <MaterialCommunityIcons name="check-circle" size={18} color={Colors.primary} />
-              )}
-            </TouchableOpacity>
+              <Text
+                style={[
+                  styles.fontPreviewSample,
+                  fontSizeScale === 'small' && { fontSize: 13 },
+                  fontSizeScale === 'normal' && { fontSize: 14.5 },
+                  fontSizeScale === 'large' && { fontSize: 16 },
+                  fontSizeScale === 'xlarge' && { fontSize: 17.5 },
+                ]}
+                numberOfLines={2}
+              >
+                {t(
+                  'ProWatch Health: Nhịp tim 75 BPM, Oxy trong máu SpO2 98%. Bố cục cân đối, hiển thị sắc nét.',
+                  'ProWatch Health: Heart Rate 75 BPM, SpO2 98%. Balanced layout, sharp typography.'
+                )}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -3018,45 +3096,152 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.white,
   },
-  langSwitchRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  langOptionBtn: {
-    flex: 1,
+  langRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    backgroundColor: Colors.cardMuted,
+    justifyContent: 'space-between',
   },
-  langOptionBtnActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryLight,
+  langLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
   },
-  langFlagText: {
-    fontSize: 20,
+  webLangPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 3,
   },
-  langOptionTitle: {
+  webLangSegment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+  },
+  webLangSegmentActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#C7D2FE',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  webLangFlag: {
     fontSize: 13,
+    marginRight: 4,
+  },
+  webLangText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  webLangTextActive: {
+    color: '#2563EB',
     fontWeight: '700',
-    color: Colors.textPrimary,
   },
-  langOptionTitleActive: {
-    color: Colors.primary,
+  langDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 14,
   },
-  langOptionCode: {
+  fontSizeSection: {
+    gap: 10,
+  },
+  fontSizeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  fontSizeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  fontScaleRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  fontScaleBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 2,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  fontScaleBtnActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
+    borderWidth: 1.5,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  fontScaleA: {
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  fontScaleAActive: {
+    color: '#2563EB',
+  },
+  fontScaleLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: '#334155',
+  },
+  fontScaleLabelActive: {
+    color: '#2563EB',
+    fontWeight: '700',
+  },
+  fontScaleSub: {
+    fontSize: 9.5,
+    color: '#94A3B8',
     marginTop: 1,
   },
-  langOptionCodeActive: {
-    color: Colors.primary,
+  fontScaleSubActive: {
+    color: '#3B82F6',
+    fontWeight: '600',
+  },
+  fontPreviewBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    gap: 6,
+    marginTop: 2,
+  },
+  fontPreviewBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  fontPreviewBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  fontPreviewSample: {
+    color: '#1E293B',
+    lineHeight: 22,
+    fontWeight: '500',
   },
 });
