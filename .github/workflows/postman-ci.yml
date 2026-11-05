@@ -1,0 +1,53 @@
+name: Postman API Governance & Contracts
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'postman/**'
+      - '.github/workflows/postman-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'postman/**'
+      - '.github/workflows/postman-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  validate-api-contracts:
+    name: Validate OpenAPI & Postman Contracts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Newman & Validator Tools
+        run: npm install -g newman yaml-lint
+
+      - name: Validate OpenAPI 3.0 YAML Spec
+        run: yaml-lint postman/specs/prowatch_openapi.yaml
+
+      - name: Validate Postman Collections & Environments JSON
+        run: |
+          node -e 'JSON.parse(require("fs").readFileSync("postman/collections/prowatch_api_tests.json"))'
+          node -e 'JSON.parse(require("fs").readFileSync("postman/environments/render.json"))'
+          node -e 'JSON.parse(require("fs").readFileSync("postman/environments/local.json"))'
+          echo "✅ All Postman collections and environments are syntactically valid."
+
+      - name: Warm up Live Render Backend
+        run: |
+          echo "Waking up Render backend if sleeping..."
+          curl -s --max-time 60 https://prowatch-backend.onrender.com/prowatch/actuator/health || true
+
+      - name: Run Postman Tests against Live Backend
+        run: |
+          newman run postman/collections/prowatch_api_tests.json \
+            -e postman/environments/render.json \
+            --folder "3. Spring Boot Backend (:8080 / Render Cloud)" \
+            -r cli

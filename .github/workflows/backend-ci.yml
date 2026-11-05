@@ -1,0 +1,65 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'mobile/backend/**'
+      - 'render.yaml'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'mobile/backend/**'
+      - 'render.yaml'
+      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  test-and-package:
+    name: Build & Test Spring Boot
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile/backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
+
+      - name: Run Unit Tests
+        run: ./mvnw test
+
+      - name: Package Application JAR
+        run: ./mvnw clean package -DskipTests
+
+      - name: Verify build artifact exists
+        run: ls -lh target/*.jar
+
+  trigger-render-deploy:
+    name: Notify Render Cloud
+    needs: test-and-package
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy Hook (if configured)
+        env:
+          RENDER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$RENDER_HOOK" ]; then
+            echo "🚀 Triggering Render deployment via Deploy Hook..."
+            curl -fsS -X POST "$RENDER_HOOK"
+            echo "✅ Deploy hook triggered successfully."
+          else
+            echo "ℹ️ RENDER_DEPLOY_HOOK_URL secret not set. Render will use automatic Git commit push deployment."
+          fi

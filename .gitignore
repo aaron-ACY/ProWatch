@@ -205,5 +205,9 @@ DESIGN.md
 **/.codex/
 .agent/
 **/.agent/
-.github/
-**/.github/
+.github/agents/
+.github/hooks/
+.github/modernize/
+.github/skills/
+!.github/workflows/
+!.github/workflows/**
