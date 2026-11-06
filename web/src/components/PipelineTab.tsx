@@ -288,15 +288,6 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
           )}
         </div>
       </div>
-
-      {/* Description underneath inside clean high-contrast badge (chỉ hiển thị khi có mô tả) */}
-      {description && description.trim() !== '' && (
-        <div className="mt-1 flex justify-center">
-          <span className="inline-block max-w-full text-[10.5px] text-zinc-700 font-semibold bg-white border border-zinc-300 rounded px-2.5 py-0.5 text-center truncate shadow-xs">
-            {description}
-          </span>
-        </div>
-      )}
     </div>
   );
 };
@@ -1021,7 +1012,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="POST /trigger-training"
                 category="trigger"
                 categoryLabel="Webhook"
-                description={language === 'vi' ? 'Kích hoạt tự động từ xa' : 'Remote webhook trigger'}
                 icon={<Webhook size={16} />}
                 isSelected={selectedNode === 'webhook_trigger'}
                 isActive={activeStep === 1}
@@ -1039,7 +1029,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle={language === 'vi' ? '02:00 Chủ nhật' : '02:00 Sunday'}
                 category="trigger"
                 categoryLabel="Schedule"
-                description={language === 'vi' ? 'Lập lịch định kỳ' : 'Recurring schedule'}
                 icon={<Clock size={16} />}
                 isSelected={selectedNode === 'schedule_trigger'}
                 hasInputPin={false}
@@ -1056,7 +1045,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle={language === 'vi' ? 'Kích hoạt thủ công' : 'Manual trigger'}
                 category="trigger"
                 categoryLabel="Manual"
-                description={language === 'vi' ? 'Khởi chạy kiểm thử' : 'Test execution'}
                 icon={<Play size={16} fill="currentColor" />}
                 isSelected={selectedNode === 'manual_trigger'}
                 hasInputPin={false}
@@ -1073,7 +1061,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="REST API 50 records"
                 category="database"
                 categoryLabel="Supabase DB"
-                description={language === 'vi' ? 'Cảm biến đồng hồ thực tế' : 'Live watch sensor feed'}
                 icon={<SupabaseLogo size={20} />}
                 isSelected={selectedNode === 'fetch_supabase'}
                 isActive={activeStep >= 2}
@@ -1090,7 +1077,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="Hybrid (32k + Cloud)"
                 category="validation"
                 categoryLabel="Pre-flight Val"
-                description={language === 'vi' ? 'Kiểm định & Gán nhãn NEWS2' : 'NEWS2 validation & labeling'}
                 icon={<ShieldCheck size={16} />}
                 isSelected={selectedNode === 'preflight_val'}
                 isActive={activeStep >= 3}
@@ -1107,7 +1093,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="TinyML MLP (:5005)"
                 category="model"
                 categoryLabel="TinyML Model"
-                description="15 Epochs • Adam • Batch 32"
                 icon={<Brain size={16} />}
                 isSelected={selectedNode === 'train_model'}
                 isActive={activeStep >= 4}
@@ -1140,7 +1125,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="Accuracy >= 90%?"
                 category="gate"
                 categoryLabel="Quality Gate"
-                description={language === 'vi' ? 'Cổng kiểm định chất lượng' : 'Quality gate checkpoint'}
                 icon={<GitBranch size={16} />}
                 isSelected={selectedNode === 'quality_gate'}
                 isActive={activeStep >= 5}
@@ -1159,7 +1143,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="Model Approved"
                 category="success"
                 categoryLabel="Passed Gate"
-                description={language === 'vi' ? 'Xử lý mô hình đạt chuẩn' : 'Handle approved model'}
                 icon={<CheckCircle2 size={16} />}
                 isSelected={selectedNode === 'handle_success'}
                 isActive={activeStep >= 5}
@@ -1176,7 +1159,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="Supabase DB"
                 category="database"
                 categoryLabel="Model Registry"
-                description={language === 'vi' ? 'Lưu siêu dữ liệu mô hình' : 'Save model registry metadata'}
                 icon={<Database size={16} />}
                 isSelected={selectedNode === 'sync_registry'}
                 isActive={activeStep >= 5}
@@ -1193,7 +1175,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="C++ XIAO ESP32"
                 category="model"
                 categoryLabel="C++ Firmware"
-                description="health_risk_model_int8.h"
                 icon={<FileCode size={16} />}
                 isSelected={selectedNode === 'sync_firmware'}
                 isActive={activeStep >= 6}
@@ -1210,7 +1191,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="Telegram Markdown"
                 category="notify"
                 categoryLabel="Report Card"
-                description={language === 'vi' ? 'Soạn thẻ báo cáo kết quả' : 'Compose result report card'}
                 icon={<FileText size={16} />}
                 isSelected={selectedNode === 'format_success'}
                 isActive={activeStep >= 6}
@@ -1227,7 +1207,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="Telegram Bot API"
                 category="notify"
                 categoryLabel="Telegram Bot"
-                description={language === 'vi' ? 'Gửi tin nhắn Telegram' : 'Send Telegram notification'}
                 icon={<Send size={16} />}
                 isSelected={selectedNode === 'send_telegram'}
                 isActive={activeStep >= 6}
@@ -1246,7 +1225,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="Model Rejected"
                 category="incident"
                 categoryLabel="Failed Gate"
-                description={language === 'vi' ? 'Xử lý sự cố / Dừng' : 'Handle failure & halt'}
                 icon={<XCircle size={16} />}
                 isSelected={selectedNode === 'handle_failure'}
                 onClick={() => setSelectedNode('handle_failure')}
@@ -1262,7 +1240,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="Audit Log Entry"
                 category="incident"
                 categoryLabel="Audit Log"
-                description={language === 'vi' ? 'Ghi nhận nhật ký sự cố' : 'Log audit incident entry'}
                 icon={<ClipboardList size={16} />}
                 isSelected={selectedNode === 'log_audit'}
                 onClick={() => setSelectedNode('log_audit')}
@@ -1278,7 +1255,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle={language === 'vi' ? 'Cảnh báo khẩn cấp' : 'Emergency Alert'}
                 category="incident"
                 categoryLabel="Alert Card"
-                description={language === 'vi' ? 'Soạn thẻ cảnh báo lỗi' : 'Compose incident alert card'}
                 icon={<FileText size={16} />}
                 isSelected={selectedNode === 'format_alert'}
                 onClick={() => setSelectedNode('format_alert')}
@@ -1294,7 +1270,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="Telegram Alert API"
                 category="incident"
                 categoryLabel="Incident Bot"
-                description={language === 'vi' ? 'Gửi cảnh báo khẩn cấp' : 'Send incident emergency alert'}
                 icon={<BellRing size={16} />}
                 isSelected={selectedNode === 'send_incident'}
                 hasOutputPin={false}
