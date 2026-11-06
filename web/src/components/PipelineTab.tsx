@@ -166,7 +166,7 @@ interface PipelineNodeProps {
   subtitle: string;
   category?: NodeCategory;
   categoryLabel?: string;
-  description: string;
+  description?: string;
   icon: React.ReactNode;
   isSelected?: boolean;
   isActive?: boolean;
@@ -254,10 +254,10 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
                 </span>
               )}
             </div>
-            <div className="text-xs font-bold text-zinc-900 leading-tight truncate">
+            <div className="text-xs font-bold text-zinc-900 leading-tight truncate" title={title}>
               {title}
             </div>
-            <div className="text-[11px] font-mono text-zinc-700 font-medium truncate">
+            <div className="text-[11px] text-zinc-700 font-medium truncate tracking-tight" title={subtitle}>
               {subtitle}
             </div>
           </div>
@@ -289,12 +289,14 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
         </div>
       </div>
 
-      {/* Description underneath inside clean high-contrast badge */}
-      <div className="mt-1 flex justify-center">
-        <span className="inline-block max-w-full text-[10.5px] text-zinc-700 font-semibold bg-white border border-zinc-300 rounded px-2.5 py-0.5 text-center truncate shadow-xs">
-          {description}
-        </span>
-      </div>
+      {/* Description underneath inside clean high-contrast badge (chỉ hiển thị khi có mô tả) */}
+      {description && description.trim() !== '' && (
+        <div className="mt-1 flex justify-center">
+          <span className="inline-block max-w-full text-[10.5px] text-zinc-700 font-semibold bg-white border border-zinc-300 rounded px-2.5 py-0.5 text-center truncate shadow-xs">
+            {description}
+          </span>
+        </div>
+      )}
     </div>
   );
 };
@@ -929,14 +931,14 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
 
                 {/* Wire 6 (True Branch): Quality Gate -> Handle Success */}
                 <path
-                  d="M 1480 215 C 1515 215, 1515 107, 1550 107"
+                  d="M 1510 215 C 1530 215, 1530 107, 1550 107"
                   fill="none"
                   stroke={activeStep >= 5 ? '#047857' : '#94a3b8'}
                   strokeWidth={activeStep >= 5 ? '2.5' : '2'}
                 />
                 {activeStep >= 5 && (
                   <circle r="4" fill="#047857">
-                    <animateMotion path="M 1480 215 C 1515 215, 1515 107, 1550 107" dur="0.9s" repeatCount="indefinite" />
+                    <animateMotion path="M 1510 215 C 1530 215, 1530 107, 1550 107" dur="0.9s" repeatCount="indefinite" />
                   </circle>
                 )}
 
@@ -958,7 +960,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
 
                 {/* Wire 9: Sync Firmware Header -> Format Success Card */}
                 <path
-                  d="M 2225 107 C 2260 107, 2260 107, 2295 107"
+                  d="M 2230 107 C 2262 107, 2262 107, 2295 107"
                   fill="none"
                   stroke={activeStep >= 6 ? '#047857' : '#94a3b8'}
                   strokeWidth={activeStep >= 6 ? '2.5' : '2'}
@@ -966,7 +968,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
 
                 {/* Wire 10: Format Success Card -> Send Telegram Alert */}
                 <path
-                  d="M 2475 107 C 2510 107, 2510 107, 2545 107"
+                  d="M 2490 107 C 2517 107, 2517 107, 2545 107"
                   fill="none"
                   stroke={activeStep >= 6 ? '#047857' : '#94a3b8'}
                   strokeWidth={activeStep >= 6 ? '2.5' : '2'}
@@ -974,7 +976,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
 
                 {/* Wire 11 (False Branch): Quality Gate -> Handle Failure */}
                 <path
-                  d="M 1480 249 C 1515 249, 1515 357, 1550 357"
+                  d="M 1510 249 C 1530 249, 1530 357, 1550 357"
                   fill="none"
                   stroke="#b91c1c"
                   strokeWidth="2"
@@ -1122,7 +1124,6 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 subtitle="Accuracy, F1, Loss"
                 category="metrics"
                 categoryLabel="Eval Metrics"
-                description={language === 'vi' ? 'Bóc tách chỉ số đánh giá' : 'Extract evaluation metrics'}
                 icon={<BarChart3 size={16} />}
                 isSelected={selectedNode === 'extract_metrics'}
                 isActive={activeStep >= 5}
@@ -1134,7 +1135,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 id="quality_gate"
                 left={1310}
                 top={195}
-                width={170}
+                width={200}
                 title="Quality Gate"
                 subtitle="Accuracy >= 90%?"
                 category="gate"
@@ -1187,7 +1188,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 id="sync_firmware"
                 left={2040}
                 top={70}
-                width={185}
+                width={190}
                 title="Sync Firmware Header"
                 subtitle="C++ XIAO ESP32"
                 category="model"
@@ -1204,7 +1205,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 id="format_success"
                 left={2295}
                 top={70}
-                width={180}
+                width={195}
                 title="Format Success Card"
                 subtitle="Telegram Markdown"
                 category="notify"
@@ -1288,7 +1289,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
                 id="send_incident"
                 left={2290}
                 top={320}
-                width={180}
+                width={220}
                 title="Send Incident Alert"
                 subtitle="Telegram Alert API"
                 category="incident"
