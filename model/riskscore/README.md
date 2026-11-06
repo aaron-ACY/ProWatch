@@ -109,6 +109,32 @@ Runner lắng nghe yêu cầu tại `http://0.0.0.0:5005/train` để n8n trong 
 
 ---
 
+### 2.3 Triển khai Telegram Bot Server trên Render (24/7 Cloud Assistant)
+
+Mã nguồn `telegram_bot_service.py` được tối ưu hóa đặc biệt để triển khai lên dịch vụ Web Service của **Render (Free Tier)**:
+- **100% Python Standard Library**: Không cài thêm bất kỳ gói pip bên ngoài nào, thời gian build chỉ mất ~3 giây.
+- **Tiết kiệm tài nguyên**: RAM chiếm chưa tới 15MB (so với giới hạn 512MB của Render Free).
+- **Hỗ trợ 2 chế độ (Dual-Mode)**:
+  - **Webhook Mode (Khuyên dùng trên Cloud/Render)**: Telegram push webhook trực tiếp qua `POST /webhook` tức thì (<200ms).
+  - **Long Polling Mode (Localhost)**: Tự động hủy webhook và lắng nghe qua `getUpdates` khi chạy máy cục bộ.
+- **Tích hợp Health Check**: HTTP Endpoint `GET /health` lắng nghe trên cổng `$PORT` (mặc định 10000) phục vụ Render Health Check và các dịch vụ Ping giữ ấm (UptimeRobot, cron-job.org).
+
+#### Triển khai trên Render:
+1. Đẩy mã nguồn lên GitHub.
+2. Vào **Render Dashboard** -> **New** -> **Web Service** (hoặc dùng **Blueprint** đọc file `render.yaml`).
+3. Cấu hình:
+   - **Root Directory**: `model/riskscore`
+   - **Build Command**: `echo 'ProWatch Bot: No external packages needed'`
+   - **Start Command**: `python telegram_bot_service.py`
+   - **Health Check Path**: `/health`
+4. Cung cấp các biến môi trường (Environment Variables):
+   - `TELEGRAM_BOT_TOKEN`: Token bot lấy từ @BotFather
+   - `TELEGRAM_CHAT_ID`: ID chat admin của bạn
+   - `SUPABASE_ANON_KEY`: Khóa anon của Supabase
+   - `USE_WEBHOOK`: `true`
+
+---
+
 ## 3. Quy trình nạp mô hình vào Firmware ESP32-S3
 1. Sử dụng script `src/export_int8.py` để lượng tử hóa mô hình sang dạng **INT8 Full Integer**.
 2. Sao chép mảng C-Header `health_risk_model_int8.h` và bảng tham số `scaler_params.h` vào thư mục `firmware/health_risk_esp32/`.

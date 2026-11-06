@@ -19,3 +19,27 @@ services:
         sync: false
       - key: SPRING_DATASOURCE_PASSWORD
         sync: false
+
+  - type: web
+    name: prowatch-telegram-bot
+    runtime: python
+    branch: main
+    rootDir: model/riskscore
+    buildCommand: "echo 'ProWatch Bot: Thư viện chuẩn Python - Không cần cài đặt pip'"
+    startCommand: "python telegram_bot_service.py"
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: SUPABASE_URL
+        value: https://hyyrkyuarclrpwlpssvc.supabase.co
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: USE_WEBHOOK
+        value: "true"
