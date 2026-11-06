@@ -95,7 +95,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// 1. Thu thập dữ liệu cảm biến thực tế từ Supabase Cloud\nconst allItems = $input.all();\nconst supabaseRecords = allItems.map(item => item.json).filter(r => r && (r.heart_rate || r.spo2 || r.recorded_at));\nconst cloudCount = supabaseRecords.length;\n\n// Tìm bản ghi mới nhất đo từ đồng hồ\nconst latestRecord = cloudCount > 0 ? supabaseRecords[0] : null;\nconst devId = latestRecord?.device_id || 'XIAO-ESP32S3-PROWATCH-01';\n\n// 2. Thiết lập cấu hình Metadata & Hyperparameters\nconst timestamp = new Date().toISOString();\nconst runId = `train_${Date.now()}`;\nconst epochs = 15;\nconst batchSize = 32;\n\n// 3. Cấu hình Telegram thông báo\nconst telegramConfig = {\n  bot_token: 'YOUR_TELEGRAM_BOT_TOKEN',\n  chat_id: 'YOUR_TELEGRAM_CHAT_ID'\n};\n\n// Gom toàn bộ thành 1 item duy nhất để điều phối tiến trình tiếp theo\nreturn [{\n  json: {\n    run_id: runId,\n    trigger_source: 'automated_pipeline',\n    data_status: 'VALIDATED_OK',\n    data_mode: 'hybrid',\n    use_supabase: true,\n    dataset_strategy: `HYBRID (32,353 Baseline + ${cloudCount} Supabase Cloud)`,\n    cloud_records_count: cloudCount,\n    latest_sensor_reading: latestRecord ? {\n      device_id: devId,\n      bpm: latestRecord.heart_rate || 'N/A',\n      spo2: latestRecord.spo2 || 'N/A',\n      recorded_at: latestRecord.recorded_at\n    } : null,\n    total_available_samples: 32353 + cloudCount,\n    epochs: epochs,\n    batch_size: batchSize,\n    triggered_by: 'prowatch_mlops_pipeline',\n    timestamp: timestamp,\n    telegram_config: telegramConfig,\n    preflight_checks: {\n      data_integrity: 'PASS',\n      cloud_sync: cloudCount > 0 ? 'SYNCED' : 'BASELINE_ONLY',\n      data_strategy: 'HYBRID',\n      feature_count: 6,\n      target_classes: 3,\n      runner_endpoint: 'http://host.docker.internal:5005/train'\n    }\n  }\n}];"
+        "jsCode": "// 1. Thu thập dữ liệu cảm biến thực tế từ Supabase Cloud\nconst allItems = $input.all();\nconst supabaseRecords = allItems.map(item => item.json).filter(r => r && (r.heart_rate || r.spo2 || r.recorded_at));\nconst cloudCount = supabaseRecords.length;\n\n// Tìm bản ghi mới nhất đo từ đồng hồ\nconst latestRecord = cloudCount > 0 ? supabaseRecords[0] : null;\nconst devId = latestRecord?.device_id || 'XIAO-ESP32S3-PROWATCH-01';\n\n// 2. Thiết lập cấu hình Metadata & Hyperparameters\nconst timestamp = new Date().toISOString();\nconst runId = `train_${Date.now()}`;\nconst epochs = 15;\nconst batchSize = 32;\n\n// 3. Cấu hình Telegram thông báo\nconst telegramConfig = {\n  bot_token: '8885576270:AAECn5HMzbplhfGt5Xd_rTv1Fpqs_4br5f0',\n  chat_id: '5915277703'\n};\n\n// Gom toàn bộ thành 1 item duy nhất để điều phối tiến trình tiếp theo\nreturn [{\n  json: {\n    run_id: runId,\n    trigger_source: 'automated_pipeline',\n    data_status: 'VALIDATED_OK',\n    data_mode: 'hybrid',\n    use_supabase: true,\n    dataset_strategy: `HYBRID (32,353 Baseline + ${cloudCount} Supabase Cloud)`,\n    cloud_records_count: cloudCount,\n    latest_sensor_reading: latestRecord ? {\n      device_id: devId,\n      bpm: latestRecord.heart_rate || 'N/A',\n      spo2: latestRecord.spo2 || 'N/A',\n      recorded_at: latestRecord.recorded_at\n    } : null,\n    total_available_samples: 32353 + cloudCount,\n    epochs: epochs,\n    batch_size: batchSize,\n    triggered_by: 'prowatch_mlops_pipeline',\n    timestamp: timestamp,\n    telegram_config: telegramConfig,\n    preflight_checks: {\n      data_integrity: 'PASS',\n      cloud_sync: cloudCount > 0 ? 'SYNCED' : 'BASELINE_ONLY',\n      data_strategy: 'HYBRID',\n      feature_count: 6,\n      target_classes: 3,\n      runner_endpoint: 'http://host.docker.internal:5005/train'\n    }\n  }\n}];"
       },
       "id": "node-data-precheck",
       "name": "Pre-flight Validation",
@@ -251,10 +251,10 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://api.telegram.org/bot{{ $json.telegram_config?.bot_token || $('Pre-flight Validation').first()?.json?.telegram_config?.bot_token || 'YOUR_TELEGRAM_BOT_TOKEN' }}/sendMessage",
+        "url": "=https://api.telegram.org/bot{{ $json.telegram_config?.bot_token || $('Pre-flight Validation').first()?.json?.telegram_config?.bot_token || '8885576270:AAECn5HMzbplhfGt5Xd_rTv1Fpqs_4br5f0' }}/sendMessage",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"chat_id\": \"{{ $json.telegram_config?.chat_id || $('Pre-flight Validation').first()?.json?.telegram_config?.chat_id || 'YOUR_TELEGRAM_CHAT_ID' }}\",\n  \"text\": {{ JSON.stringify($json.notification.preview_card) }},\n  \"parse_mode\": \"Markdown\"\n}",
+        "jsonBody": "={\n  \"chat_id\": \"{{ $json.telegram_config?.chat_id || $('Pre-flight Validation').first()?.json?.telegram_config?.chat_id || '5915277703' }}\",\n  \"text\": {{ JSON.stringify($json.notification.preview_card) }},\n  \"parse_mode\": \"Markdown\"\n}",
         "options": {}
       },
       "onError": "continueRegularOutput",
@@ -317,10 +317,10 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://api.telegram.org/bot{{ $json.telegram_config?.bot_token || $('Pre-flight Validation').first()?.json?.telegram_config?.bot_token || 'YOUR_TELEGRAM_BOT_TOKEN' }}/sendMessage",
+        "url": "=https://api.telegram.org/bot{{ $json.telegram_config?.bot_token || $('Pre-flight Validation').first()?.json?.telegram_config?.bot_token || '8885576270:AAECn5HMzbplhfGt5Xd_rTv1Fpqs_4br5f0' }}/sendMessage",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"chat_id\": \"{{ $json.telegram_config?.chat_id || $('Pre-flight Validation').first()?.json?.telegram_config?.chat_id || 'YOUR_TELEGRAM_CHAT_ID' }}\",\n  \"text\": {{ JSON.stringify($json.notification.preview_card) }},\n  \"parse_mode\": \"Markdown\"\n}",
+        "jsonBody": "={\n  \"chat_id\": \"{{ $json.telegram_config?.chat_id || $('Pre-flight Validation').first()?.json?.telegram_config?.chat_id || '5915277703' }}\",\n  \"text\": {{ JSON.stringify($json.notification.preview_card) }},\n  \"parse_mode\": \"Markdown\"\n}",
         "options": {}
       },
       "onError": "continueRegularOutput",

@@ -1,5 +1,20 @@
 [
   {
+    "run_id": "train-5371",
+    "timestamp": "2026-11-06 13:09:31",
+    "trigger": "n8n_pipeline",
+    "data_mode": "HYBRID",
+    "samples": 32401,
+    "baseline_samples": 32353,
+    "supabase_samples": 48,
+    "accuracy": 0.9998,
+    "macro_f1": 0.9998,
+    "test_loss": 0.0009,
+    "epochs": 15,
+    "status": "SUCCESS",
+    "quality_gate": "PASSED"
+  },
+  {
     "run_id": "train-4654",
     "timestamp": "2026-11-06 10:10:54",
     "trigger": "TELEGRAM_BOT",
