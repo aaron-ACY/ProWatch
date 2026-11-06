@@ -222,7 +222,7 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
           {/* Input Pin (Left) */}
           {hasInputPin && (
             <div
-              className={`absolute -left-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors ${
+              className={`absolute -left-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors cursor-crosshair ${
                 isActive ? 'bg-cyan-700 ring-2 ring-cyan-200' : 'bg-zinc-400 group-hover:bg-zinc-600'
               }`}
             />
@@ -265,7 +265,7 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
           {/* Output Pin (Right) */}
           {hasOutputPin && !hasDualOutputPin && (
             <div
-              className={`absolute -right-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors ${
+              className={`absolute -right-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors cursor-crosshair ${
                 isActive ? 'bg-cyan-700 ring-2 ring-cyan-200' : 'bg-zinc-400 group-hover:bg-zinc-600'
               }`}
             />
@@ -276,12 +276,12 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
             <>
               {/* True Pin (Top) */}
               <div
-                className="absolute -right-[6px] top-1/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-emerald-600 ring-2 ring-emerald-200"
+                className="absolute -right-[6px] top-1/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-emerald-600 ring-2 ring-emerald-200 cursor-crosshair"
                 title={language === 'vi' ? 'Nhánh đạt chất lượng (True >= 90%)' : 'Quality Pass Branch (True >= 90%)'}
               />
               {/* False Pin (Bottom) */}
               <div
-                className="absolute -right-[6px] top-3/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-red-600 ring-2 ring-red-200"
+                className="absolute -right-[6px] top-3/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-red-600 ring-2 ring-red-200 cursor-crosshair"
                 title={language === 'vi' ? 'Nhánh sự cố (False < 90%)' : 'Quality Incident Branch (False < 90%)'}
               />
             </>
@@ -514,6 +514,12 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
   useEffect(() => {
     if (!isPanning) return;
 
+    // Khóa cursor grabbing toàn cục để trải nghiệm mượt mà không bị giật
+    const prevCursor = document.body.style.cursor;
+    const prevUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+
     const onGlobalMouseMove = (e: MouseEvent) => {
       setPanOffset({
         x: e.clientX - panStart.x,
@@ -529,6 +535,8 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
     window.addEventListener('mouseup', onGlobalMouseUp);
 
     return () => {
+      document.body.style.cursor = prevCursor;
+      document.body.style.userSelect = prevUserSelect;
       window.removeEventListener('mousemove', onGlobalMouseMove);
       window.removeEventListener('mouseup', onGlobalMouseUp);
     };
@@ -796,12 +804,13 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
           ref={canvasRef}
           onMouseDown={handleCanvasMouseDown}
           className={`relative h-[520px] overflow-hidden bg-[#fafafa] select-none ${
-            isPanning ? 'cursor-grabbing' : 'cursor-default'
+            isPanning ? 'cursor-grabbing' : 'cursor-grab'
           }`}
           style={{
             backgroundImage: 'radial-gradient(#e4e4e7 1.25px, transparent 1.25px)',
             backgroundSize: `${Math.round(24 * (zoomLevel / 100))}px ${Math.round(24 * (zoomLevel / 100))}px`,
-            backgroundPosition: `${panOffset.x}px ${panOffset.y}px`
+            backgroundPosition: `${panOffset.x}px ${panOffset.y}px`,
+            cursor: isPanning ? 'grabbing' : 'grab'
           }}
         >
           {/* Zoomable & Pannable Container */}
@@ -1290,7 +1299,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               <button
                 type="button"
                 onClick={handleResetView}
-                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors cursor-pointer"
                 title={language === 'vi' ? 'Căn vừa màn hình (Fit to Screen)' : 'Fit to Screen'}
               >
                 <Maximize2 size={15} />
@@ -1298,7 +1307,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               <button
                 type="button"
                 onClick={() => setZoomLevel((z) => Math.min(z + 10, 160))}
-                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors cursor-pointer"
                 title={language === 'vi' ? 'Phóng to (+10%)' : 'Zoom In (+10%)'}
               >
                 <ZoomIn size={15} />
@@ -1306,7 +1315,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               <button
                 type="button"
                 onClick={() => setZoomLevel((z) => Math.max(z - 10, 50))}
-                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors cursor-pointer"
                 title={language === 'vi' ? 'Thu nhỏ (-10%)' : 'Zoom Out (-10%)'}
               >
                 <ZoomOut size={15} />
@@ -1314,7 +1323,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               <button
                 type="button"
                 onClick={handleResetView}
-                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors cursor-pointer"
                 title={language === 'vi' ? 'Đặt lại 100% (Reset View)' : 'Reset View (100%)'}
               >
                 <RotateCcw size={14} />
@@ -1323,7 +1332,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               <button
                 type="button"
                 onClick={handleResetView}
-                className="font-mono text-xs font-bold text-zinc-800 hover:bg-zinc-100 px-1.5 py-1 rounded transition-colors"
+                className="font-mono text-xs font-bold text-zinc-800 hover:bg-zinc-100 px-1.5 py-1 rounded transition-colors cursor-pointer"
                 title={language === 'vi' ? 'Tỉ lệ phóng to (Click để đặt lại 100%)' : 'Zoom Level (Click to reset)'}
               >
                 {zoomLevel}%
