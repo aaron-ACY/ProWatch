@@ -157,6 +157,15 @@ const categoryStyles: Record<
   }
 };
 
+// Bộ con trỏ chuột màu cam tùy chỉnh chuẩn n8n / Figma Canvas
+export const ORANGE_GRAB_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%23f97316' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v0'/%3E%3Cpath d='M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2'/%3E%3Cpath d='M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8'/%3E%3Cpath d='M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15'/%3E%3C/svg%3E") 12 12, grab`;
+
+export const ORANGE_GRABBING_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%23ea580c' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 11V7a2 2 0 0 1 4 0v4'/%3E%3Cpath d='M15 11V8a2 2 0 0 1 4 0v5a7 7 0 0 1-7 7h-1a7 7 0 0 1-7-7v-3a2 2 0 0 1 4 0v2'/%3E%3Cpath d='M8 11V9a2 2 0 0 1 3-1.7'/%3E%3C/svg%3E") 12 12, grabbing`;
+
+export const ORANGE_POINTER_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24' fill='%23f97316' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3'/%3E%3C/svg%3E") 6 2, pointer`;
+
+export const ORANGE_CROSSHAIR_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none'%3E%3Ccircle cx='12' cy='12' r='7' stroke='%23ffffff' stroke-width='3' fill='none'/%3E%3Ccircle cx='12' cy='12' r='7' stroke='%23f97316' stroke-width='1.8' fill='none'/%3E%3Cpath d='M12 2v4M12 18v4M2 12h4M18 12h4' stroke='%23ffffff' stroke-width='3.5' stroke-linecap='round'/%3E%3Cpath d='M12 2v4M12 18v4M2 12h4M18 12h4' stroke='%23f97316' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23f97316'/%3E%3C/svg%3E") 12 12, crosshair`;
+
 interface PipelineNodeProps {
   id: string;
   left: number;
@@ -199,7 +208,13 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
   return (
     <div
       onClick={onClick}
-      style={{ position: 'absolute', left: `${left}px`, top: `${top}px`, width: `${width}px`, cursor: 'pointer' }}
+      style={{
+        position: 'absolute',
+        left: `${left}px`,
+        top: `${top}px`,
+        width: `${width}px`,
+        cursor: ORANGE_POINTER_CURSOR
+      }}
       className="group select-none"
     >
       <div
@@ -222,7 +237,8 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
           {/* Input Pin (Left) */}
           {hasInputPin && (
             <div
-              className={`absolute -left-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors cursor-crosshair ${
+              style={{ cursor: ORANGE_CROSSHAIR_CURSOR }}
+              className={`absolute -left-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors ${
                 isActive ? 'bg-cyan-700 ring-2 ring-cyan-200' : 'bg-zinc-400 group-hover:bg-zinc-600'
               }`}
             />
@@ -265,7 +281,8 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
           {/* Output Pin (Right) */}
           {hasOutputPin && !hasDualOutputPin && (
             <div
-              className={`absolute -right-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors cursor-crosshair ${
+              style={{ cursor: ORANGE_CROSSHAIR_CURSOR }}
+              className={`absolute -right-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors ${
                 isActive ? 'bg-cyan-700 ring-2 ring-cyan-200' : 'bg-zinc-400 group-hover:bg-zinc-600'
               }`}
             />
@@ -276,12 +293,14 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
             <>
               {/* True Pin (Top) */}
               <div
-                className="absolute -right-[6px] top-1/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-emerald-600 ring-2 ring-emerald-200 cursor-crosshair"
+                style={{ cursor: ORANGE_CROSSHAIR_CURSOR }}
+                className="absolute -right-[6px] top-1/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-emerald-600 ring-2 ring-emerald-200"
                 title={language === 'vi' ? 'Nhánh đạt chất lượng (True >= 90%)' : 'Quality Pass Branch (True >= 90%)'}
               />
               {/* False Pin (Bottom) */}
               <div
-                className="absolute -right-[6px] top-3/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-red-600 ring-2 ring-red-200 cursor-crosshair"
+                style={{ cursor: ORANGE_CROSSHAIR_CURSOR }}
+                className="absolute -right-[6px] top-3/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-red-600 ring-2 ring-red-200"
                 title={language === 'vi' ? 'Nhánh sự cố (False < 90%)' : 'Quality Incident Branch (False < 90%)'}
               />
             </>
@@ -514,10 +533,10 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
   useEffect(() => {
     if (!isPanning) return;
 
-    // Khóa cursor grabbing toàn cục để trải nghiệm mượt mà không bị giật
+    // Khóa cursor grabbing màu cam toàn cục để trải nghiệm mượt mà không bị giật
     const prevCursor = document.body.style.cursor;
     const prevUserSelect = document.body.style.userSelect;
-    document.body.style.cursor = 'grabbing';
+    document.body.style.cursor = ORANGE_GRABBING_CURSOR;
     document.body.style.userSelect = 'none';
 
     const onGlobalMouseMove = (e: MouseEvent) => {
@@ -810,7 +829,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
             backgroundImage: 'radial-gradient(#e4e4e7 1.25px, transparent 1.25px)',
             backgroundSize: `${Math.round(24 * (zoomLevel / 100))}px ${Math.round(24 * (zoomLevel / 100))}px`,
             backgroundPosition: `${panOffset.x}px ${panOffset.y}px`,
-            cursor: isPanning ? 'grabbing' : 'grab'
+            cursor: isPanning ? ORANGE_GRABBING_CURSOR : ORANGE_GRAB_CURSOR
           }}
         >
           {/* Zoomable & Pannable Container */}
