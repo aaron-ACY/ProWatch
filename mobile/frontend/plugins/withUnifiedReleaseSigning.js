@@ -20,7 +20,7 @@ const UNIFIED_SIGNING_BLOCK = `    signingConfigs {
             if (candidateFiles.isEmpty()) {
                 throw new GradleException(
                     "Khong tim thay Release Keystore (prowatch-release.jks)! " +
-                    "Build bi chan de dam bao tinh nhat quan chu ky so (SHA-256: 57:BC:13:4E...)."
+                    "Build bi chan de dam bao tinh nhat quan chu ky so Release."
                 )
             }
 
