@@ -12,21 +12,29 @@ function run(cmd, cwd = rootDir) {
   return execSync(cmd, { cwd, stdio: 'inherit', env: { ...process.env, JAVA_HOME: 'C:\\Program Files\\Java\\jdk-21.0.12' } });
 }
 
-// 1. Tự động tìm và dọn dẹp các package rác/debug khác (ví dụ com.prowatch.health.debug)
+// 1. Tự động tìm và dọn dẹp các package rác/debug khác (ví dụ com.prowatch.health.debug, com.anonymous.frontend)
 function cleanupDuplicatePackages() {
+  const legacyDuplicates = [
+    'com.prowatch.health.debug',
+    'com.prowatch.health.preview',
+    'com.prowatch.health.dev',
+    'com.prowatch.app',
+    'com.anonymous.frontend',
+    'com.anonymous.prowatchhealth',
+  ];
   try {
-    const out = execSync(`"${adbPath}" shell pm list packages --user 0`, { encoding: 'utf8' });
+    const out = execSync(`"${adbPath}" shell pm list packages`, { encoding: 'utf8' });
     const duplicates = out
       .split(/\r?\n/)
       .map(l => l.replace('package:', '').trim())
-      .filter(p => p.startsWith('com.prowatch') && p !== appId);
+      .filter(p => (p.startsWith('com.prowatch') && p !== appId) || legacyDuplicates.includes(p));
 
     if (duplicates.length > 0) {
       console.log('⚠️ Phát hiện package thừa / bản debug cũ:', duplicates.join(', '));
       duplicates.forEach(pkgName => {
         console.log(`🗑️ Đang gỡ bỏ package thừa: ${pkgName}...`);
         try {
-          execSync(`"${adbPath}" uninstall --user 0 ${pkgName}`, { stdio: 'inherit' });
+          execSync(`"${adbPath}" uninstall ${pkgName}`, { stdio: 'inherit' });
           console.log(`✅ Đã gỡ thành công: ${pkgName}`);
         } catch (e) {
           console.warn(`Không thể gỡ tự động ${pkgName}:`, e.message);
@@ -57,7 +65,7 @@ function getInstalledVersionUser0() {
   return { installed: false };
 }
 
-// 3. Kiểm tra các profile phụ (Secure Folder, Dual Apps)
+// 3. Kiểm tra và tự động gỡ bản sao trên các profile phụ (Secure Folder, Dual Apps) để tránh bị 2 biểu tượng
 function checkSecondaryUsers() {
   try {
     const usersOut = execSync(`"${adbPath}" shell pm list users`, { encoding: 'utf8' });
@@ -66,17 +74,23 @@ function checkSecondaryUsers() {
       .filter(line => line.includes('UserInfo{') && !line.includes('UserInfo{0:'));
     
     if (otherUsers.length > 0) {
-      const isSecureFolder = otherUsers.some(u => u.includes('Secure Folder'));
-      const isDualApp = otherUsers.some(u => u.includes('DUAL_APP') || u.includes('95:') || u.includes('999:'));
-      
       console.log('ℹ️ Phát hiện thiết bị có không gian phụ:');
-      otherUsers.forEach(u => console.log('   *', u.trim()));
-      if (isSecureFolder) {
-        console.log('💡 Lưu ý: Nếu thấy icon có huy hiệu màu xanh, đó là bản trong Secure Folder (Thư mục bảo mật).');
-      }
-      if (isDualApp) {
-        console.log('💡 Lưu ý: Nếu thấy icon có huy hiệu ứng dụng kép, đó là bản Dual Apps/Dual Messenger.');
-      }
+      otherUsers.forEach(u => {
+        console.log('   *', u.trim());
+        const m = u.match(/UserInfo\{(\d+):/);
+        if (m) {
+          const uid = m[1];
+          try {
+            const userPkgs = execSync(`"${adbPath}" shell pm list packages --user ${uid}`, { encoding: 'utf8' });
+            if (userPkgs.includes(`package:${appId}`)) {
+              console.log(`🗑️ Đang gỡ bản sao ${appId} trên User ${uid} để tránh tạo 2 biểu tượng...`);
+              execSync(`"${adbPath}" shell pm uninstall --user ${uid} ${appId}`, { stdio: 'inherit' });
+            }
+          } catch (err) {
+            // ignore
+          }
+        }
+      });
     }
   } catch (e) {
     // ignore
@@ -140,9 +154,17 @@ try {
   }
   console.log('✅ Đã biên dịch xong file APK Release!');
 
-  // Bước 5: Cập nhật đè lên ứng dụng hiện tại (không truyền --user 0 để tránh xung đột Samsung Knox)
-  console.log(`\n📲 [5/5] Cập nhật ghi đè trực tiếp lên thiết bị (adb install -r -d)...`);
-  execSync(`"${adbPath}" install -r -d "${apkPath}"`, { stdio: 'inherit' });
+  // Bước 5: Cập nhật đè lên ứng dụng hiện tại chỉ trên User 0 (--user 0) để tuyệt đối không tạo 2 icon trên Secure Folder / Dual Apps
+  console.log(`\n📲 [5/5] Cập nhật ghi đè trực tiếp lên thiết bị (adb install -r -d --user 0)...`);
+  try {
+    execSync(`"${adbPath}" install -r -d --user 0 "${apkPath}"`, { stdio: 'inherit' });
+  } catch (installErr) {
+    console.warn('⚠️ Phát hiện xung đột chữ ký với bản Debug cũ (INSTALL_FAILED_UPDATE_INCOMPATIBLE). Đang gỡ sạch bản cũ để đồng bộ sang Release Key chuẩn...');
+    try {
+      execSync(`"${adbPath}" uninstall ${appId}`, { stdio: 'inherit' });
+    } catch (e) {}
+    execSync(`"${adbPath}" install -r -d --user 0 "${apkPath}"`, { stdio: 'inherit' });
+  }
   console.log('✅ Cập nhật thành công!');
 
   // Xác nhận lại phiên bản sau khi cập nhật

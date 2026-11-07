@@ -25,10 +25,8 @@
 // =========================================================================================
 // 1. CẤU HÌNH KẾT NỐI WI-FI & BACKEND SPRING BOOT
 // =========================================================================================
-//const char *WIFI_SSID = "Muong Thanh Song Han.";     // Tên Wi-Fi máy tính đang kết nối
-//const char *WIFI_PASSWORD = "19001833"; // Mật khẩu Wi-Fi
-const char *WIFI_SSID = "Pay To Use";     // Tên Wi-Fi máy tính đang kết nối
-const char *WIFI_PASSWORD = "Donaka2006"; // Mật khẩu Wi-Fi
+const char *WIFI_SSID = "YOUR_WIFI_SSID";     // Tên Wi-Fi máy tính đang kết nối
+const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD"; // Mật khẩu Wi-Fi
 // IP máy tính hiện tại: 172.16.0.12 (Cổng Backend Spring Boot 8080)
 const char *BACKEND_URL =
     "http://172.16.0.12:8080/api/v1/devices/telemetry";

@@ -924,10 +924,62 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
     setDemoBody(item.defaultBody);
   };
 
-  // Danh mục các loại thông báo chi tiết trên đồng hồ
+  // Danh mục các loại thông báo chi tiết trên đồng hồ & Quyền Notification Listener của Android
   const [notifCategories, setNotifCategories] = useState(watchService.getNotificationCategories());
+  const [hydrationInterval, setHydrationInterval] = useState(watchService.getHydrationInterval());
+  const [isNotifPermissionGranted, setIsNotifPermissionGranted] = useState(true);
+
+  const checkNotificationPermission = useCallback(async () => {
+    if (Platform.OS === 'android') {
+      const granted = await watchService.isAndroidNotificationPermissionGranted();
+      setIsNotifPermissionGranted(granted);
+      return granted;
+    }
+    return true;
+  }, []);
+
+  useEffect(() => {
+    checkNotificationPermission();
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        checkNotificationPermission();
+      }
+    });
+    return () => appStateSub.remove();
+  }, [checkNotificationPermission]);
+
+  const handleRequestNotificationPermission = async () => {
+    const ok = await watchService.openAndroidNotificationPermissionSettings();
+    if (!ok) {
+      showNotification(
+        'warning',
+        t('Cần cấp quyền thủ công', 'Manual Permission Needed'),
+        t(
+          'Vui lòng vào Cài đặt điện thoại > Ứng dụng > Quyền truy cập đặc biệt > Quyền truy cập thông báo để cho phép ProWatch Health.',
+          'Please go to Phone Settings > Apps > Special App Access > Notification Access and allow ProWatch Health.'
+        )
+      );
+    }
+  };
 
   const toggleNotifCategory = async (key: keyof typeof notifCategories, value: boolean) => {
+    if (value && (key === 'calls' || key === 'sms') && Platform.OS === 'android' && !isNotifPermissionGranted) {
+      Alert.alert(
+        t('Chưa cấp quyền đọc thông báo Android', 'Notification Access Required'),
+        t(
+          'Để đồng hồ hiển thị cuộc gọi đến (SIM, Zalo, Messenger,...) và tin nhắn SMS, bạn cần cấp quyền "Truy cập thông báo" cho ProWatch Health trong Cài đặt hệ thống Android.',
+          'To forward incoming calls (SIM, Zalo, Messenger,...) and SMS to your watch, please grant Notification Access to ProWatch Health in Android Settings.'
+        ),
+        [
+          { text: t('Để sau', 'Later'), style: 'cancel' },
+          {
+            text: t('Cấp quyền ngay (1 chạm)', 'Grant Permission'),
+            onPress: () => handleRequestNotificationPermission(),
+          },
+        ]
+      );
+    }
+
     const next = watchService.updateNotificationCategories({ [key]: value });
     setNotifCategories(next);
 
@@ -1808,6 +1860,46 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
 
         {/* Notification Settings Section (Sử dụng toggle, tinh gọn các loại thông báo) */}
         <Text style={styles.sectionTitle}>{t('Cài đặt các loại thông báo', 'Notification Categories')}</Text>
+
+        {/* Banner / Nút cấp quyền truy cập thông báo Android (NotificationListenerService) */}
+        {Platform.OS === 'android' && (
+          !isNotifPermissionGranted ? (
+            <View style={styles.notifPermBanner}>
+              <View style={styles.notifPermIconWrapper}>
+                <MaterialCommunityIcons name="shield-alert-outline" size={22} color="#D97706" />
+              </View>
+              <View style={styles.notifPermContent}>
+                <Text style={styles.notifPermTitle}>
+                  {t('Chưa cấp quyền đọc thông báo Android', 'Android Notification Access Needed')}
+                </Text>
+                <Text style={styles.notifPermSub}>
+                  {t(
+                    'Cần cấp quyền để chuyển tiếp cuộc gọi (SIM, Zalo, Messenger,...), tin nhắn SMS sang màn hình đồng hồ XIAO ESP32-S3.',
+                    'Grant access to forward incoming calls (SIM, Zalo, Messenger,...), SMS to your watch screen.'
+                  )}
+                </Text>
+                <TouchableOpacity
+                  style={styles.notifPermBtn}
+                  onPress={handleRequestNotificationPermission}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="shield-check" size={16} color={Colors.white} />
+                  <Text style={styles.notifPermBtnText}>
+                    {t('Cấp quyền đọc thông báo ngay (1 chạm)', 'Grant Permission (1-Tap)')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.notifPermGrantedRow}>
+              <MaterialCommunityIcons name="check-decagram" size={18} color="#16A34A" />
+              <Text style={styles.notifPermGrantedText}>
+                {t('Đã cấp quyền đọc thông báo Android (Cuộc gọi & SMS sẵn sàng)', 'Notification Access Granted (Calls & SMS Ready)')}
+              </Text>
+            </View>
+          )
+        )}
+
         <View style={[styles.card, Shadows.sm]}>
           {/* Master toggle */}
           <View style={styles.switchRow}>
@@ -1840,7 +1932,7 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
                 <View style={styles.switchInfo}>
                   <Text style={styles.switchLabel}>{t('Cuộc gọi đến', 'Incoming Calls')}</Text>
                   <Text style={styles.switchSub}>
-                    {t('Bật sáng màn hình và hiển thị người gọi trên XIAO ESP32-S3', 'Wake screen and display caller on XIAO ESP32-S3')}
+                    {t('Hỗ trợ cuộc gọi SIM, Zalo, Messenger, WhatsApp,...', 'Supports SIM, Zalo, Messenger, WhatsApp,... calls')}
                   </Text>
                 </View>
                 <StyledSwitch
@@ -1886,6 +1978,42 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
                   onValueChange={(val) => toggleNotifCategory('water', val)}
                 />
               </View>
+
+              {notifCategories.water && (
+                <View style={styles.hydrationSubContainer}>
+                  <View style={styles.hydrationHeaderRow}>
+                    <MaterialCommunityIcons name="timer-sand" size={14} color="#D97706" />
+                    <Text style={styles.hydrationLabel}>
+                      {t(`Chu kỳ tự động rung nhắc: ${hydrationInterval} phút/lần`, `Auto reminder interval: every ${hydrationInterval} mins`)}
+                    </Text>
+                  </View>
+                  <View style={styles.hydrationIntervalRow}>
+                    {[30, 45, 60, 90, 120].map((mins) => {
+                      const isSelected = hydrationInterval === mins;
+                      return (
+                        <TouchableOpacity
+                          key={mins}
+                          style={[styles.hydrationPill, isSelected && styles.hydrationPillActive]}
+                          onPress={async () => {
+                            setHydrationInterval(mins);
+                            await watchService.setHydrationInterval(mins);
+                            showNotification(
+                              'success',
+                              t('Đã lưu chu kỳ nhắc', 'Interval Saved'),
+                              t(`Đồng hồ sẽ rung nhắc uống nước mỗi ${mins} phút.`, `Watch will remind you to drink water every ${mins} mins.`)
+                            );
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.hydrationPillText, isSelected && styles.hydrationPillTextActive]}>
+                            {mins} {t('phút', 'min')}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
 
               <View style={styles.divider} />
 
@@ -3717,6 +3845,121 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+
+  // Notification Permission Banner
+  notifPermBanner: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  notifPermIconWrapper: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifPermContent: {
+    flex: 1,
+  },
+  notifPermTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#B45309',
+    marginBottom: 3,
+  },
+  notifPermSub: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#92400E',
+    marginBottom: 10,
+  },
+  notifPermBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#D97706',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    gap: 6,
+  },
+  notifPermBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  notifPermGrantedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 12,
+    gap: 8,
+  },
+  notifPermGrantedText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#15803D',
+    flex: 1,
+  },
+
+  // Hydration Reminder sub-row
+  hydrationSubContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    paddingLeft: 48,
+  },
+  hydrationHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  hydrationLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  hydrationIntervalRow: {
+    flexDirection: 'row',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  hydrationPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  hydrationPillActive: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+  },
+  hydrationPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  hydrationPillTextActive: {
+    color: '#B45309',
+    fontWeight: '800',
   },
 
   // Notification Categories & Test Chips Styles

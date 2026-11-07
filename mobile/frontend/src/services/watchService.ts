@@ -33,6 +33,8 @@ const STORAGE_KEYS = {
   LOCAL_SPO2_HISTORY: '@prowatch_local_spo2_history',
   LOCAL_SUMMARY: '@prowatch_local_summary',
   OFFLINE_SEQ_COUNTER: '@prowatch_offline_seq_counter',
+  HYDRATION_INTERVAL: '@prowatch_hydration_interval_min',
+  NOTIF_CATEGORIES: '@prowatch_notif_categories',
 };
 
 export interface NotificationCategories {
@@ -129,6 +131,8 @@ class WatchService {
   } | null = null;
 
   private lastHealthAlertMs: number = 0;
+  private hydrationIntervalMinutes: number = 60;
+  private hydrationTimer: any = null;
   private notifCategories: NotificationCategories = {
     calls: true,
     sms: true,
@@ -153,6 +157,11 @@ class WatchService {
           this.sendNotificationToWatch('CALL', title, message).catch((err) => {
             console.warn('[WatchService] Lỗi chuyển tiếp thông báo cuộc gọi sang đồng hồ:', err);
           });
+        } else if (category === 'CALL_END') {
+          console.log(`🔔 [Android Call End -> Watch] Đóng thông báo cuộc gọi trên đồng hồ`);
+          this.clearWatchNotification().catch((err) => {
+            console.warn('[WatchService] Lỗi gửi lệnh đóng thông báo tới đồng hồ:', err);
+          });
         } else if (category === 'SMS') {
           if (!this.notifCategories.sms) return;
           console.log(`🔔 [Android SMS -> Watch] ${title}: ${message}`);
@@ -165,6 +174,7 @@ class WatchService {
 
     // Tự động lắng nghe sự kiện mất kết nối từ Bluetooth BLE
     bleService.onDisconnect((reason) => {
+      this.stopHydrationScheduler();
       if (reason === 'hardware_lost') {
         this.handleDeviceLost('Mất kết nối Bluetooth với phần cứng XIAO ESP32-S3 (board mạch tắt nguồn, hết pin hoặc ra ngoài vùng phủ sóng BLE)!');
       } else if (reason === 'user_initiated') {
@@ -183,6 +193,30 @@ class WatchService {
         this.notifyStatusChange();
       }
     });
+
+    // Nạp cấu hình thông báo và chu kỳ nhắc uống nước từ bộ nhớ máy
+    AsyncStorage.getItem(STORAGE_KEYS.NOTIF_CATEGORIES)
+      .then((raw) => {
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            this.notifCategories = { ...this.notifCategories, ...parsed };
+          } catch {}
+        }
+      })
+      .catch(() => {});
+
+    AsyncStorage.getItem(STORAGE_KEYS.HYDRATION_INTERVAL)
+      .then((raw) => {
+        if (raw) {
+          const val = parseInt(raw, 10);
+          if (!isNaN(val) && val >= 15 && val <= 360) {
+            this.hydrationIntervalMinutes = val;
+          }
+        }
+        this.restartHydrationScheduler();
+      })
+      .catch(() => {});
 
     // Khởi tạo bộ đếm offline_seq từ bộ nhớ máy (không nạp dữ liệu sức khỏe khi chưa xác định userId)
     AsyncStorage.getItem(STORAGE_KEYS.OFFLINE_SEQ_COUNTER)
@@ -336,6 +370,9 @@ class WatchService {
 
   public updateCustomization(settings: Partial<WatchCustomization>): WatchCustomization {
     this.customization = { ...this.customization, ...settings };
+    if (settings.notificationsEnabled !== undefined) {
+      this.restartHydrationScheduler();
+    }
     return { ...this.customization };
   }
 
@@ -345,7 +382,63 @@ class WatchService {
 
   public updateNotificationCategories(partial: Partial<NotificationCategories>): NotificationCategories {
     this.notifCategories = { ...this.notifCategories, ...partial };
+    AsyncStorage.setItem(STORAGE_KEYS.NOTIF_CATEGORIES, JSON.stringify(this.notifCategories)).catch(() => {});
+    if (partial.water !== undefined) {
+      this.restartHydrationScheduler();
+    }
     return { ...this.notifCategories };
+  }
+
+  public getHydrationInterval(): number {
+    return this.hydrationIntervalMinutes;
+  }
+
+  public async setHydrationInterval(minutes: number): Promise<void> {
+    const clamped = Math.max(15, Math.min(360, Math.round(minutes)));
+    this.hydrationIntervalMinutes = clamped;
+    await AsyncStorage.setItem(STORAGE_KEYS.HYDRATION_INTERVAL, String(clamped)).catch(() => {});
+    this.restartHydrationScheduler();
+  }
+
+  public startHydrationScheduler(): void {
+    this.stopHydrationScheduler();
+    if (!this.customization.notificationsEnabled || !this.notifCategories.water) {
+      return;
+    }
+    const intervalMs = this.hydrationIntervalMinutes * 60 * 1000;
+    this.hydrationTimer = setInterval(() => {
+      this.triggerHydrationReminder().catch(() => {});
+    }, intervalMs);
+    console.log(`⏰ [WatchService] Khởi chạy lịch nhắc nhở uống nước mỗi ${this.hydrationIntervalMinutes} phút`);
+  }
+
+  public stopHydrationScheduler(): void {
+    if (this.hydrationTimer) {
+      clearInterval(this.hydrationTimer);
+      this.hydrationTimer = null;
+    }
+  }
+
+  public restartHydrationScheduler(): void {
+    this.stopHydrationScheduler();
+    if (this.customization.notificationsEnabled && this.notifCategories.water && bleService.isConnected()) {
+      this.startHydrationScheduler();
+    }
+  }
+
+  public async triggerHydrationReminder(): Promise<boolean> {
+    if (!this.customization.notificationsEnabled || !this.notifCategories.water) {
+      return false;
+    }
+    if (!bleService.isConnected()) {
+      return false;
+    }
+    console.log('💧 [WatchService] Tự động gửi thông báo Nhắc nhở uống nước sang đồng hồ');
+    return this.sendNotificationToWatch(
+      'WATER',
+      'Nhac uong nuoc',
+      'Da den gio bo sung 1 ly nuoc (250ml)!'
+    );
   }
 
   public onHealthAlert(listener: (alert: HealthEvaluationAlert) => void): () => void {
@@ -1783,6 +1876,7 @@ class WatchService {
               this.notifCategories.health
             )
           ).catch(() => {});
+          this.restartHydrationScheduler();
         }
       }, 750);
 

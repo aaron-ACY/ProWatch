@@ -10,6 +10,12 @@ import { WatchScreenTexture, WatchMenu } from './WatchScreenTexture';
 import { createWatch3DModel, Watch3DModel } from './WatchGeometry';
 import { CameraPreset, StrapColor, WatchFaceTheme } from './types';
 import { useLanguage } from '@/context/LanguageContext';
+import {
+  ORANGE_GRAB_CURSOR,
+  ORANGE_GRABBING_CURSOR,
+  ORANGE_POINTER_CURSOR,
+  ORANGE_CLICK_CURSOR
+} from '@/utils/handCursors';
 
 interface Watch3DCanvasProps {
   telemetry: SensorTelemetry;
@@ -359,8 +365,24 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let downPos = { x: 0, y: 0, time: 0 };
+    let isPointerDown = false;
+    let lastHasInteractiveHit = false;
+
+    const set3DCursor = (cursorStr: string) => {
+      container.style.cursor = cursorStr;
+      if (renderer.domElement) {
+        renderer.domElement.style.cursor = cursorStr;
+      }
+    };
+
+    set3DCursor(ORANGE_GRAB_CURSOR);
 
     const onPointerMove = (e: MouseEvent) => {
+      if (isPointerDown) {
+        set3DCursor(lastHasInteractiveHit ? ORANGE_CLICK_CURSOR : ORANGE_GRABBING_CURSOR);
+        return;
+      }
+
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -375,14 +397,19 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
           h.object.userData?.componentId === 'display'
       );
 
-      container.style.cursor = hasInteractiveHit ? 'pointer' : 'grab';
+      lastHasInteractiveHit = hasInteractiveHit;
+      set3DCursor(hasInteractiveHit ? ORANGE_POINTER_CURSOR : ORANGE_GRAB_CURSOR);
     };
 
     const onPointerDown = (e: MouseEvent) => {
+      isPointerDown = true;
       downPos = { x: e.clientX, y: e.clientY, time: Date.now() };
+      set3DCursor(lastHasInteractiveHit ? ORANGE_CLICK_CURSOR : ORANGE_GRABBING_CURSOR);
     };
 
     const onPointerUp = (e: MouseEvent) => {
+      isPointerDown = false;
+      set3DCursor(lastHasInteractiveHit ? ORANGE_POINTER_CURSOR : ORANGE_GRAB_CURSOR);
       const dist = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
       const duration = Date.now() - downPos.time;
       if (dist > 8 || duration > 500) return; // Ignore drag rotation

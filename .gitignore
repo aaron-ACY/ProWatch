@@ -128,10 +128,10 @@ mobile/**/ios/.symlinks/
 mobile/**/ios/Flutter/Flutter.framework
 mobile/**/ios/Flutter/Flutter.podspec
 *.keystore
-!mobile/frontend/android/app/debug.keystore
 *.jks
 *.apk
 !mobile/ProWatch-Health.apk
+supabase/.temp/
 
 # ------------------------------------------------------------------------------
 # 5. Embedded Firmware (firmware/ - Seeed Studio XIAO ESP32-S3)

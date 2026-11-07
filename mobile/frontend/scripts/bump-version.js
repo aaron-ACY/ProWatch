@@ -50,7 +50,7 @@ VERSION_NAME=${newVersionName}
 APP_NAME=ProWatch Health
 APPLICATION_ID=com.prowatch.health
 RELEASE_DATE=${today}
-BUILD_FLAVOR=development
+BUILD_FLAVOR=release
 `;
 if (fs.existsSync(path.dirname(versionPropsPath))) {
   fs.writeFileSync(versionPropsPath, versionPropsContent, 'utf8');
