@@ -101,7 +101,8 @@ jobs:
             exit 1
           fi
           $AAPT dump permissions "$APK_PATH" | tee perms.txt
-          if grep -E "READ_SMS|RECEIVE_SMS|REQUEST_INSTALL_PACKAGES" perms.txt; then
+          $AAPT dump xmltree "$APK_PATH" AndroidManifest.xml | tee manifest_tree.txt
+          if grep -E "READ_SMS|RECEIVE_SMS|BIND_NOTIFICATION_LISTENER_SERVICE|BIND_ACCESSIBILITY_SERVICE|REQUEST_INSTALL_PACKAGES" perms.txt manifest_tree.txt; then
             echo "::error::APK van chua quyen nhay cam bi Google Play Protect chan!"
             exit 1
           fi

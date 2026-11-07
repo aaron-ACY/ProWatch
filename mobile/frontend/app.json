@@ -3,7 +3,7 @@
     "name": "ProWatch Health",
     "slug": "prowatch-health",
     "scheme": "prowatch-health",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "com.prowatch.health",
-      "versionCode": 24,
+      "versionCode": 25,
       "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
@@ -46,6 +46,7 @@
         "android.permission.READ_PHONE_STATE",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.BIND_NOTIFICATION_LISTENER_SERVICE",
         "android.permission.BIND_ACCESSIBILITY_SERVICE",
         "android.permission.BODY_SENSORS",
         "android.permission.READ_EXTERNAL_STORAGE",
