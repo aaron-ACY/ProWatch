@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'mobile/frontend/**'
-      - '.github/workflows/mobile-release.yml'
+      - '.github/workflows/android-build-release.yml'
     tags:
       - 'v*'
   workflow_dispatch:
