@@ -1,0 +1,91 @@
+# Configuration for GitHub's automatically generated release notes
+# Reference: https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - skip-changelog
+      - no-changelog
+      - internal
+    authors:
+      - dependabot[bot]
+      - github-actions[bot]
+
+  categories:
+    - title: 💥 Breaking Changes
+      labels:
+        - breaking-change
+        - breaking
+        - major
+
+    - title: 🎉 New Features & Enhancements
+      labels:
+        - feature
+        - feat
+        - enhancement
+        - minor
+
+    - title: 🐛 Bug Fixes
+      labels:
+        - bug
+        - bugfix
+        - fix
+        - patch
+
+    - title: ⚡ Performance Improvements
+      labels:
+        - performance
+        - perf
+
+    - title: 🎨 UI / UX & Design
+      labels:
+        - ui
+        - ux
+        - style
+        - design
+
+    - title: 📱 Mobile App (Android)
+      labels:
+        - mobile
+        - android
+
+    - title: 🌐 Web & Dashboard
+      labels:
+        - web
+        - frontend
+
+    - title: ⚙️ Backend & API
+      labels:
+        - backend
+        - api
+        - spring-boot
+
+    - title: ⌚ Firmware & Hardware
+      labels:
+        - firmware
+        - hardware
+
+    - title: 📝 Documentation
+      labels:
+        - documentation
+        - docs
+
+    - title: 🚀 CI/CD & Build System
+      labels:
+        - ci
+        - cd
+        - build
+        - devops
+
+    - title: 📦 Dependencies & Maintenance
+      labels:
+        - dependencies
+        - deps
+        - chore
+        - refactor
+
+    - title: 💬 Other Changes
+      labels:
+        - "*"
+
