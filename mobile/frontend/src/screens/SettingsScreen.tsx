@@ -31,7 +31,6 @@ import { mfaService, MfaStatus } from '../services/mfaService';
 import { MFAEnrollmentModal } from '../components/MFAEnrollmentModal';
 import { BluetoothConnectionToggle } from '../components/BluetoothConnectionToggle';
 import { UserAvatar, AvatarPickerModal } from '../components/UserAvatar';
-import { HomeWidgetsSection } from '../components/HomeWidgetsSection';
 
 interface NotificationState {
   type: 'success' | 'warning' | 'error' | 'info';
@@ -1582,18 +1581,6 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
             <Text style={styles.profileEditText}>{t('Hồ sơ', 'Profile')}</Text>
           </View>
         </TouchableOpacity>
-
-        {/* Tiện ích Màn hình chính (2 Widgets: Sức khỏe & Fitness) */}
-        <Text style={styles.sectionTitle}>
-          {t('Tiện ích Widget (Sức khỏe & Fitness)', 'App & Home Screen Widgets (2)')}
-        </Text>
-        <HomeWidgetsSection
-          healthSummary={watchService.getHealthSummary()}
-          watchStatus={watchStatus}
-          onNavigateHeartRate={() => navigation?.navigate?.('HeartRate')}
-          onNavigateSport={() => navigation?.navigate?.('Sport')}
-          showPinButtons={true}
-        />
 
         {/* Demo product (Gộp Điều khiển từ xa & Các nút test thông báo/cảnh báo) */}
         <Text style={styles.sectionTitle}>{t('Demo product', 'Demo Product')}</Text>

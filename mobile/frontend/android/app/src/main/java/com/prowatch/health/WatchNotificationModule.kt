@@ -1,9 +1,6 @@
 package com.prowatch.health
 
 import android.app.Activity
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -295,78 +292,6 @@ class WatchNotificationModule(reactContext: ReactApplicationContext) :
 
   override fun onNewIntent(intent: Intent) {
     // No-op
-  }
-
-  /**
-   * Cập nhật dữ liệu thời gian thực cho cả 2 Widget trên màn hình chính Android:
-   * 1. HealthVitalsWidgetProvider (Heart Rate, SpO2 & Status)
-   * 2. FitnessWidgetProvider (Steps, Calories, Distance & Activity)
-   */
-  @ReactMethod
-  fun updateHomeWidgets(
-    bpm: Int,
-    spo2: Int,
-    statusText: String,
-    statusLevel: String,
-    steps: Int,
-    stepsGoal: Int,
-    calories: Int,
-    caloGoal: Int,
-    activity: String,
-    updatedAt: String,
-    promise: Promise
-  ) {
-    try {
-      val ctx = reactApplicationContext
-      val prefs = ctx.getSharedPreferences(HealthVitalsWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
-      prefs.edit()
-        .putInt("bpm", bpm)
-        .putInt("spo2", spo2)
-        .putString("statusText", statusText)
-        .putString("statusLevel", statusLevel)
-        .putInt("steps", steps)
-        .putInt("stepsGoal", stepsGoal)
-        .putInt("calories", calories)
-        .putInt("caloGoal", caloGoal)
-        .putString("activity", activity)
-        .putString("updatedAt", updatedAt)
-        .apply()
-
-      HealthVitalsWidgetProvider.updateAllWidgets(ctx)
-      FitnessWidgetProvider.updateAllWidgets(ctx)
-      promise.resolve(true)
-    } catch (e: Exception) {
-      promise.resolve(false)
-    }
-  }
-
-  /**
-   * Yêu cầu ghim trực tiếp 1 trong 2 Widget ra màn hình chính Android (Android 8.0+)
-   */
-  @ReactMethod
-  fun requestPinWidget(widgetType: String, promise: Promise) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-      promise.resolve(false)
-      return
-    }
-    try {
-      val ctx = reactApplicationContext
-      val appWidgetManager = AppWidgetManager.getInstance(ctx)
-      if (!appWidgetManager.isRequestPinAppWidgetSupported) {
-        promise.resolve(false)
-        return
-      }
-      val providerClass = if (widgetType.lowercase() == "fitness") {
-        FitnessWidgetProvider::class.java
-      } else {
-        HealthVitalsWidgetProvider::class.java
-      }
-      val componentName = ComponentName(ctx, providerClass)
-      val pinned = appWidgetManager.requestPinAppWidget(componentName, null, null)
-      promise.resolve(pinned)
-    } catch (e: Exception) {
-      promise.resolve(false)
-    }
   }
 
   @ReactMethod

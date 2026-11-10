@@ -19,7 +19,6 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { UserAvatar, AvatarPickerModal } from '../components/UserAvatar';
-import { HomeWidgetsSection } from '../components/HomeWidgetsSection';
 
 export const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
@@ -30,7 +29,6 @@ export const DashboardScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAvatarModalVisible, setIsAvatarModalVisible] = useState(false);
-  const [showWidgetsDock, setShowWidgetsDock] = useState(true);
 
   // Cập nhật trạng thái và đồng bộ dữ liệu Supabase mỗi khi quay lại màn hình chính
   useFocusEffect(
@@ -211,35 +209,6 @@ export const DashboardScreen: React.FC = () => {
             />
           </View>
         </View>
-
-        {/* ================= 2 WIDGETS: SỨC KHỎE (HR, SPO2, STATUS) & FITNESS ================= */}
-        <View style={styles.widgetSectionHeader}>
-          <Text style={styles.sectionTitle}>{t('Tiện ích Widget (2)', 'App Widgets (2)')}</Text>
-          <TouchableOpacity
-            style={styles.widgetTogglePill}
-            onPress={() => setShowWidgetsDock((prev) => !prev)}
-            activeOpacity={0.75}
-          >
-            <MaterialCommunityIcons
-              name={showWidgetsDock ? 'chevron-up' : 'widgets-outline'}
-              size={15}
-              color={Colors.primary}
-            />
-            <Text style={styles.widgetToggleText}>
-              {showWidgetsDock ? t('Thu gọn', 'Collapse') : t('Hiển thị 2 Widget', 'Show 2 Widgets')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {showWidgetsDock && (
-          <HomeWidgetsSection
-            healthSummary={healthSummary}
-            watchStatus={watchStatus}
-            onNavigateHeartRate={() => navigation.navigate('HeartRate')}
-            onNavigateSport={() => navigation.navigate('Sport')}
-            showPinButtons={true}
-          />
-        )}
 
         {/* ================= COMPONENT 1: HOẠT ĐỘNG ================= */}
         <Text style={styles.sectionTitle}>{t('Hoạt động', 'Activity')}</Text>
@@ -613,29 +582,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  widgetSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 6,
-    marginBottom: 6,
-  },
-  widgetTogglePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  widgetToggleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.primary,
   },
   notificationBtn: {
     width: 42,

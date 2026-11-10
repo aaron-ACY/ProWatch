@@ -1,7 +1,3 @@
 <resources>
   <string name="app_name">ProWatch Health</string>
-  <string name="widget_vitals_title">ProWatch • Nhịp tim, SpO₂ &amp; Thể trạng</string>
-  <string name="widget_vitals_desc">Theo dõi nhanh Nhịp tim (BPM), Oxy trong máu (SpO₂) và đánh giá thể trạng trực tiếp trên màn hình chính.</string>
-  <string name="widget_fitness_title">ProWatch • Fitness &amp; Vận động</string>
-  <string name="widget_fitness_desc">Theo dõi số bước chân, lượng calo tiêu thụ, quãng đường và trạng thái vận động hằng ngày.</string>
 </resources>
