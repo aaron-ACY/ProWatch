@@ -7,20 +7,31 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.util.Base64
+import androidx.core.content.FileProvider
 import com.facebook.react.bridge.ActivityEventListener
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlin.math.min
 
 class WatchNotificationModule(reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext), ActivityEventListener {
 
   private var pickAvatarPromise: Promise? = null
+  @Volatile
+  private var lastDownloadedApkFile: File? = null
 
   companion object {
     private const val REQUEST_PICK_AVATAR = 49102
@@ -42,14 +53,176 @@ class WatchNotificationModule(reactContext: ReactApplicationContext) :
     promise.resolve(true)
   }
 
+  /**
+   * Tải trực tiếp gói cài đặt APK từ GitHub Releases ngay trong giao diện ứng dụng,
+   * phát sự kiện tiến trình AppUpdateProgress (percent, stage, downloadedMB, totalMB)
+   * và tự động mở trình cài đặt Android PackageInstaller khi tải xong.
+   */
   @ReactMethod
   fun downloadAndInstallApk(apkUrl: String, versionTag: String, promise: Promise) {
-    promise.resolve(false)
+    Thread {
+      try {
+        val safeTag = versionTag.replace(Regex("[^a-zA-Z0-9._-]"), "")
+        val cacheDir = reactApplicationContext.cacheDir
+        // Dọn dẹp các file APK bản cũ trong cache để giải phóng bộ nhớ
+        cacheDir.listFiles()?.forEach { f ->
+          if (f.name.startsWith("ProWatch-Health-") && f.name.endsWith(".apk")) {
+            try { f.delete() } catch (_: Exception) {}
+          }
+        }
+
+        val targetFile = File(cacheDir, "ProWatch-Health-$safeTag.apk")
+        emitUpdateProgress(2, "connecting", 0.0, 0.0)
+
+        var currentUrl = apkUrl
+        var redirectCount = 0
+        var connection: HttpURLConnection? = null
+
+        while (redirectCount < 10) {
+          val url = URL(currentUrl)
+          val conn = url.openConnection() as HttpURLConnection
+          conn.instanceFollowRedirects = false
+          conn.connectTimeout = 20000
+          conn.readTimeout = 45000
+          conn.setRequestProperty("User-Agent", "ProWatch-Health-AutoUpdater/1.0")
+          conn.setRequestProperty("Accept", "application/octet-stream, application/vnd.android.package-archive, */*")
+          conn.connect()
+
+          val code = conn.responseCode
+          if (code in 300..399) {
+            val location = conn.getHeaderField("Location")
+            conn.disconnect()
+            if (location.isNullOrEmpty()) break
+            currentUrl = URL(url, location).toString()
+            redirectCount++
+            continue
+          }
+          connection = conn
+          break
+        }
+
+        if (connection == null || connection.responseCode != HttpURLConnection.HTTP_OK) {
+          val errCode = connection?.responseCode ?: -1
+          connection?.disconnect()
+          promise.reject("DOWNLOAD_FAILED", "HTTP error code: $errCode")
+          return@Thread
+        }
+
+        val totalBytes = connection.contentLengthLong
+        val totalMB = if (totalBytes > 0) totalBytes.toDouble() / (1024.0 * 1024.0) else 55.0
+
+        connection.inputStream.use { input ->
+          FileOutputStream(targetFile).use { output ->
+            val buffer = ByteArray(32 * 1024)
+            var downloadedBytes = 0L
+            var lastEmittedPercent = 2
+            var bytesRead: Int
+
+            while (input.read(buffer).also { bytesRead = it } != -1) {
+              output.write(buffer, 0, bytesRead)
+              downloadedBytes += bytesRead
+              val downloadedMB = downloadedBytes.toDouble() / (1024.0 * 1024.0)
+              val percent = if (totalBytes > 0) {
+                ((downloadedBytes * 100L) / totalBytes).toInt().coerceIn(3, 99)
+              } else {
+                ((downloadedMB / totalMB) * 95.0).toInt().coerceIn(3, 95)
+              }
+              if (percent >= lastEmittedPercent + 1) {
+                lastEmittedPercent = percent
+                emitUpdateProgress(percent, "downloading", downloadedMB, totalMB)
+              }
+            }
+            output.flush()
+          }
+        }
+        connection.disconnect()
+
+        if (!targetFile.exists() || targetFile.length() < 100_000L) {
+          promise.reject("INVALID_APK", "Gói APK tải về không hợp lệ hoặc bị gián đoạn.")
+          return@Thread
+        }
+
+        lastDownloadedApkFile = targetFile
+        val finalMB = targetFile.length().toDouble() / (1024.0 * 1024.0)
+        emitUpdateProgress(100, "installing", finalMB, finalMB)
+
+        val result = launchApkInstaller(targetFile)
+        promise.resolve(result)
+      } catch (e: Exception) {
+        promise.reject("AUTO_UPDATE_ERROR", e.message, e)
+      }
+    }.start()
   }
 
+  /**
+   * Kích hoạt cài đặt gói APK đã tải sẵn trong cache (ví dụ sau khi người dùng vừa cấp quyền Unknown Sources).
+   */
   @ReactMethod
   fun installPendingApk(promise: Promise) {
-    promise.resolve(false)
+    try {
+      val file = lastDownloadedApkFile
+      if (file != null && file.exists() && file.length() > 100_000L) {
+        val result = launchApkInstaller(file)
+        promise.resolve(result)
+      } else {
+        promise.resolve("NO_PENDING_APK")
+      }
+    } catch (e: Exception) {
+      promise.reject("INSTALL_PENDING_ERROR", e.message, e)
+    }
+  }
+
+  private fun launchApkInstaller(apkFile: File): String {
+    val ctx = reactApplicationContext
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      if (!ctx.packageManager.canRequestPackageInstalls()) {
+        val manageIntent = Intent(
+          Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+          Uri.parse("package:${ctx.packageName}")
+        ).apply {
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val activity = ctx.currentActivity
+        if (activity != null) {
+          activity.startActivity(manageIntent)
+        } else {
+          ctx.startActivity(manageIntent)
+        }
+        return "NEED_UNKNOWN_SOURCES_PERMISSION"
+      }
+    }
+
+    val authority = "${ctx.packageName}.FileSystemFileProvider"
+    val apkUri = FileProvider.getUriForFile(ctx, authority, apkFile)
+
+    val installIntent = Intent(Intent.ACTION_VIEW).apply {
+      setDataAndType(apkUri, "application/vnd.android.package-archive")
+      addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    val activity = ctx.currentActivity
+    if (activity != null) {
+      activity.startActivity(installIntent)
+    } else {
+      ctx.startActivity(installIntent)
+    }
+    return "INSTALLER_LAUNCHED"
+  }
+
+  private fun emitUpdateProgress(percent: Int, stage: String, downloadedMB: Double, totalMB: Double) {
+    if (!reactApplicationContext.hasActiveReactInstance()) return
+    try {
+      val params = Arguments.createMap().apply {
+        putInt("percent", percent)
+        putString("stage", stage)
+        putDouble("downloadedMB", downloadedMB)
+        putDouble("totalMB", totalMB)
+      }
+      reactApplicationContext
+        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+        .emit("AppUpdateProgress", params)
+    } catch (_: Exception) {
+    }
   }
 
   /**
