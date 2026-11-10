@@ -1137,37 +1137,52 @@ export function createWatch3DModel(
   // --- 10. Interactive Component Explorer Highlight System ---
   let activeHighlightedId: string | null = null;
   interface HighlightRecord {
-    material: THREE.Material;
     origEmissiveHex: number;
     origIntensity: number;
   }
-  const highlightRecords: HighlightRecord[] = [];
+  const highlightRecords = new Map<THREE.Material, HighlightRecord>();
 
   const highlightComponent = (componentId: string | null) => {
-    // 1. Restore previously highlighted meshes
-    highlightRecords.forEach(({ material, origEmissiveHex, origIntensity }) => {
+    // 1. Restore previously highlighted unique materials
+    highlightRecords.forEach(({ origEmissiveHex, origIntensity }, material) => {
       if ((material as any).emissive) {
         (material as any).emissive.setHex(origEmissiveHex);
         (material as any).emissiveIntensity = origIntensity;
       }
     });
-    highlightRecords.length = 0;
+    highlightRecords.clear();
     activeHighlightedId = componentId;
 
-    if (!componentId) return;
+    if (!componentId) {
+      // Safety pass: ensure no mesh retains residual highlight emissive state
+      rootGroup.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh && obj.userData?.componentId) {
+          const mesh = obj as THREE.Mesh;
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          mats.forEach((mat) => {
+            if (mat && (mat as any).emissive && (mat as any).emissive.getHex() === 0x38bdf8) {
+              (mat as any).emissive.setHex(0x000000);
+              (mat as any).emissiveIntensity = 0;
+            }
+          });
+        }
+      });
+      return;
+    }
 
-    // 2. Traverse and highlight matching meshes
+    // 2. Traverse and highlight matching meshes (deduplicated per Material instance)
     rootGroup.traverse((obj) => {
       if ((obj as THREE.Mesh).isMesh && obj.userData?.componentId === componentId) {
         const mesh = obj as THREE.Mesh;
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         mats.forEach((mat) => {
           if (mat && (mat as any).emissive) {
-            highlightRecords.push({
-              material: mat,
-              origEmissiveHex: (mat as any).emissive.getHex(),
-              origIntensity: (mat as any).emissiveIntensity ?? 0,
-            });
+            if (!highlightRecords.has(mat)) {
+              highlightRecords.set(mat, {
+                origEmissiveHex: (mat as any).emissive.getHex(),
+                origIntensity: (mat as any).emissiveIntensity ?? 0,
+              });
+            }
             // Refined studio cyan highlight for high visibility on materials
             (mat as any).emissive.setHex(0x38bdf8);
             (mat as any).emissiveIntensity = componentId === 'straps' ? 0.22 : 0.45;
@@ -1178,10 +1193,10 @@ export function createWatch3DModel(
   };
 
   const updateHighlightPulse = (time: number) => {
-    if (!activeHighlightedId || highlightRecords.length === 0) return;
+    if (!activeHighlightedId || highlightRecords.size === 0) return;
     const basePulse = activeHighlightedId === 'straps' ? 0.20 : 0.38;
     const pulse = basePulse + 0.12 * Math.sin(time * 5.5);
-    highlightRecords.forEach(({ material }) => {
+    highlightRecords.forEach((_, material) => {
       if ((material as any).emissive) {
         (material as any).emissiveIntensity = pulse;
       }

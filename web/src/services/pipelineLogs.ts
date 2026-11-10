@@ -41,8 +41,8 @@ export const generateTrainingLogs = (
   const epochs = details.epochs_trained || 15;
   const trainCount = details.train_samples ? details.train_samples.toLocaleString() : '27,217';
   const testCount = details.test_samples ? details.test_samples.toLocaleString() : '5,184';
-  const totalCount = details.total_samples ? details.total_samples.toLocaleString() : '32,401';
-  const supabaseCount = details.supabase_samples || 48;
+  const totalCount = details.total_samples ? details.total_samples.toLocaleString() : '32,386';
+  const supabaseCount = details.supabase_samples || 33;
   const baselineCount = details.baseline_samples ? details.baseline_samples.toLocaleString() : '32,353';
 
   return [

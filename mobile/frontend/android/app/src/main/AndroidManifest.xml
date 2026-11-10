@@ -40,5 +40,17 @@
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+    <receiver android:name=".HealthVitalsWidgetProvider" android:exported="true" android:label="@string/widget_vitals_title">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/health_vitals_widget_info"/>
+    </receiver>
+    <receiver android:name=".FitnessWidgetProvider" android:exported="true" android:label="@string/widget_fitness_title">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/fitness_widget_info"/>
+    </receiver>
   </application>
 </manifest>

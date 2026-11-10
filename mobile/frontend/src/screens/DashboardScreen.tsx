@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  RefreshControl, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
   ActivityIndicator,
   Alert
 } from 'react-native';
@@ -17,14 +17,20 @@ import { HealthSummary, WatchStatus, RootTabParamList } from '../types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { UserAvatar, AvatarPickerModal } from '../components/UserAvatar';
+import { HomeWidgetsSection } from '../components/HomeWidgetsSection';
 
 export const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { t } = useLanguage();
+  const { user, updateAvatar } = useAuth();
   const [healthSummary, setHealthSummary] = useState<HealthSummary>(watchService.getHealthSummary());
   const [watchStatus, setWatchStatus] = useState<WatchStatus>(watchService.getWatchStatus());
   const [refreshing, setRefreshing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isAvatarModalVisible, setIsAvatarModalVisible] = useState(false);
+  const [showWidgetsDock, setShowWidgetsDock] = useState(true);
 
   // Cập nhật trạng thái và đồng bộ dữ liệu Supabase mỗi khi quay lại màn hình chính
   useFocusEffect(
@@ -154,7 +160,7 @@ export const DashboardScreen: React.FC = () => {
 
   return (
     <View style={styles.screen}>
-      <ScrollView 
+      <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
@@ -164,33 +170,80 @@ export const DashboardScreen: React.FC = () => {
       >
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.headerGreeting}>{t('Tổng quan hôm nay', 'Today Overview')}</Text>
-          <TouchableOpacity 
-            style={styles.notificationBtn}
-            onPress={() =>
-              Alert.alert(
-                t('Thông báo', 'Notifications'),
-                hasHrData || hasSpo2Data
-                  ? t(
+          <View style={styles.headerLeftGroup}>
+            <Text style={styles.headerGreeting}>{t('Tổng quan hôm nay', 'Today Overview')}</Text>
+            {user?.name && (
+              <Text style={styles.headerSubGreeting} numberOfLines={1}>
+                {t(`Xin chào, ${user.name}`, `Hello, ${user.name}`)}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.headerRightActions}>
+            <TouchableOpacity
+              style={styles.notificationBtn}
+              onPress={() =>
+                Alert.alert(
+                  t('Thông báo', 'Notifications'),
+                  hasHrData || hasSpo2Data
+                    ? t(
                       'Tất cả chỉ số nhịp tim và oxy máu đều trong ngưỡng an toàn.',
                       'All heart rate and blood oxygen readings are within safe thresholds.'
                     )
-                  : t(
+                    : t(
                       'Chưa có dữ liệu đo nhịp tim và oxy máu hôm nay.',
                       'No heart rate or blood oxygen readings recorded today.'
                     )
-              )
-            }
-            activeOpacity={0.7}
+                )
+              }
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="bell-outline" size={22} color="#0F172A" />
+              {(hasHrData || hasSpo2Data) && <View style={styles.notificationBadge} />}
+            </TouchableOpacity>
+
+            <UserAvatar
+              avatar={user?.avatar}
+              name={user?.name}
+              size={42}
+              showEditBadge
+              onPress={() => setIsAvatarModalVisible(true)}
+            />
+          </View>
+        </View>
+
+        {/* ================= 2 WIDGETS: SỨC KHỎE (HR, SPO2, STATUS) & FITNESS ================= */}
+        <View style={styles.widgetSectionHeader}>
+          <Text style={styles.sectionTitle}>{t('Tiện ích Widget (2)', 'App Widgets (2)')}</Text>
+          <TouchableOpacity
+            style={styles.widgetTogglePill}
+            onPress={() => setShowWidgetsDock((prev) => !prev)}
+            activeOpacity={0.75}
           >
-            <MaterialCommunityIcons name="bell-outline" size={22} color="#0F172A" />
-            {(hasHrData || hasSpo2Data) && <View style={styles.notificationBadge} />}
+            <MaterialCommunityIcons
+              name={showWidgetsDock ? 'chevron-up' : 'widgets-outline'}
+              size={15}
+              color={Colors.primary}
+            />
+            <Text style={styles.widgetToggleText}>
+              {showWidgetsDock ? t('Thu gọn', 'Collapse') : t('Hiển thị 2 Widget', 'Show 2 Widgets')}
+            </Text>
           </TouchableOpacity>
         </View>
 
+        {showWidgetsDock && (
+          <HomeWidgetsSection
+            healthSummary={healthSummary}
+            watchStatus={watchStatus}
+            onNavigateHeartRate={() => navigation.navigate('HeartRate')}
+            onNavigateSport={() => navigation.navigate('Sport')}
+            showPinButtons={true}
+          />
+        )}
+
         {/* ================= COMPONENT 1: HOẠT ĐỘNG ================= */}
         <Text style={styles.sectionTitle}>{t('Hoạt động', 'Activity')}</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.activityCard, Shadows.sm]}
           onPress={() => navigation.navigate('Sport')}
           activeOpacity={0.85}
@@ -291,7 +344,7 @@ export const DashboardScreen: React.FC = () => {
           {/* CỘT TRÁI: NHỊP TIM & SPO2 VỚI THANH ĐO NGƯỠNG AN TOÀN */}
           <View style={styles.healthLeftCol}>
             {/* Nhịp tim */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.vitalsRow}
               onPress={() => navigation.navigate('HeartRate')}
               activeOpacity={0.7}
@@ -333,7 +386,7 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.vitalsDivider} />
 
             {/* Oxy máu (SpO2) */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.vitalsRow}
               onPress={() => navigation.navigate('HeartRate')}
               activeOpacity={0.7}
@@ -457,7 +510,7 @@ export const DashboardScreen: React.FC = () => {
             </Text>
 
             {/* Nút chuyển tiếp Xem chi tiết */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.detailLinkBtn}
               onPress={() => navigation.navigate('HeartRate')}
               activeOpacity={0.7}
@@ -473,7 +526,7 @@ export const DashboardScreen: React.FC = () => {
         <Text style={styles.sectionTitle}>{t('Truy cập nhanh', 'Quick Actions')}</Text>
         <View style={styles.quickAccessRow}>
           {/* Đồng bộ Cloud */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.quickBtn, Shadows.sm]}
             onPress={handleSync}
             disabled={isSyncing}
@@ -492,7 +545,7 @@ export const DashboardScreen: React.FC = () => {
           </TouchableOpacity>
 
           {/* Kiến thức cần biết */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.quickBtn, Shadows.sm]}
             onPress={() => navigation.navigate('Settings', { openDoc: 'knowledge' })}
             activeOpacity={0.8}
@@ -506,6 +559,15 @@ export const DashboardScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Modal Đổi Ảnh Đại Diện */}
+      <AvatarPickerModal
+        visible={isAvatarModalVisible}
+        currentAvatar={user?.avatar}
+        userName={user?.name}
+        onClose={() => setIsAvatarModalVisible(false)}
+        onSaveAvatar={updateAvatar}
+      />
     </View>
   );
 };
@@ -532,10 +594,48 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     marginTop: 4,
   },
+  headerLeftGroup: {
+    flex: 1,
+    paddingRight: 10,
+  },
   headerGreeting: {
     fontSize: 24,
     fontWeight: '900',
     color: '#0F172A',
+  },
+  headerSubGreeting: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  widgetSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  widgetTogglePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  widgetToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   notificationBtn: {
     width: 42,

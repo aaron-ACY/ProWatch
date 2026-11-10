@@ -157,23 +157,27 @@ const categoryStyles: Record<
   }
 };
 
-// Bộ con trỏ chuột Bàn Tay màu cam chuẩn n8n / Figma Canvas: Nắm, Kéo, Thả, Click, Trượt (Base64 PNG 32x32 RGBA 8x Supersampled)
+// Bộ con trỏ chuột Vector SVG Studio màu cam chuẩn n8n / Figma Canvas: Mặc định, Nắm, Kéo, Thả, Click, Trượt, Cổng Pin, Vô hiệu hóa
 import {
+  ORANGE_DEFAULT_CURSOR,
   ORANGE_GRAB_CURSOR,
   ORANGE_GRABBING_CURSOR,
   ORANGE_POINTER_CURSOR,
   ORANGE_CLICK_CURSOR,
   ORANGE_SLIDE_CURSOR,
-  ORANGE_CROSSHAIR_CURSOR
+  ORANGE_CROSSHAIR_CURSOR,
+  ORANGE_NOT_ALLOWED_CURSOR
 } from '@/utils/handCursors';
 
 export {
+  ORANGE_DEFAULT_CURSOR,
   ORANGE_GRAB_CURSOR,
   ORANGE_GRABBING_CURSOR,
   ORANGE_POINTER_CURSOR,
   ORANGE_CLICK_CURSOR,
   ORANGE_SLIDE_CURSOR,
-  ORANGE_CROSSHAIR_CURSOR
+  ORANGE_CROSSHAIR_CURSOR,
+  ORANGE_NOT_ALLOWED_CURSOR
 };
 
 interface PipelineNodeProps {
@@ -222,10 +226,9 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
         position: 'absolute',
         left: `${left}px`,
         top: `${top}px`,
-        width: `${width}px`,
-        cursor: ORANGE_POINTER_CURSOR
+        width: `${width}px`
       }}
-      className="pipeline-node-card group select-none"
+      className="pipeline-node-card cursor-pointer group select-none"
     >
       <div
         className={`relative h-[74px] rounded-md border bg-white shadow-xs transition-all duration-150 overflow-visible ${
@@ -247,8 +250,9 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
           {/* Input Pin (Left) */}
           {hasInputPin && (
             <div
+              data-no-pan="true"
               style={{ cursor: ORANGE_CROSSHAIR_CURSOR }}
-              className={`absolute -left-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors ${
+              className={`cursor-crosshair absolute -left-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors ${
                 isActive ? 'bg-cyan-700 ring-2 ring-cyan-200' : 'bg-zinc-400 group-hover:bg-zinc-600'
               }`}
             />
@@ -291,8 +295,9 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
           {/* Output Pin (Right) */}
           {hasOutputPin && !hasDualOutputPin && (
             <div
+              data-no-pan="true"
               style={{ cursor: ORANGE_CROSSHAIR_CURSOR }}
-              className={`absolute -right-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors ${
+              className={`cursor-crosshair absolute -right-[6px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs transition-colors ${
                 isActive ? 'bg-cyan-700 ring-2 ring-cyan-200' : 'bg-zinc-400 group-hover:bg-zinc-600'
               }`}
             />
@@ -303,14 +308,16 @@ const PipelineNodeCard: React.FC<PipelineNodeProps> = ({
             <>
               {/* True Pin (Top) */}
               <div
+                data-no-pan="true"
                 style={{ cursor: ORANGE_CROSSHAIR_CURSOR }}
-                className="absolute -right-[6px] top-1/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-emerald-600 ring-2 ring-emerald-200"
+                className="cursor-crosshair absolute -right-[6px] top-1/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-emerald-600 ring-2 ring-emerald-200"
                 title={language === 'vi' ? 'Nhánh đạt chất lượng (True >= 90%)' : 'Quality Pass Branch (True >= 90%)'}
               />
               {/* False Pin (Bottom) */}
               <div
+                data-no-pan="true"
                 style={{ cursor: ORANGE_CROSSHAIR_CURSOR }}
-                className="absolute -right-[6px] top-3/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-red-600 ring-2 ring-red-200"
+                className="cursor-crosshair absolute -right-[6px] top-3/4 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-xs bg-red-600 ring-2 ring-red-200"
                 title={language === 'vi' ? 'Nhánh sự cố (False < 90%)' : 'Quality Incident Branch (False < 90%)'}
               />
             </>
@@ -775,9 +782,8 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
             href="http://localhost:3636"
             target="_blank"
             rel="noreferrer"
-            style={{ cursor: ORANGE_POINTER_CURSOR }}
             title={language === 'vi' ? 'Mở bảng điều khiển n8n Editor Studio trên cổng :3636' : 'Open n8n Editor Studio Dashboard on port :3636'}
-            className="h-8 px-3 rounded border border-zinc-300 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 flex items-center gap-1.5 transition-colors"
+            className="h-8 px-3 rounded border border-zinc-300 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <ExternalLink size={13} className="text-zinc-500" />
             <span>{language === 'vi' ? 'Mở n8n Studio (:3636)' : 'Open n8n Studio (:3636)'}</span>
@@ -786,8 +792,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
           <a
             href="/automated_training_pipeline.json"
             download="automated_training_pipeline.json"
-            style={{ cursor: ORANGE_POINTER_CURSOR }}
-            className="h-8 px-3 rounded border border-zinc-300 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 flex items-center gap-1.5 transition-colors"
+            className="h-8 px-3 rounded border border-zinc-300 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Download size={13} className="text-zinc-500" />
             <span>{language === 'vi' ? 'Xuất file n8n JSON' : 'Export n8n JSON'}</span>
@@ -822,8 +827,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               setBottomPanelOpen(true);
               bottomPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }}
-            style={{ cursor: ORANGE_POINTER_CURSOR }}
-            className="h-8 px-3 rounded-md border border-zinc-300 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-800 shadow-2xs hover:shadow-xs flex items-center gap-2 transition-all active:scale-95"
+            className="h-8 px-3 rounded-md border border-zinc-300 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-800 shadow-2xs hover:shadow-xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
             title="Mở bảng nhật ký Action Runner Logs"
           >
             <Terminal size={14} className="text-zinc-600" />
@@ -1361,8 +1365,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               <button
                 type="button"
                 onClick={handleResetView}
-                style={{ cursor: ORANGE_POINTER_CURSOR }}
-                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors cursor-pointer"
                 title={language === 'vi' ? 'Căn vừa màn hình (Fit to Screen)' : 'Fit to Screen'}
               >
                 <Maximize2 size={15} />
@@ -1370,8 +1373,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               <button
                 type="button"
                 onClick={() => setZoomLevel((z) => Math.min(z + 10, 160))}
-                style={{ cursor: ORANGE_POINTER_CURSOR }}
-                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors cursor-pointer"
                 title={language === 'vi' ? 'Phóng to (+10%)' : 'Zoom In (+10%)'}
               >
                 <ZoomIn size={15} />
@@ -1379,8 +1381,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               <button
                 type="button"
                 onClick={() => setZoomLevel((z) => Math.max(z - 10, 50))}
-                style={{ cursor: ORANGE_POINTER_CURSOR }}
-                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors cursor-pointer"
                 title={language === 'vi' ? 'Thu nhỏ (-10%)' : 'Zoom Out (-10%)'}
               >
                 <ZoomOut size={15} />
@@ -1388,8 +1389,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               <button
                 type="button"
                 onClick={handleResetView}
-                style={{ cursor: ORANGE_POINTER_CURSOR }}
-                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors"
+                className="h-8 w-8 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-700 hover:text-zinc-900 transition-colors cursor-pointer"
                 title={language === 'vi' ? 'Đặt lại 100% (Reset View)' : 'Reset View (100%)'}
               >
                 <RotateCcw size={14} />
@@ -1398,8 +1398,7 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               <button
                 type="button"
                 onClick={handleResetView}
-                style={{ cursor: ORANGE_POINTER_CURSOR }}
-                className="font-mono text-xs font-bold text-zinc-800 hover:bg-zinc-100 px-1.5 py-1 rounded transition-colors"
+                className="font-mono text-xs font-bold text-zinc-800 hover:bg-zinc-100 px-1.5 py-1 rounded transition-colors cursor-pointer"
                 title={language === 'vi' ? 'Tỉ lệ phóng to (Click để đặt lại 100%)' : 'Zoom Level (Click to reset)'}
               >
                 {zoomLevel}%
@@ -1416,11 +1415,11 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               type="button"
               onClick={handleExecuteTrainingWorkflow}
               disabled={isRunning}
-              style={{ cursor: isRunning ? 'not-allowed' : ORANGE_POINTER_CURSOR }}
-              className={`h-10 px-5 rounded-md text-xs font-bold transition-all shadow-md flex items-center gap-2 active:scale-95 ${
+              style={{ cursor: isRunning ? ORANGE_NOT_ALLOWED_CURSOR : undefined }}
+              className={`h-10 px-5 rounded-md text-xs font-bold transition-all flex items-center gap-2 active:scale-95 shadow-[0_4px_14px_rgba(234,88,12,0.32)] ${
                 isRunning
-                  ? 'bg-cyan-800 text-white opacity-90'
-                  : 'bg-cyan-700 hover:bg-cyan-800 text-white'
+                  ? 'bg-orange-700 text-white opacity-90 cursor-not-allowed'
+                  : 'bg-[#ff6d5a] hover:bg-orange-600 active:bg-orange-700 text-white border border-orange-600/30 cursor-pointer'
               }`}
               title="Thực thi n8n AI Training Workflow"
             >

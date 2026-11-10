@@ -718,10 +718,10 @@ export const PrototypeTab: React.FC<PrototypeTabProps> = ({
                     setAutoRotate(false);
                   }
                 }}
+                className="cursor-slide"
                 style={{
                   width: '100%',
                   accentColor: '#4f46e5',
-                  cursor: 'pointer',
                   height: '6px',
                 }}
               />
@@ -1032,6 +1032,7 @@ export const PrototypeTab: React.FC<PrototypeTabProps> = ({
               }}>
                 <div
                   onClick={() => handleSelectComponent('xiao')}
+                  className="cursor-pointer"
                   style={{
                     backgroundColor: '#ffffff',
                     border: '1px solid #e2e8f0',
@@ -1040,22 +1041,23 @@ export const PrototypeTab: React.FC<PrototypeTabProps> = ({
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = '#c7d2fe'}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = '#bfdbfe'}
                   onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
                 >
-                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#4f46e5', marginBottom: '0.2rem' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#2563eb', marginBottom: '0.2rem' }}>
                     {language === 'vi' ? 'VI ĐIỀU KHIỂN & AI' : 'MICROCONTROLLER & AI'}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 600 }}>
+                  <div style={{ fontSize: '0.7rem', color: '#0f172a', fontWeight: 600 }}>
                     Xiao ESP32-S3 (240MHz)
                   </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8' }}>
+                  <div style={{ fontSize: '0.64rem', color: '#64748b' }}>
                     TinyML INT8 Inference
                   </div>
                 </div>
 
                 <div
                   onClick={() => handleSelectComponent('max30102')}
+                  className="cursor-pointer"
                   style={{
                     backgroundColor: '#ffffff',
                     border: '1px solid #e2e8f0',
@@ -1064,22 +1066,23 @@ export const PrototypeTab: React.FC<PrototypeTabProps> = ({
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = '#fee2e2'}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = '#bfdbfe'}
                   onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
                 >
-                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#dc2626', marginBottom: '0.2rem' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#2563eb', marginBottom: '0.2rem' }}>
                     {language === 'vi' ? 'CẢM BIẾN PPG & IMU' : 'PPG & IMU SENSORS'}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 600 }}>
+                  <div style={{ fontSize: '0.7rem', color: '#0f172a', fontWeight: 600 }}>
                     MAX30102 &amp; MPU6050
                   </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8' }}>
+                  <div style={{ fontSize: '0.64rem', color: '#64748b' }}>
                     I2C 400kHz Fast Mode
                   </div>
                 </div>
 
                 <div
                   onClick={() => handleSelectComponent('display')}
+                  className="cursor-pointer"
                   style={{
                     backgroundColor: '#ffffff',
                     border: '1px solid #e2e8f0',
@@ -1094,16 +1097,17 @@ export const PrototypeTab: React.FC<PrototypeTabProps> = ({
                   <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#2563eb', marginBottom: '0.2rem' }}>
                     {language === 'vi' ? 'MÀN HÌNH & GIAO DIỆN' : 'DISPLAY & INTERFACE'}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 600 }}>
+                  <div style={{ fontSize: '0.7rem', color: '#0f172a', fontWeight: 600 }}>
                     1.54&quot; TFT ST7789 SPI
                   </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8' }}>
+                  <div style={{ fontSize: '0.64rem', color: '#64748b' }}>
                     UI Pip-Boy 3000 Vault-Tec
                   </div>
                 </div>
 
                 <div
                   onClick={() => handleSelectComponent('battery')}
+                  className="cursor-pointer"
                   style={{
                     backgroundColor: '#ffffff',
                     border: '1px solid #e2e8f0',
@@ -1112,16 +1116,16 @@ export const PrototypeTab: React.FC<PrototypeTabProps> = ({
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = '#bbf7d0'}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = '#bfdbfe'}
                   onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
                 >
-                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#059669', marginBottom: '0.2rem' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#2563eb', marginBottom: '0.2rem' }}>
                     {language === 'vi' ? 'NGUỒN & KHUNG CƠ KHÍ' : 'POWER & CHASSIS'}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 600 }}>
+                  <div style={{ fontSize: '0.7rem', color: '#0f172a', fontWeight: 600 }}>
                     {language === 'vi' ? 'LiPo 3.7V + Khung đồng' : 'LiPo 3.7V + Copper Frame'}
                   </div>
-                  <div style={{ fontSize: '0.64rem', color: '#94a3b8' }}>
+                  <div style={{ fontSize: '0.64rem', color: '#64748b' }}>
                     {language === 'vi' ? 'Pin 1000mAh, sạc Type-C' : '1000mAh Cell, USB-C Charge'}
                   </div>
                 </div>

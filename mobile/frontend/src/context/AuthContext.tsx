@@ -13,6 +13,7 @@ export interface HealthProfileData {
   weight: number;
   notes?: string;
   age?: number;
+  avatar?: string;
 }
 
 interface AuthContextType {
@@ -27,6 +28,7 @@ interface AuthContextType {
   cancelMfaLogin: () => Promise<void>;
   register: (name?: string, email?: string, password?: string) => Promise<{ success: boolean; message?: string }>;
   completeProfile: (data: HealthProfileData) => Promise<{ success: boolean; message?: string }>;
+  updateAvatar: (avatarUri: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -66,7 +68,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .eq('id', sbUser.id)
       .maybeSingle();
 
+    let cachedAvatar: string | null = null;
+    try {
+      cachedAvatar = await AsyncStorage.getItem(`@prowatch_user_avatar_${sbUser.id}`);
+    } catch {}
+
     const displayName = profile?.full_name || sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || defaultEmail.split('@')[0] || 'Thành viên ProWatch';
+    const userAvatar = profile?.avatar_url || sbUser.user_metadata?.avatar_url || cachedAvatar || undefined;
     const dob = profile?.date_of_birth || sbUser.user_metadata?.date_of_birth;
     const userGender = profile?.gender || sbUser.user_metadata?.gender;
     const userHeight = profile?.height || sbUser.user_metadata?.height;
@@ -74,6 +82,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userAge = profile?.age ?? sbUser.user_metadata?.age ?? computeAgeFromDob(dob);
     const userNotes = profile?.notes ?? sbUser.user_metadata?.notes;
     const isComplete = Boolean(dob && userGender && (userHeight || sbUser.user_metadata?.isProfileComplete));
+
+    if (userAvatar && userAvatar !== cachedAvatar) {
+      AsyncStorage.setItem(`@prowatch_user_avatar_${sbUser.id}`, userAvatar).catch(() => {});
+    }
 
     // Thiết lập tài khoản hiện tại cho watchService để tải đúng dữ liệu của user này
     watchService.setCurrentUserId(sbUser.id);
@@ -90,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: sbUser.id,
       name: displayName,
       email: sbUser.email || defaultEmail,
+      avatar: userAvatar,
       dateOfBirth: dob,
       gender: userGender,
       height: userHeight,
@@ -369,19 +382,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const computedBmi = data.weight ? Math.round((data.weight / (hMeters * hMeters)) * 10) / 10 : null;
       const finalAge = data.age ?? user.age ?? computeAgeFromDob(data.dateOfBirth);
 
+      const finalAvatar = data.avatar !== undefined ? data.avatar : user.avatar;
+
       // 1. Cập nhật user_metadata trên Supabase Auth
+      const metaUpdate: Record<string, any> = {
+        full_name: user.name,
+        gender: data.gender,
+        date_of_birth: data.dateOfBirth,
+        height: data.height,
+        weight: data.weight,
+        age: finalAge,
+        notes: data.notes,
+        bmi: computedBmi,
+        isProfileComplete: true,
+      };
+      if (finalAvatar !== undefined && finalAvatar.length < 2048) {
+        metaUpdate.avatar_url = finalAvatar;
+      }
       await supabase.auth.updateUser({
-        data: {
-          full_name: user.name,
-          gender: data.gender,
-          date_of_birth: data.dateOfBirth,
-          height: data.height,
-          weight: data.weight,
-          age: finalAge,
-          notes: data.notes,
-          bmi: computedBmi,
-          isProfileComplete: true,
-        },
+        data: metaUpdate,
       });
 
       // 2. Cập nhật bảng profiles trên Supabase
@@ -391,6 +410,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: user.id,
             full_name: user.name,
             email: user.email,
+            avatar_url: finalAvatar || null,
             gender: data.gender,
             date_of_birth: data.dateOfBirth,
             height: data.height,
@@ -403,6 +423,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ], { onConflict: 'id' });
       } catch (e) {
         console.warn('Lỗi update profiles Supabase:', e);
+      }
+
+      if (finalAvatar !== undefined) {
+        if (finalAvatar) {
+          AsyncStorage.setItem(`@prowatch_user_avatar_${user.id}`, finalAvatar).catch(() => {});
+        } else {
+          AsyncStorage.removeItem(`@prowatch_user_avatar_${user.id}`).catch(() => {});
+        }
       }
 
       // 3. Đồng bộ thông tin hồ sơ sang Spring Boot Backend
@@ -435,6 +463,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         prev
           ? {
               ...prev,
+              avatar: finalAvatar || undefined,
               gender: data.gender,
               dateOfBirth: data.dateOfBirth,
               height: data.height,
@@ -451,6 +480,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       setIsLoading(false);
       return { success: false, message: err.message || 'Lỗi lưu thông tin sức khỏe' };
+    }
+  };
+
+  // 6b. Cập nhật ảnh đại diện (Avatar)
+  const updateAvatar = async (avatarUri: string): Promise<{ success: boolean; message?: string }> => {
+    if (!user) {
+      return { success: false, message: 'Bạn chưa đăng nhập.' };
+    }
+    const cleanUri = avatarUri.trim();
+    try {
+      // 1. Lưu ngay vào bộ nhớ cục bộ và cập nhật state giao diện tức thì
+      if (cleanUri) {
+        await AsyncStorage.setItem(`@prowatch_user_avatar_${user.id}`, cleanUri);
+      } else {
+        await AsyncStorage.removeItem(`@prowatch_user_avatar_${user.id}`);
+      }
+
+      setUser((prev) => (prev ? { ...prev, avatar: cleanUri || undefined } : null));
+
+      // 2. Đồng bộ lên bảng public.profiles của Supabase
+      try {
+        await supabase.from('profiles').upsert(
+          [
+            {
+              id: user.id,
+              full_name: user.name,
+              email: user.email,
+              avatar_url: cleanUri || null,
+              updated_at: new Date().toISOString(),
+            },
+          ],
+          { onConflict: 'id' }
+        );
+      } catch (dbErr) {
+        console.warn('Lỗi lưu avatar_url lên bảng profiles:', dbErr);
+      }
+
+      // 3. Nếu là preset hoặc URL ngắn (không làm phình kích thước JWT header), cập nhật luôn user_metadata
+      if (cleanUri.length < 2048) {
+        supabase.auth
+          .updateUser({
+            data: { avatar_url: cleanUri || null },
+          })
+          .catch(() => {});
+      }
+
+      return { success: true, message: 'Đã cập nhật ảnh đại diện thành công!' };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Không thể lưu ảnh đại diện.' };
     }
   };
 
@@ -488,6 +566,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         cancelMfaLogin,
         register,
         completeProfile,
+        updateAvatar,
         logout,
       }}
     >

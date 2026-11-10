@@ -14,7 +14,8 @@ import {
   ORANGE_GRAB_CURSOR,
   ORANGE_GRABBING_CURSOR,
   ORANGE_POINTER_CURSOR,
-  ORANGE_CLICK_CURSOR
+  ORANGE_CLICK_CURSOR,
+  ORANGE_SLIDE_CURSOR
 } from '@/utils/handCursors';
 
 interface Watch3DCanvasProps {
@@ -153,12 +154,12 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
     }
   }, [explodedProgress]);
 
-  // Sync Selected / Highlighted Component changes
+  // Sync Selected / Highlighted Component changes (also re-sync on presetTrigger reset)
   useEffect(() => {
     if (modelRef.current) {
       modelRef.current.highlightComponent(selectedComponentId || null);
     }
-  }, [selectedComponentId]);
+  }, [selectedComponentId, presetTrigger]);
 
   // Handle Camera Presets
   useEffect(() => {
@@ -367,6 +368,7 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
     let downPos = { x: 0, y: 0, time: 0 };
     let isPointerDown = false;
     let lastHasInteractiveHit = false;
+    let wheelCursorTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const set3DCursor = (cursorStr: string) => {
       container.style.cursor = cursorStr;
@@ -402,12 +404,14 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
     };
 
     const onPointerDown = (e: MouseEvent) => {
+      if (e.button !== 0 && e.button !== 1) return;
       isPointerDown = true;
       downPos = { x: e.clientX, y: e.clientY, time: Date.now() };
       set3DCursor(lastHasInteractiveHit ? ORANGE_CLICK_CURSOR : ORANGE_GRABBING_CURSOR);
     };
 
     const onPointerUp = (e: MouseEvent) => {
+      if (!isPointerDown) return;
       isPointerDown = false;
       set3DCursor(lastHasInteractiveHit ? ORANGE_POINTER_CURSOR : ORANGE_GRAB_CURSOR);
       const dist = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
@@ -448,9 +452,36 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
       }
     };
 
+    const onGlobalPointerUp = () => {
+      if (isPointerDown) {
+        isPointerDown = false;
+        set3DCursor(lastHasInteractiveHit ? ORANGE_POINTER_CURSOR : ORANGE_GRAB_CURSOR);
+      }
+    };
+
+    const onPointerLeave = () => {
+      if (!isPointerDown) {
+        lastHasInteractiveHit = false;
+        set3DCursor(ORANGE_GRAB_CURSOR);
+      }
+    };
+
+    const onWheelZoom = () => {
+      set3DCursor(ORANGE_SLIDE_CURSOR);
+      if (wheelCursorTimeout) clearTimeout(wheelCursorTimeout);
+      wheelCursorTimeout = setTimeout(() => {
+        if (!isPointerDown) {
+          set3DCursor(lastHasInteractiveHit ? ORANGE_POINTER_CURSOR : ORANGE_GRAB_CURSOR);
+        }
+      }, 220);
+    };
+
     renderer.domElement.addEventListener('mousemove', onPointerMove);
     renderer.domElement.addEventListener('mousedown', onPointerDown);
     renderer.domElement.addEventListener('mouseup', onPointerUp);
+    renderer.domElement.addEventListener('mouseleave', onPointerLeave);
+    renderer.domElement.addEventListener('wheel', onWheelZoom, { passive: true });
+    window.addEventListener('mouseup', onGlobalPointerUp);
 
     // 6. Animation Loop
     let animationFrameId: number;
@@ -522,10 +553,14 @@ export const Watch3DCanvas: React.FC<Watch3DCanvasProps> = ({
 
     return () => {
       cancelAnimationFrame(animationFrameId);
+      if (wheelCursorTimeout) clearTimeout(wheelCursorTimeout);
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('mouseup', onGlobalPointerUp);
       renderer.domElement.removeEventListener('mousemove', onPointerMove);
       renderer.domElement.removeEventListener('mousedown', onPointerDown);
       renderer.domElement.removeEventListener('mouseup', onPointerUp);
+      renderer.domElement.removeEventListener('mouseleave', onPointerLeave);
+      renderer.domElement.removeEventListener('wheel', onWheelZoom);
       controls.dispose();
       pmremGenerator.dispose();
       envTexture.dispose();

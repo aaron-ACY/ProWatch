@@ -59,7 +59,13 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({ records: propRecords }) 
 
           // Đánh giá trạng thái lâm sàng / thiết bị
           let statusLabel = 'Bình thường';
-          if (r.risk_level) {
+          if (r.risk_level === 'Low') {
+            statusLabel = 'Bình thường';
+          } else if (r.risk_level === 'Medium') {
+            statusLabel = hr >= 120 ? 'Nhịp nhanh' : hr < 55 ? 'Nhịp chậm' : spo2 < 95 ? 'SpO2 thấp' : 'Cảnh báo';
+          } else if (r.risk_level === 'High') {
+            statusLabel = hr >= 120 ? 'Nhịp nhanh' : spo2 < 95 ? 'SpO2 thấp' : 'Nguy hiểm';
+          } else if (r.risk_level) {
             statusLabel = r.risk_level;
           } else if (hr >= 120) {
             statusLabel = 'Nhịp nhanh';
@@ -119,8 +125,8 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({ records: propRecords }) 
     const recordStatus = r.status || (r.heart_rate >= 120 ? 'Cảnh báo' : 'Bình thường');
     const matchesStatus =
       filterStatus === 'ALL' ||
-      (filterStatus === 'NORMAL' && (recordStatus === 'Bình thường' || recordStatus === 'Ổn định')) ||
-      (filterStatus === 'WARNING' && (recordStatus === 'Cảnh báo' || recordStatus === 'Nhịp nhanh' || recordStatus === 'SpO2 thấp' || recordStatus === 'Nhịp chậm'));
+      (filterStatus === 'NORMAL' && (recordStatus === 'Bình thường' || recordStatus === 'Ổn định' || recordStatus === 'Low')) ||
+      (filterStatus === 'WARNING' && (recordStatus === 'Cảnh báo' || recordStatus === 'Nhịp nhanh' || recordStatus === 'SpO2 thấp' || recordStatus === 'Nhịp chậm' || recordStatus === 'Nguy hiểm' || recordStatus === 'Medium' || recordStatus === 'High'));
 
     return matchesSearch && matchesStatus;
   });
@@ -272,8 +278,8 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({ records: propRecords }) 
                   const hr = r.heart_rate;
                   const spo2 = r.spo2;
                   const status = r.status || (hr >= 120 ? 'Cảnh báo' : 'Bình thường');
-                  const isNormal = status === 'Bình thường' || status === 'Ổn định';
-                  const isWarning = status === 'Cảnh báo' || status === 'Nhịp nhanh' || status === 'SpO2 thấp' || status === 'Nhịp chậm';
+                  const isNormal = status === 'Bình thường' || status === 'Ổn định' || status === 'Low';
+                  const isWarning = status === 'Cảnh báo' || status === 'Nhịp nhanh' || status === 'SpO2 thấp' || status === 'Nhịp chậm' || status === 'Medium';
 
                   return (
                     <tr key={r.id} className="hover:bg-zinc-50/70 transition-colors">

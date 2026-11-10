@@ -248,14 +248,14 @@ export const SEED_WORKFLOW_RUNS: N8nWorkflowExecution[] = [
     trigger_type: 'MANUAL',
     status: 'SUCCESS',
     current_stage: 'COMPLETED',
-    records_processed: 32401,
+    records_processed: 32386,
     data_cleaning_stats: {
       missing_values_dropped: 0,
       outliers_filtered: 0,
       normalized_windows: 27217,
     },
     duration_seconds: 19.0,
-    message: 'Kiểm thử thủ công Hybrid Data (32.353 Baseline + 48 Supabase Cloud) hoàn tất. Quality Gate >= 90% PASSED.',
+    message: 'Kiểm thử thủ công Hybrid Data (32.353 Baseline + 33 Supabase Cloud chuẩn hóa) hoàn tất. Quality Gate >= 90% PASSED.',
   },
   {
     id: 'exec-8370',

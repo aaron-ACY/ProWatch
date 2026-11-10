@@ -6,9 +6,9 @@
 export const APP_INFO = {
   name: 'ProWatch Health',
   tagline: 'Giai phap theo doi suc khoe thong minh',
-  version: '1.0.8',
-  buildNumber: 25,
-  releaseDate: '2026-11-07',
+  version: '1.0.9',
+  buildNumber: 26,
+  releaseDate: '2026-11-10',
   apkFileName: 'ProWatch-Health.apk',
   environment: 'development',
   packageName: 'com.prowatch.health',
@@ -22,5 +22,7 @@ export const APP_INFO = {
     'Dong bo du lieu voi Backend Spring Boot qua REST API',
     'Quan ly va tinh chinh mat dong ho ProWatch S4',
     'Thong bao va canh bao chi so suc khoe',
+    'Tuy chinh va thay doi anh dai dien ca nhan hoa (Avatar)',
+    'Tien ich Widget Man hinh chinh Android (Vitals & Fitness)',
   ],
 };

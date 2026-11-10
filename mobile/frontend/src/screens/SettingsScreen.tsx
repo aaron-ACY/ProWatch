@@ -30,6 +30,8 @@ import { APP_INFO } from '../config/appInfo';
 import { mfaService, MfaStatus } from '../services/mfaService';
 import { MFAEnrollmentModal } from '../components/MFAEnrollmentModal';
 import { BluetoothConnectionToggle } from '../components/BluetoothConnectionToggle';
+import { UserAvatar, AvatarPickerModal } from '../components/UserAvatar';
+import { HomeWidgetsSection } from '../components/HomeWidgetsSection';
 
 interface NotificationState {
   type: 'success' | 'warning' | 'error' | 'info';
@@ -693,11 +695,12 @@ const StyledSwitch: React.FC<StyledSwitchProps> = ({ value, onValueChange, disab
 );
 
 export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ route, navigation }) => {
-  const { user, logout, completeProfile } = useAuth();
+  const { user, logout, completeProfile, updateAvatar } = useAuth();
   const { language, setLanguage, fontSizeScale, setFontSizeScale, t } = useLanguage();
   const [settings, setSettings] = useState<WatchCustomization>(watchService.getCustomization());
   const [watchStatus, setWatchStatus] = useState<WatchStatus>(watchService.getWatchStatus());
   const [isTestingDevice, setIsTestingDevice] = useState(false);
+  const [isAvatarModalVisible, setIsAvatarModalVisible] = useState(false);
 
   // 2FA Supabase state
   const [mfaStatus, setMfaStatus] = useState<MfaStatus | null>(null);
@@ -1545,26 +1548,52 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
           <Text style={styles.title}>{t('Cài đặt hệ thống', 'System settings')}</Text>
         </View>
 
-        {/* User Profile Card - Tap avatar / card to view & edit basic health info */}
+        {/* User Profile Card - Tap avatar to change avatar, tap card/edit to edit basic health info */}
         <TouchableOpacity
           style={[styles.profileCard, Shadows.sm]}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
           onPress={() => setIsBasicInfoModalVisible(true)}
         >
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>
-              {(user?.name || 'U').charAt(0).toUpperCase()}
-            </Text>
+          <View style={{ marginRight: 12 }}>
+            <UserAvatar
+              avatar={user?.avatar}
+              name={user?.name}
+              size={50}
+              showEditBadge
+              onPress={() => setIsAvatarModalVisible(true)}
+            />
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{user?.name || t('Người dùng', 'User')}</Text>
             <Text style={styles.profileEmail}>{user?.email || 'user@prowatch.com'}</Text>
+            <TouchableOpacity
+              onPress={() => setIsAvatarModalVisible(true)}
+              activeOpacity={0.7}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}
+            >
+              <MaterialCommunityIcons name="camera-outline" size={13} color={Colors.primary} />
+              <Text style={{ fontSize: 11.5, fontWeight: '700', color: Colors.primary }}>
+                {t('Đổi ảnh đại diện', 'Change Avatar')}
+              </Text>
+            </TouchableOpacity>
           </View>
           <View style={styles.profileEditPill}>
             <MaterialCommunityIcons name="pencil" size={14} color={Colors.primary} />
-            <Text style={styles.profileEditText}>{t('Sửa', 'Edit')}</Text>
+            <Text style={styles.profileEditText}>{t('Hồ sơ', 'Profile')}</Text>
           </View>
         </TouchableOpacity>
+
+        {/* Tiện ích Màn hình chính (2 Widgets: Sức khỏe & Fitness) */}
+        <Text style={styles.sectionTitle}>
+          {t('Tiện ích Widget (Sức khỏe & Fitness)', 'App & Home Screen Widgets (2)')}
+        </Text>
+        <HomeWidgetsSection
+          healthSummary={watchService.getHealthSummary()}
+          watchStatus={watchStatus}
+          onNavigateHeartRate={() => navigation?.navigate?.('HeartRate')}
+          onNavigateSport={() => navigation?.navigate?.('Sport')}
+          showPinButtons={true}
+        />
 
         {/* Demo product (Gộp Điều khiển từ xa & Các nút test thông báo/cảnh báo) */}
         <Text style={styles.sectionTitle}>{t('Demo product', 'Demo Product')}</Text>
@@ -2519,6 +2548,49 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
               </View>
             )}
 
+            {/* Thẻ Ảnh đại diện (Avatar) trong màn hình Thông tin cơ bản */}
+            <View style={biStyles.rulerCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <UserAvatar
+                  avatar={user?.avatar}
+                  name={user?.name}
+                  size={64}
+                  showEditBadge
+                  onPress={() => setIsAvatarModalVisible(true)}
+                />
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>
+                    {user?.name || t('Người dùng ProWatch', 'ProWatch User')}
+                  </Text>
+                  <Text style={{ fontSize: 12.5, color: '#6B7280', marginTop: 2 }}>
+                    {user?.email || 'user@prowatch.com'}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setIsAvatarModalVisible(true)}
+                    activeOpacity={0.75}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      alignSelf: 'flex-start',
+                      gap: 5,
+                      marginTop: 8,
+                      backgroundColor: '#EFF6FF',
+                      borderWidth: 1,
+                      borderColor: '#BFDBFE',
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 10,
+                    }}
+                  >
+                    <MaterialCommunityIcons name="camera-plus-outline" size={15} color={Colors.primary} />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.primary }}>
+                      {t('Thay đổi ảnh đại diện', 'Change Profile Avatar')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
             {/* Weight Card */}
             <BasicInfoRuler
               label={t('Cân nặng', 'Weight')}
@@ -2778,6 +2850,27 @@ export const SettingsScreen: React.FC<{ route?: any; navigation?: any }> = ({ ro
           </Modal>
         </View>
       </Modal>
+
+      {/* ========================================================================= */}
+      {/* 4b. AVATAR PICKER MODAL                                                    */}
+      {/* ========================================================================= */}
+      <AvatarPickerModal
+        visible={isAvatarModalVisible}
+        currentAvatar={user?.avatar}
+        userName={user?.name}
+        onClose={() => setIsAvatarModalVisible(false)}
+        onSaveAvatar={async (newUri) => {
+          const res = await updateAvatar(newUri);
+          if (res.success) {
+            showNotification(
+              'success',
+              t('Đã cập nhật ảnh đại diện! 🎉', 'Avatar Updated! 🎉'),
+              t('Ảnh đại diện mới của bạn đã được lưu và đồng bộ.', 'Your new profile avatar has been saved and synced.')
+            );
+          }
+          return res;
+        }}
+      />
 
       {/* ========================================================================= */}
       {/* 5. SUPPORT & POLICY DOCUMENT MODAL                                         */}
